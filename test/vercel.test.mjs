@@ -35,7 +35,7 @@ test('PostgreSQL에 연결한 두 요청 처리기에서 20명이 방과 턴을 
   const { code, token } = created.data.session;
   const room = `rooms/${code}`;
   const joined = await Promise.all(Array.from({ length: 20 }, (_, index) => request(index % 2 ? teacher : students, `${room}/join`, {
-    body: { name: `테스트 ${index + 1}`, avatar: index % 6 },
+    body: { name: `테스트 ${index + 1}`, avatar: index % 6, sex: index % 2 ? 'female' : 'male' },
   })));
   assert.ok(joined.every((result) => result.status === 201), JSON.stringify(joined.map((result) => result.status)));
   const extra = await request(students, `${room}/join`, { body: { name: '추가 참가자', avatar: 0 } });
@@ -50,7 +50,7 @@ test('PostgreSQL에 연결한 두 요청 처리기에서 20명이 방과 턴을 
   assert.equal(submissions.filter(({ data }) => data.phase === 'review').length, 1);
 
   const { data: { me } } = await request(students, room, { token: joined[0].data.session.token });
-  assert.equal(me.age, 5);
+  assert.equal(me.age, 1);
   assert.equal(me.life.history.length, 1);
   const saved = await request(students, room, { token });
   assert.equal(saved.data.rankings.age.length, 20);

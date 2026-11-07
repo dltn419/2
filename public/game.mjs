@@ -1,8 +1,10 @@
 import {
-  AVATARS, CAREERS, FORK_CHOICES, IDLE, LIFE_EVENTS, OPPORTUNITIES, SPIRIT_SCENES, STAGES, STATS, STORIES, spiritChoices,
+  AVATARS, CAREERS, IDLE, LIFE_EVENTS, OPPORTUNITIES, SPIRIT_SCENES, STAGES, STATS, STORIES, pick, spiritChoices,
 } from './content.mjs';
+import { SEXES, annualScene, applyPath, chanceDiscount, familyDream, farewell, newPath, pathOf } from './life.mjs';
 
 export const CAPACITY = 20;
+export const RULE_VERSION = 2;
 export const DEFAULTS = { years: 1, seconds: 30, maxAge: 100, pace: 'auto' };
 export const REVIEW_MS = 6000;
 export const PASS = { id: 'pass', title: '이번에는 기다리기', effect: {} };
@@ -25,10 +27,10 @@ function number(value, min, max, label) {
 }
 
 export function getSettings(input, base = DEFAULTS) {
-  const { years, seconds, maxAge, pace } = { ...base, ...input };
+  const { seconds, maxAge, pace } = { ...base, ...input };
   if (pace !== 'auto' && pace !== 'manual') throw new GameError('진행 방식을 골라 주세요.', 400);
   return {
-    years: number(years, 1, 10, '턴당 연수'),
+    years: 1,
     seconds: seconds === 0 ? 0 : number(seconds, 10, 180, '선택 시간'),
     maxAge: number(maxAge, 80, 110, '한 삶의 목표 나이'),
     pace,
@@ -43,23 +45,23 @@ export function nickname(value, maximum = 14) {
   return name;
 }
 
-function newLife(generation, parent) {
+function newLife(generation, sex, parent) {
   const stats = { ...INITIAL_STATS };
   if (parent) {
     stats.money = 12 + Math.min(30, Math.floor(parent.stats.money * 0.15));
     stats.bond += Math.min(8, Math.floor(parent.stats.bond / 12));
   }
-  return { generation, age: parent ? 19 : 0, stats, career: null, history: [], end: null };
+  return { generation, age: parent ? 19 : 0, stats, career: null, path: newPath(sex), history: [], end: null };
 }
 
 export function newRoom({ code, seed, name, hostKey, settings, now = Date.now() }) {
   return {
-    code, seed, name: nickname(name, 30), hostKey, settings: getSettings(settings), revision: 1, updated: now,
+    code, seed, name: nickname(name, 30), hostKey, settings: getSettings(settings), rules: RULE_VERSION, revision: 1, updated: now,
     phase: 'lobby', year: 0, turn: null, paused: false, players: [], endReason: null,
   };
 }
 
-export function addPlayer(room, { id, key, name, avatar }) {
+export function addPlayer(room, { id, key, name, avatar, sex = null }) {
   if (room.phase !== 'lobby') throw new GameError('이미 시작한 방이에요. 이전에 참가했다면 같은 기기에서 이어 할 수 있어요.');
   if (room.players.length >= CAPACITY) throw new GameError('이 방에 20명이 모두 들어왔어요.');
   const normalized = nickname(name);
@@ -67,7 +69,8 @@ export function addPlayer(room, { id, key, name, avatar }) {
     throw new GameError('같은 별명이 있어요. 다른 별명으로 참가해 주세요.');
   }
   number(avatar, 0, AVATARS.length - 1, '캐릭터 번호');
-  const player = { id, key, name: normalized, avatar, mode: 'alive', choice: null, life: newLife(1), archives: [], visits: [], latest: null };
+  if (sex !== null && (typeof sex !== 'string' || !Object.hasOwn(SEXES, sex))) throw new GameError('캐릭터의 성별을 골라 주세요.', 400);
+  const player = { id, key, name: normalized, avatar, mode: 'alive', choice: null, life: newLife(1, sex), archives: [], visits: [], latest: null };
   room.players.push(player);
   return player;
 }
@@ -85,7 +88,15 @@ export function stageAt(age) {
 function choicesFor(room, player) {
   const { mode, life } = player;
   if (mode === 'fork') {
-    return { title: '한 권을 덮고, 다음 이야기로', detail: '어떤 길을 선택할까요?', choices: FORK_CHOICES };
+    const next = pathOf(life).children.length || !life.path ? '자녀로 이어 살기' : '가족의 다음 세대로 이어가기';
+    const successors = Object.entries(SEXES).map(([sex, label]) => pick(`child-${sex}`, `${next} · ${label}`,
+      '다음 세대의 19살부터 이어서 살아요. 지난 세대의 인생 기록도 함께 남아요.', 'sprout', {}, { successor: sex }));
+    return { title: '한 권을 덮고, 다음 이야기로', detail: '나를 기억하는 사람들이 각자의 내일을 맞이해요. 이제 어디로 갈까요?',
+      choices: [
+        ...successors,
+        pick('spirit', '영혼으로 둘러보기', '오래 살았던 곳을 둘러보고 마을 사람들의 이야기를 지켜봐요.', 'ghost', {}),
+        pick('family-dream', '가족의 꿈에 나오기', '영혼으로 남아 가족의 꿈에 먼저 들러 못다 한 인사를 해요.', 'spark', {}),
+      ] };
   }
   if (mode === 'spirit') {
     return {
@@ -95,44 +106,43 @@ function choicesFor(room, player) {
     };
   }
 
-  const stage = stageAt(life.age);
-  const deck = STORIES[stage];
-  const offset = hash(`${room.seed}:${stage}`);
-  const entry = deck[(room.turn.number - 1 + offset) % deck.length];
-  const options = OPPORTUNITIES[stage].filter((option) => !option.career || option.career !== life.career);
-  const offer = options[(room.turn.number - 1 + hash(`${room.seed}:offer:${stage}`)) % options.length];
-  const years = Math.min(room.turn.to - room.turn.from, room.settings.maxAge - life.age);
-  const weight = 1 + (years - 1) * 0.45;
+  const entry = annualScene(life) ?? everydayScene(room, life);
   return {
     ...entry,
-    choices: [...entry.choices, offer].map((option) => {
-      const effect = Object.fromEntries(Object.entries(option.effect).map(([stat, change]) => [stat, Math.round(change * weight)]));
-      const need = { ...option.need };
-      if (effect.money < 0) need.money = Math.max(need.money ?? 0, -effect.money);
-      const locked = Object.entries(need).filter(([stat, minimum]) => life.stats[stat] < minimum)
+    choices: entry.choices.map((option) => {
+      const need = Object.fromEntries(Object.entries(option.need ?? {}).map(([stat, minimum]) =>
+        [stat, Math.max(0, minimum - chanceDiscount(life, option.career, stat))]));
+      if (option.effect.money < 0) need.money = Math.max(need.money ?? 0, -option.effect.money);
+      const locked = option.locked || Object.entries(need).filter(([stat, minimum]) => life.stats[stat] < minimum)
         .map(([stat, minimum]) => `${STATS[stat].label} ${minimum} 필요`).join(' · ');
-      return { ...option, effect, locked, opportunity: option === offer };
+      return { ...option, locked };
     }),
   };
 }
 
-function changeLife(room, player, option) {
+function everydayScene(room, life) {
+  const stage = stageAt(life.age) - 2;
+  const deck = STORIES[stage];
+  const offset = hash(`${room.seed}:${stage}`);
+  const entry = deck[(life.age + offset) % deck.length];
+  const retired = pathOf(life).retired !== null;
+  const available = OPPORTUNITIES[stage].filter((option) => !option.career || (!retired && option.career !== life.career));
+  const offer = available[(life.age + hash(`${room.seed}:offer:${stage}`)) % available.length];
+  return { ...entry, choices: offer ? [...entry.choices, { ...offer, opportunity: true }] : entry.choices };
+}
+
+function changeLife(room, player, option, after) {
   const { life } = player;
   const previousAge = life.age;
-  const years = Math.min(room.turn.to - room.turn.from, room.settings.maxAge - previousAge);
-  life.age += years;
-
-  let drift = 0;
-  let income = 0;
-  for (let age = previousAge; age < life.age; age++) {
-    if (age >= 80) drift -= 2;
-    else if (age >= 65) drift -= 1;
-    else if (age >= 45 && age % 2 === 0) drift -= 1;
-    if (life.career && age >= 19) income += age < 65 ? CAREERS[life.career].wage - 1 : 1;
-  }
+  life.age += 1;
+  const path = pathOf(life);
+  const drift = previousAge >= 80 ? -2 : previousAge >= 65 || (previousAge >= 45 && previousAge % 2 === 0) ? -1 : 0;
+  const onDuty = path.service?.status === 'serving' || (option.action?.kind === 'service' && option.action.value === 'start');
+  const wage = CAREERS[life.career]?.wage ?? 0;
+  const income = wage && !onDuty ? (path.retired !== null || previousAge >= 65 ? 1 : wage - 1) : 0;
 
   const chance = hash(`${room.seed}:event:${player.id}:${room.turn.number}`);
-  const event = previousAge >= 7 && chance % 5 === 0 ? LIFE_EVENTS[(chance >>> 8) % LIFE_EVENTS.length] : null;
+  const event = !option.action && previousAge >= 7 && chance % 5 === 0 ? LIFE_EVENTS[(chance >>> 8) % LIFE_EVENTS.length] : null;
   const effects = { ...option.effect };
   effects.health = (effects.health ?? 0) + drift;
   effects.money = (effects.money ?? 0) + income;
@@ -148,54 +158,59 @@ function changeLife(room, player, option) {
   if (option.career) life.career = option.career;
   else if (option.employment && !life.career) life.career = 'staff';
 
-  let text = event ? `${event.title}. ${event.text}` : '';
+  const memories = [applyPath(life, previousAge, option), after, event && `${event.title}. ${event.text}`];
   if (life.age >= room.settings.maxAge || life.stats.health === 0) {
     const reachedGoal = life.age >= room.settings.maxAge;
-    const note = reachedGoal ? `${life.age}살까지 살며 한 권의 인생 기록을 완성했어요.` : `${life.age}살에 삶의 여정을 마쳤어요.`;
+    const note = `${life.age}살에 삶의 마지막 장을 덮었어요. ${farewell(life)}`;
     life.end = { year: room.turn.to, reason: reachedGoal ? 'age' : 'health', note };
     player.mode = 'fork';
-    text = [text, note].filter(Boolean).join(' ');
+    memories.push(note);
   }
-  const result = { year: room.turn.to, age: life.age, title: option.title, changes, text, type: 'life' };
+  const result = { year: room.turn.to, age: life.age, decisionAge: previousAge, title: option.title, changes, text: memories.filter(Boolean).join(' '), type: 'life' };
   life.history.push(result);
   player.latest = result;
 }
 
 function branch(room, player, option) {
   const { life } = player;
-  if (option.id === 'child') {
+  if (option.successor) {
     player.archives.push(life);
-    player.life = newLife(life.generation + 1, life);
+    player.life = newLife(life.generation + 1, option.successor, life);
     player.mode = 'alive';
     player.visits = [];
     player.latest = {
       year: room.turn.to, age: player.life.age, title: option.title,
-      text: `${player.life.generation}대의 첫 장을 열었어요. 이전 세대가 남긴 자금과 인연의 일부를 이어받았어요.`, type: 'child',
+      text: `${player.life.generation}대의 첫 장을 열었어요. 다른 이름으로 같은 마을을 걷기 시작했어요. 앞 세대가 남긴 자금과 인연의 일부를 이어받았어요.`, type: 'child',
     };
     player.life.history.push(player.latest);
-  } else if (option.id === 'spirit') {
+  } else if (option.id === 'spirit' || option.id === 'family-dream') {
     player.mode = 'spirit';
+    if (option.id === 'family-dream') {
+      visit(room, player, option);
+      return;
+    }
     player.latest = {
       year: room.turn.to, age: life.age, title: option.title,
-      text: '마을 위에 바람처럼 머물렀어요. 다음 턴부터 기억이 남은 곳을 둘러볼 수 있어요.', type: 'spirit',
+      text: '살던 집의 불이 저녁이 되자 켜졌어요. 다음 해에는 기억이 남은 곳을 둘러봐요.', type: 'spirit',
     };
   }
 }
 
 function visit(room, player, option) {
   const scenes = SPIRIT_SCENES[option.id];
-  if (!scenes) return;
-  const scene = hash(`${room.seed}:${player.id}:${room.turn.number}`) % scenes.length;
-  const entry = { id: option.id, year: room.turn.to, age: player.life.age, title: option.title, text: scenes[scene], type: 'spirit' };
+  const text = option.id === 'family-dream' ? familyDream(player.life)
+    : scenes && scenes[hash(`${room.seed}:${player.id}:${room.turn.number}`) % scenes.length];
+  if (!text) return;
+  const entry = { id: option.id, year: room.turn.to, age: player.life.age, title: option.title, text, type: 'spirit' };
   player.visits.push(entry);
   player.latest = entry;
 }
 
 function openTurn(room, now) {
-  const { years, seconds, pace } = room.settings;
+  const { seconds, pace } = room.settings;
   room.turn = {
     number: (room.turn?.number ?? 0) + 1,
-    from: room.year, to: room.year + years,
+    from: room.year, to: room.year + 1,
     auto: pace === 'auto', seconds,
     deadline: pace === 'auto' && seconds ? now + seconds * 1000 : null, remaining: null,
   };
@@ -204,9 +219,10 @@ function openTurn(room, now) {
 
 function closeTurn(room, now) {
   for (const player of room.players) {
-    const option = player.choice && choicesFor(room, player).choices.find((item) => item.id === player.choice);
+    const entry = player.choice || player.mode === 'alive' ? choicesFor(room, player) : null;
+    const option = entry?.choices.find((item) => item.id === player.choice);
     player.latest = null;
-    if (player.mode === 'alive') changeLife(room, player, option || IDLE);
+    if (player.mode === 'alive') changeLife(room, player, option || IDLE, entry.after);
     else if (option && player.mode === 'fork') branch(room, player, option);
     else if (option) visit(room, player, option);
     player.choice = null;
@@ -214,6 +230,21 @@ function closeTurn(room, now) {
   room.year = room.turn.to;
   room.phase = 'review';
   room.turn.deadline = now + REVIEW_MS;
+}
+
+export function updateRoomRules(room, now) {
+  if (room.rules === RULE_VERSION) return false;
+  room.rules = RULE_VERSION;
+  room.settings.years = 1;
+  if (room.phase === 'play') {
+    for (const player of room.players) player.choice = null;
+    const turn = room.turn;
+    const duration = turn.auto && turn.seconds ? turn.seconds * 1000 : null;
+    turn.to = turn.from + 1;
+    if (room.paused) turn.remaining = duration;
+    else turn.deadline = duration ? now + duration : null;
+  }
+  return true;
 }
 
 export function selectChoice(room, playerId, { round, choice }, now) {
@@ -283,7 +314,7 @@ function summary(player) {
 
 function lifeView(life, history = life.history) {
   const { age, generation, career, stats, end } = life;
-  return { age, generation, career, stats, end, history };
+  return { age, generation, career, stats, end, history, path: pathOf(life) };
 }
 
 function rankings(players) {

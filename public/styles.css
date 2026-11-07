@@ -102,13 +102,17 @@ main:focus { outline: none; }
 .entry-panel { padding: 22px 24px; scroll-margin-top: 16px; }
 .entry-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 11px; }
 .entry-panel h2 { margin-bottom: 6px; }
-.entry-panel form, #settings-form { display: grid; gap: 12px; margin-top: 14px; }
+.entry-panel form, #settings-form, #practice-form { display: grid; gap: 12px; margin-top: 14px; }
 .join-fields, .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
-label, .avatars legend { display: block; min-width: 0; color: var(--ink); font-weight: 750; font-size: 13px; }
+label, .avatars legend, .sex-picker legend { display: block; min-width: 0; color: var(--ink); font-weight: 750; font-size: 13px; }
 input, select { display: block; width: 100%; min-width: 0; margin-top: 5px; padding: 9px 10px; border: 1px solid #c5cfb5; border-radius: 4px; background: #fffefa; color: var(--ink); font-size: 15px; min-height: 43px; }
 input:disabled { background: #f1f1e7; color: var(--muted); }
 input[name="code"] { font-family: var(--mono); text-transform: uppercase; letter-spacing: .07em; }
-.avatars { border: 0; margin: 0; padding: 0; min-width: 0; }
+.avatars, .sex-picker { border: 0; margin: 0; padding: 0; min-width: 0; }
+.sex-picker > div { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
+.sex-picker label { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 7px 12px; border: 1px solid #d7ddc9; border-radius: 4px; background: #fffefa; cursor: pointer; }
+.sex-picker label:has(input:checked) { border-color: #628554; background: #e2ebbf; }
+.sex-picker input { width: 15px; height: 15px; min-height: 0; margin: 0; padding: 0; accent-color: #426e41; }
 .avatars > div { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
 .avatar-pick { padding: 2px; border: 1px solid #d7ddc9; background: #f7f6e8; border-radius: 4px; }
 .avatar-pick[aria-pressed="true"] { background: #e2ebbf; border-color: #628554; box-shadow: 1px 2px 0 #96a979; }

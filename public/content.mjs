@@ -20,6 +20,7 @@ export const CAREERS = {
   staff: { title: '회사원', place: '전에 다니던 일터', wage: 2 },
   lab: { title: '연구원', place: '동네 연구소', wage: 3 },
   studio: { title: '창작자', place: '햇살 공방', wage: 2 },
+  tech: { title: '현장 기술자', place: '동네 기술 작업장', wage: 3 },
   shop: { title: '가게 주인', place: '골목의 내 가게', wage: 4 },
   care: { title: '마을 활동가', place: '마을 배움터', wage: 2 },
 };
@@ -33,7 +34,7 @@ export const AVATARS = [
   { name: '구름', shirt: '#5eaba0', hair: '#45413a', skin: '#cf9167' },
 ];
 
-function pick(id, title, detail, mark, effect, extra = {}) {
+export function pick(id, title, detail, mark, effect, extra = {}) {
   return { id, title, detail, mark, effect, ...extra };
 }
 
@@ -45,34 +46,6 @@ function story(title, detail, first, second) {
 }
 
 export const STORIES = [
-  [
-    story('햇살이 드는 오후', '집 앞에 작은 놀이터가 생겼어요. 오늘은 무엇을 해 볼까요?',
-      pick('run', '놀이터 뛰어놀기', '친구들과 골목 끝까지 달려 본다.', 'heart', { health: 4, joy: 3, bond: 2 }),
-      pick('picture', '그림책 펼치기', '낯선 색과 이야기를 한 장씩 만나 본다.', 'book', { learning: 5, art: 3 })),
-    story('색연필 상자', '아끼던 색연필을 꺼냈어요. 마음에 드는 색이 있나요?',
-      pick('scribble', '커다란 그림 그리기', '오늘의 하늘을 내 마음대로 칠한다.', 'spark', { art: 6, joy: 3 }),
-      pick('share', '친구에게 한 자루 빌려주기', '함께 그림을 그리며 새 친구를 사귄다.', 'link', { bond: 6, art: 2 })),
-    story('작은 첫 심부름', '가까운 가게까지 다녀오는 길. 지갑에 동전이 달그락거려요.',
-      pick('jar', '저금통에 넣기', '남은 용돈을 차곡차곡 모은다.', 'coin', { money: 5, learning: 1 }),
-      pick('snack', '간식 나누기', '친구들과 둘러앉아 따끈한 빵을 먹는다.', 'sun', { money: -2, bond: 4, joy: 4 })),
-    story('빗소리를 듣는 날', '창문 밖에 비가 내리고 마당에 작은 웅덩이가 생겼어요.',
-      pick('rain', '빗방울 관찰하기', '물방울이 어디에서 오는지 찾아본다.', 'book', { learning: 5, art: 2 }),
-      pick('sing', '빗소리 따라 노래하기', '우산을 두드리는 소리로 장단을 만든다.', 'spark', { art: 5, joy: 4 })),
-  ],
-  [
-    story('방과 후 빈 교실', '수업이 끝났어요. 해가 지기 전까지 시간이 조금 남았어요.',
-      pick('study', '탐구 노트 채우기', '궁금했던 문제를 끝까지 풀어 본다.', 'book', { learning: 7, health: -2, joy: -1 }),
-      pick('club', '운동장 모임 가기', '친구들과 팀을 짜고 땀이 날 때까지 뛴다.', 'heart', { health: 3, bond: 4, joy: 2 })),
-    story('우리 학교 축제', '반마다 재능을 뽐내는 날. 어떤 자리에 도전할까요?',
-      pick('stage', '무대에 서기', '떨려도 내 노래를 사람들 앞에 꺼낸다.', 'spark', { art: 7, joy: 3, health: -2 }),
-      pick('booth', '친구들과 장터 열기', '함께 준비한 작은 부스를 운영한다.', 'coin', { money: 6, bond: 4, learning: 2 })),
-    story('방학에 생긴 시간', '아침에 알람을 끄고도 늦잠을 잘 수 있는 방학이에요.',
-      pick('library', '도서관 일주일 챌린지', '새로운 관심사를 하나 정해 책을 읽는다.', 'book', { learning: 6, art: 2, joy: -1 }),
-      pick('picnic', '친구와 소풍 가기', '도시락을 싸서 근처 언덕으로 간다.', 'link', { money: -3, bond: 6, joy: 4 })),
-    story('동아리 모집 포스터', '교실 문에 새 동아리 모집 안내가 붙었어요.',
-      pick('band', '학교 밴드 들어가기', '서로의 소리를 듣고 한 곡을 맞춰 본다.', 'spark', { art: 6, bond: 4, health: -2 }),
-      pick('science', '과학 모임 만들기', '실험을 계획하고 결과를 친구들과 나눈다.', 'book', { learning: 6, bond: 2, joy: -1 })),
-  ],
   [
     story('세상으로 첫걸음', '해 보고 싶었던 일이 많아졌어요. 이번에는 무엇에 시간을 쓸까요?',
       pick('shift', '일을 배워 돈 모으기', '현장에서 일하며 다음 기회를 준비한다.', 'coin', { money: 10, health: -4, learning: 2 }, { employment: true }),
@@ -133,15 +106,6 @@ export const STORIES = [
 
 export const OPPORTUNITIES = [
   [
-    pick('early-art', '동네 어린이 그림전', '내가 그린 그림을 작은 전시회에 건다.', 'spark', { art: 7, joy: 5 }, { need: { art: 13 } }),
-    pick('early-book', '그림책 모임 함께하기', '그림과 글을 따라 새로운 이야기를 만든다.', 'book', { learning: 7, bond: 4 }, { need: { learning: 14 } }),
-  ],
-  [
-    pick('scholar', '탐구 대회 도전하기', '준비해 온 탐구를 발표하고 상금을 노린다.', 'book', { learning: 7, money: 10, health: -3 }, { need: { learning: 25 } }),
-    pick('exhibit', '학생 작품전 열기', '친구들을 초대해 작품에 담긴 말을 전한다.', 'spark', { art: 9, joy: 5, bond: 3, money: -4 }, { need: { art: 24 } }),
-    pick('relay', '마을 달리기 대표 되기', '팀을 이뤄 연습하며 완주에 도전한다.', 'heart', { health: 5, joy: 4, bond: 5 }, { need: { health: 76 } }),
-  ],
-  [
     pick('lab', '연구소에 들어가기', '배운 것으로 일하며 꾸준한 소득을 얻는다.', 'book', { money: 8, learning: 5, health: -3 }, { need: { learning: 31 }, career: 'lab' }),
     pick('studio', '내 공방 열기', '만드는 일을 직업으로 삼아 작은 공방을 연다.', 'spark', { art: 8, joy: 5, money: -9 }, { need: { art: 30 }, career: 'studio' }),
     pick('shop', '작은 가게 시작하기', '모아 둔 자금을 투자하고 골목에 가게를 연다.', 'coin', { money: -18, learning: 4, health: -3 }, { need: { money: 35 }, career: 'shop' }),
@@ -163,11 +127,6 @@ export const OPPORTUNITIES = [
   ],
 ];
 
-export const FORK_CHOICES = [
-  pick('child', '자녀로 이어 살기', '19살 자녀의 삶을 시작해요. 앞 세대의 기록은 가계에 남아요.', 'sprout', {}),
-  pick('spirit', '영혼으로 둘러보기', '장례식장, 일터, 동네를 찾아가 남겨 둔 추억을 만나요.', 'ghost', {}),
-];
-
 export function spiritChoices(life, visits) {
   const career = CAREERS[life.career];
   const funeral = pick('funeral', '내 장례식장 방문하기', '모인 사람들이 내게 전하는 마지막 인사를 들어요.', 'flower', {});
@@ -176,6 +135,7 @@ export function spiritChoices(life, visits) {
     'house', {}, { locked: career ? '' : '생전에 가진 직장이 없어요.' });
   return [
     ...(visits.some((visit) => visit.id === 'funeral') ? [] : [funeral]),
+    pick('family-dream', '가족의 꿈에 나오기', '꿈속에서 만나 평소처럼 안부를 묻고, 못다 한 인사를 해요.', 'spark', {}),
     workplace,
     pick('neighborhood', '살던 동네 걷기', '익숙한 골목을 따라 내가 보냈던 날을 떠올려요.', 'leaf', {}),
     pick('watch', '친구들의 삶 지켜보기', '같은 방의 인생 기록을 펼치고 남은 시간을 응원해요.', 'link', {}),

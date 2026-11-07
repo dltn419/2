@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
-import { addPlayer, GameError, newRoom, profileFor, selectChoice, stateFor, teacherAction, tick } from '../public/game.mjs';
+import { addPlayer, GameError, RULE_VERSION, newRoom, profileFor, selectChoice, stateFor, teacherAction, tick, updateRoomRules } from '../public/game.mjs';
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const ROOM_CODE = /^[A-HJ-NP-Z2-9]{6}$/;
@@ -48,7 +48,8 @@ function markChanged(room, now) {
 }
 
 export function applyDeadline(room, now) {
-  if (tick(room, now)) markChanged(room, now);
+  const upgraded = updateRoomRules(room, now);
+  if (tick(room, now) || upgraded) markChanged(room, now);
 }
 
 function requireRoom(value) {
@@ -106,8 +107,9 @@ export function makeGameApi({ store, hostPin = '', requirePin = false, clock = D
         await throttle(address, 'join', now, 120);
         const token = key();
         const result = requireRoom(await store.edit(code, now, (room) => {
-          const player = addPlayer(room, { id: randomBytes(8).toString('hex'), key: keyHash(token), name: body.name, avatar: body.avatar });
+          const player = addPlayer(room, { id: randomBytes(8).toString('hex'), key: keyHash(token), name: body.name, avatar: body.avatar, sex: body.sex });
           const joinedAt = clock();
+          updateRoomRules(room, joinedAt);
           markChanged(room, joinedAt);
           return { session: { code, token, role: 'player', name: player.name }, state: stateFor(room, player.id, joinedAt) };
         }));
@@ -120,7 +122,7 @@ export function makeGameApi({ store, hostPin = '', requirePin = false, clock = D
         const { playerId } = authenticate(request, room);
         const observedAt = clock();
         onActivity(code, observedAt);
-        if (!room.paused && room.turn?.deadline && room.turn.deadline <= observedAt) {
+        if (room.rules !== RULE_VERSION || (!room.paused && room.turn?.deadline && room.turn.deadline <= observedAt)) {
           room = requireRoom(await store.edit(code, observedAt, (draft) => {
             authenticate(request, draft);
             applyDeadline(draft, clock());

@@ -1,6 +1,6 @@
 import { addPlayer, DEFAULTS, newRoom, profileFor, selectChoice, stateFor, teacherAction, tick } from './game.mjs';
 import { escapeHtml as h, icon } from './ui.mjs';
-import { homeView, profileView, roomView, settingsFields, topView } from './views.mjs';
+import { homeView, profileView, roomView, settingsFields, sexFields, topView } from './views.mjs';
 
 const top = document.querySelector('#top');
 const main = document.querySelector('#main');
@@ -219,9 +219,9 @@ function confirmation(title, text, action, id = '') {
 
 function help() {
   modal('100년 플레이 안내', `<ol class="help-list">
-    <li><b>함께 시작해요.</b><p>교사가 방을 만들면 학생은 6자리 코드와 별명으로 참가해요. 한 방에 최대 20명이 함께할 수 있어요.</p></li>
-    <li><b>한 턴에 한 번 골라요.</b><p>카드를 누르면 선택을 제출해요. 마감되면 능력치가 바뀌고, 모은 자금이나 배움 덕분에 새로운 기회가 열릴 수 있어요. 일터에서 소득을 얻고, 나이가 들면 해마다 체력이 줄어요.</p></li>
-    <li><b>새 세대를 만나거나 기억을 돌아봐요.</b><p>목표 나이에 이르거나 65살부터 체력이 0이 되면 한 삶의 기록을 덮어요. 19살 자녀로 이어가거나 영혼이 되어 장례식장과 생전의 일터를 둘러볼 수 있어요.</p></li>
+    <li><b>태어날 캐릭터를 골라요.</b><p>교사가 방을 만들면 학생은 6자리 코드, 별명, 캐릭터 성별로 참가해요. 한 방에 최대 20명이 함께할 수 있어요.</p></li>
+    <li><b>해마다 한 번 골라요.</b><p>한 턴에 1년이 지나요. 학교에서 적은 장래희망은 전공과 일자리에 영향을 줘요. 진학과 일, 관계는 나이와 지나온 선택에 맞춰 나타나요. 병역은 남자 캐릭터의 청년기 이야기에서 만나요.</p></li>
+    <li><b>새 세대를 만나거나 기억을 돌아봐요.</b><p>목표 나이에 이르거나 노년기에 체력이 다하면 한 삶의 기록을 덮어요. 다음 세대의 19살부터 이어가거나 영혼으로 남아 가족의 꿈과 기억이 있는 곳에 들를 수 있어요.</p></li>
     <li><b>친구들의 기록을 읽어요.</b><p>친구들 메뉴에서 서로 다른 삶을 보고, 순위에서 자금·행복·장수 등 여러 분야를 비교해요. 선생님이 반의 마지막 장을 정해요.</p></li>
   </ol>`);
 }
@@ -277,13 +277,20 @@ function showGeneration(index) {
   dialog.querySelector('[aria-pressed="true"]')?.focus({ preventScroll: true });
 }
 
-function startPractice() {
+function practiceSetup() {
+  modal('태어날 캐릭터 고르기', `<form id="practice-form">
+    ${sexFields()}
+    <button class="button primary full" type="submit">${icon('sprout')} 태어나기</button>
+  </form>`);
+}
+
+function startPractice(sex) {
   const now = Date.now();
-  practice = newRoom({ code: 'DEMO', seed: 'a-sunny-village', name: '혼자 체험', hostKey: null, settings: { years: 5, seconds: 0 }, now });
-  addPlayer(practice, { id: 'me', name: '나', avatar: selectedAvatar });
-  addPlayer(practice, { id: 'art', name: '노을', avatar: 3 });
-  addPlayer(practice, { id: 'money', name: '마루', avatar: 4 });
-  addPlayer(practice, { id: 'bond', name: '초록', avatar: 1 });
+  practice = newRoom({ code: 'DEMO', seed: 'a-sunny-village', name: '혼자 체험', hostKey: null, settings: { seconds: 0 }, now });
+  addPlayer(practice, { id: 'me', name: '나', avatar: selectedAvatar, sex });
+  addPlayer(practice, { id: 'art', name: '노을', avatar: 3, sex: 'female' });
+  addPlayer(practice, { id: 'money', name: '마루', avatar: 4, sex: 'male' });
+  addPlayer(practice, { id: 'bond', name: '초록', avatar: 1, sex: 'female' });
   teacherAction(practice, 'start', {}, now);
   activate({ role: 'demo' }, stateFor(practice, 'me', now));
 }
@@ -328,7 +335,7 @@ document.addEventListener('click', (event) => {
       selectedAvatar = Number(index);
       for (const item of document.querySelectorAll('.avatar-pick')) item.setAttribute('aria-pressed', String(item === target));
       break;
-    case 'practice': startPractice(); break;
+    case 'practice': practiceSetup(); break;
     case 'practice-next':
       teacherAction(practice, 'advance', { round: practice.turn.number, phase: 'review' }, Date.now());
       updatePractice();
@@ -360,21 +367,25 @@ document.addEventListener('change', (event) => {
 
 document.addEventListener('submit', (event) => {
   const form = event.target;
-  if (form.id !== 'join-form' && form.id !== 'settings-form') return;
+  if (!['join-form', 'settings-form', 'practice-form'].includes(form.id)) return;
   event.preventDefault();
   void run(async () => {
+    if (form.id === 'practice-form') {
+      startPractice(form.elements.sex.value);
+      return;
+    }
     if (form.id === 'join-form') {
       const code = form.elements.code.value.trim().toUpperCase();
       if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) {
         message('6자리 참가 코드를 확인해 주세요.');
         return;
       }
-      const result = await api(`/api/rooms/${code}/join`, { body: { name: form.elements.nickname.value, avatar: selectedAvatar } });
+      const result = await api(`/api/rooms/${code}/join`, { body: { name: form.elements.nickname.value, avatar: selectedAvatar, sex: form.elements.sex.value } });
       activate(result.session, result.state);
       return;
     }
     const fields = form.elements;
-    const settings = { years: fields.years.valueAsNumber, maxAge: fields.maxAge.valueAsNumber, seconds: fields.seconds.valueAsNumber, pace: fields.pace.value };
+    const settings = { maxAge: fields.maxAge.valueAsNumber, seconds: fields.seconds.valueAsNumber, pace: fields.pace.value };
     if (form.dataset.creating === 'true') {
       const result = await api('/api/rooms', { body: { name: fields.name.value, pin: fields.pin?.value, settings } });
       activate(result.session, result.state);

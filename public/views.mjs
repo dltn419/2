@@ -1,5 +1,6 @@
-import { AVATARS, CAREERS, STAGES, STATS } from './content.mjs';
+import { AVATARS, STAGES, STATS } from './content.mjs';
 import { CAPACITY, MODES, RANKS, stageAt } from './game.mjs';
+import { SEXES, lifeBadges, pathNotes, pathOf } from './life.mjs';
 import { avatar, changes, escapeHtml as h, icon, numeral, statGrid } from './ui.mjs';
 
 const rankInfo = { ...STATS, age: { label: '장수', mark: 'clock', color: 'mint', unit: '살' } };
@@ -17,6 +18,11 @@ export function topView(session, state) {
       ${button('help', '게임 안내', 'book', 'quiet')}
     </div>
   </div>`;
+}
+
+export function sexFields() {
+  return `<fieldset class="sex-picker"><legend>캐릭터 성별</legend><div>${Object.entries(SEXES).map(([sex, label]) =>
+    `<label><input type="radio" name="sex" value="${sex}" required> ${label}</label>`).join('')}</div></fieldset>`;
 }
 
 export function homeView(code, selected, saved) {
@@ -49,6 +55,7 @@ export function homeView(code, selected, saved) {
             <label>참가 코드<input name="code" type="text" placeholder="예  ABC234" value="${h(code)}" required minlength="6" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>
             <label>별명<input name="nickname" type="text" placeholder="게임에서 쓸 별명" required maxlength="14" autocomplete="off"></label>
           </div>
+          ${sexFields()}
           <fieldset class="avatars"><legend>캐릭터</legend><div>${AVATARS.map((item, index) =>
             `<button class="avatar-pick" type="button" data-action="avatar" data-index="${index}" aria-label="${item.name} 캐릭터" title="${item.name}" aria-pressed="${index === selected}">${avatar(index)}</button>`).join('')}</div></fieldset>
           <button class="button primary" type="submit">방에 들어가기 ${icon('arrow')}</button>
@@ -58,7 +65,7 @@ export function homeView(code, selected, saved) {
       <article class="panel entry-panel teacher-entry">
         <div class="entry-top"><span class="tile-icon amber">${icon('board')}</span><span class="eyebrow">02 / 교사</span></div>
         <h2>우리 반 방 만들기</h2>
-        <p class="subtle">최대 20명. 몇 년씩 지낼지 정하고 친구들을 초대하세요.</p>
+        <p class="subtle">최대 20명. 한 해의 선택 시간을 정하고 친구들을 초대하세요.</p>
         <div class="chalkboard" aria-hidden="true"><div>우리 반 시간표<span>01 — 100</span></div><div class="classroom">${classroom}</div></div>
         ${button('create', '교사 방 만들기', 'arrow', 'dark')}
         ${saved.host ? button('resume-host', '지난 진행실 열기', 'clock', 'quiet') : ''}
@@ -68,11 +75,10 @@ export function homeView(code, selected, saved) {
 }
 
 export function settingsFields(settings, { creating = false, started = false, pinRequired = false } = {}) {
-  const { years, maxAge, seconds, pace } = settings;
+  const { maxAge, seconds, pace } = settings;
   return `
     ${creating ? '<label>방 이름<input name="name" maxlength="30" value="우리 반 100년" required autocomplete="off"></label>' : ''}
     <div class="form-grid">
-      <label>턴마다 지나는 연수<input name="years" type="number" min="1" max="10" value="${years}" required></label>
       <label>한 삶의 목표 나이<input name="maxAge" type="number" min="80" max="110" value="${maxAge}" required ${started ? 'disabled' : ''}></label>
       <label>진행 방식<select name="pace">
         <option value="auto" ${pace === 'auto' ? 'selected' : ''}>자동 진행</option>
@@ -80,7 +86,7 @@ export function settingsFields(settings, { creating = false, started = false, pi
       </select></label>
       <label>선택 시간 (초)<input name="seconds" type="number" min="0" max="180" value="${seconds}" required ${pace === 'manual' ? 'disabled' : ''}></label>
     </div>
-    <p class="field-note">자동 진행은 전원이 제출하거나 시간이 다 되면 마감해요. 0초로 설정하면 전원 제출까지 기다려요. 타이머는 10~180초로 설정할 수 있어요.</p>
+    <p class="field-note">한 턴마다 1년이 지나요. 자동 진행은 전원이 제출하거나 타이머가 끝나면 마감해요. 타이머는 10~180초로 설정하고, 0초로 두면 전원 제출까지 기다려요.</p>
     ${pinRequired ? '<label>교사용 비밀번호<input name="pin" type="password" required autocomplete="current-password"></label>' : ''}
   `;
 }
@@ -90,13 +96,21 @@ function phaseLabel(state) {
   return { lobby: '입장 중', play: '선택 중', review: '결과 확인 중', ended: '이야기 마감' }[state.phase];
 }
 
+function lifeStage(life, stage) {
+  if (life.age < 3) return '아기 시절';
+  if (life.age >= 7 && life.age <= 12) return '초등학교';
+  if (life.age >= 13 && life.age <= 15) return '중학교';
+  if (life.age >= 16 && life.age <= 18) return pathOf(life).school === 'outside' ? '학교 밖에서 배우는 시절' : '고등학교';
+  return stage.label;
+}
+
 function roomHero(session, state) {
   const teacher = session.role === 'host';
   const me = state.me;
   const stage = me && STAGES[stageAt(me.age)];
   const title = teacher ? '교사 진행실' : state.phase === 'lobby' ? '첫해를 기다리는 중' : `${h(me.name)}의 인생`;
   const sub = teacher ? h(state.name) : state.phase === 'lobby' ? h(state.name) :
-    me.mode === 'alive' ? `${stage.label} · ${stage.cue}` : MODES[me.mode];
+    me.mode === 'alive' ? `${lifeStage(me.life, stage)} · ${stage.cue}` : MODES[me.mode];
   const heroTone = me?.mode === 'spirit' ? 'spirit-hero' : '';
   return `<section class="room-hero ${heroTone}">
     <div class="room-hero-main">
@@ -104,7 +118,7 @@ function roomHero(session, state) {
       <div class="room-title">${teacher ? `<span class="tile-icon mint">${icon('board')}</span>` : avatar(me.avatar, me.mode)}
         <div><h1>${title}</h1><p>${sub}</p></div>
       </div>
-      ${teacher || state.phase === 'lobby' ? '' : `<div class="life-chips"><span>${me.generation}대</span><span>${me.age}살</span>${me.career ? `<span>${CAREERS[me.career].title}</span>` : ''}</div>`}
+      ${teacher || state.phase === 'lobby' ? '' : `<div class="life-chips"><span>${me.generation}대</span><span>${me.age}살</span>${lifeBadges(me.life).map((badge) => `<span>${h(badge)}</span>`).join('')}</div>`}
     </div>
     <div class="room-hero-art"><img src="/art/village.svg" alt="" width="384" height="218"><span>${icon('sun')} ${state.phase === 'lobby' ? '새 이야기' : `마을 ${state.year}년차`}</span></div>
   </section>`;
@@ -125,7 +139,7 @@ function roster(players, { teacher = false, lobby = false, meId } = {}) {
 
 function settingsSummary(settings) {
   return `<dl class="settings-summary">
-    <div><dt>턴마다</dt><dd>${settings.years}년</dd></div>
+    <div><dt>턴마다</dt><dd>1년</dd></div>
     <div><dt>목표 나이</dt><dd>${settings.maxAge}살</dd></div>
     <div><dt>진행 방식</dt><dd>${settings.pace === 'auto' ? '자동 진행' : '교사가 넘기기'}</dd></div>
     <div><dt>선택 시간</dt><dd>${settings.pace === 'auto' && settings.seconds ? `${settings.seconds}초` : '시간 제한 없음'}</dd></div>
@@ -225,7 +239,7 @@ function playerView(session, state, rank) {
       <div class="choice-grid">${me.scene.choices.map((item) => choiceCard(item, me)).join('')}</div>
       <div class="choice-footer"><span>${me.choice ? '선택을 제출했어요.' : '카드를 누르면 제출돼요.'} 마감 전에는 바꿀 수 있어요.</span>
         ${me.mode !== 'alive' && canChoose ? button('choose', me.choice === 'pass' ? '기다리기 제출됨' : '이번에는 기다리기', 'clock', 'quiet', 'data-id="pass"') : ''}</div>
-      ${session.role === 'demo' ? '' : `<div class="submission-note"><span>${icon('users')} ${progress}</span><span>${span}년씩 진행</span></div>`}`;
+      ${session.role === 'demo' ? '' : `<div class="submission-note"><span>${icon('users')} ${progress}</span><span>한 해씩 진행</span></div>`}`;
   }
   return `<div class="room-grid">
     <section class="panel section-panel story-panel">${body}</section>
@@ -305,18 +319,20 @@ export function roomView(session, state, { pane, rank, offline }) {
 
 export function profileView(profile, index) {
   const life = profile.lives[index];
-  const career = CAREERS[life.career];
+  const badges = lifeBadges(life);
+  const notes = pathNotes(life);
   const visits = index === profile.lives.length - 1 ? profile.visits : [];
   const entries = [...life.history, ...visits].sort((left, right) => right.year - left.year);
   return `
-    <div class="profile-title">${avatar(profile.avatar, profile.mode)}<div><strong>${h(profile.name)}</strong><span>${life.generation}대 · ${life.age}살${career ? ` · ${career.title}` : ''}</span></div></div>
+    <div class="profile-title">${avatar(profile.avatar, profile.mode)}<div><strong>${h(profile.name)}</strong><span>${[life.generation + '대', life.age + '살', ...badges].map(h).join(' · ')}</span></div></div>
     ${profile.lives.length > 1 ? `<div class="rank-filters" aria-label="세대 고르기">${profile.lives.map((record, recordIndex) =>
       `<button type="button" class="filter mint" data-action="generation" data-index="${recordIndex}" aria-pressed="${index === recordIndex}">${record.generation}대</button>`).join('')}</div>` : ''}
     ${life.end ? `<p class="fork-note">${icon('flag')} ${h(life.end.note)}</p>` : ''}
     ${statGrid(life.stats)}
+    ${notes.length ? `<h3>지나온 길</h3><div class="life-chips">${notes.map((note) => `<span>${h(note)}</span>`).join('')}</div>` : ''}
     <h3>인생 연대기</h3>
     ${entries.length ? `<ol class="timeline">${entries.map((entry) => `<li>
-      <span class="timeline-year">${entry.year}년차</span><div><strong>${h(entry.title)}</strong>
+      <span class="timeline-year" title="마을 ${entry.year}년차">${entry.decisionAge === undefined ? `${entry.year}년차` : `${entry.decisionAge}살`}</span><div><strong>${h(entry.title)}</strong>
         ${entry.text ? `<p>${h(entry.text)}</p>` : ''}<div class="delta-list">${changes(entry.changes)}</div></div>
     </li>`).join('')}</ol>` : '<p class="subtle">첫 선택을 기다리고 있어요.</p>'}
   `;

@@ -37,8 +37,8 @@ async function fixture(t) {
     const host = result.body.session.token;
     return {
       root, host,
-      async join(name) {
-        return request(root + '/join', null, { name, avatar: 1 });
+      async join(name, sex = 'female') {
+        return request(root + '/join', null, { name, avatar: 1, sex });
       },
       async state(token = host) {
         const result = await request(root, token);
@@ -94,13 +94,14 @@ test('20명이 동시에 선택하면 한 턴만 마감하고 서버 재시작 �
   app.elapse(6001);
   const next = await room.state();
   assert.equal(next.turn.number, 2);
-  assert.equal(next.turn.to, 6);
+  assert.equal(next.turn.to, 2);
+  assert.equal(next.settings.years, 1);
   assert.equal(next.settings.maxAge, 100);
 });
 
 test('수명에 도달한 두 플레이어가 자녀와 영혼으로 갈라지고 기록이 남는다', async (t) => {
   const app = await fixture(t);
-  const room = await app.room({ years: 10, maxAge: 80, pace: 'manual' });
+  const room = await app.room({ maxAge: 80, pace: 'manual' });
   const child = (await room.join('새싹')).body;
   const spirit = (await room.join('바람')).body;
   await room.teacher('start');
@@ -117,25 +118,27 @@ test('수명에 도달한 두 플레이어가 자녀와 영혼으로 갈라지�
     await room.teacher('advance', { round: state.turn.number, phase: 'review' });
   }
 
-  for (let round = 0; round < 8; round++) {
+  for (let age = 0; age < 80; age++) {
     await advance((me) => {
       const options = me.scene.choices.filter((item) => !item.locked);
-      return (options.find((item) => item.career) ?? options.find((item) => item.effect.learning > 0) ?? options.find((item) => item.id === 'rest')).id;
+      return age === 19 ? 'work-staff' : (options.find((item) => item.id === 'rest') ?? options[0]).id;
     });
   }
   const fork = (await room.state(spirit.session.token)).me;
   assert.equal(fork.age, 80);
   assert.equal(fork.mode, 'fork');
   assert.ok(fork.career);
-  await advance((me, index) => index === 0 ? 'child' : 'spirit');
+  await advance((me, index) => index === 0 ? 'child-male' : 'family-dream');
   const successor = (await room.state(child.session.token)).me;
   assert.equal(successor.generation, 2);
   assert.equal(successor.age, 19);
   assert.equal(successor.mode, 'alive');
+  assert.equal(successor.life.path.sex, 'male');
   await advance((me, index) => index === 0 ? 'rest' : 'funeral');
   await advance((me, index) => index === 0 ? 'rest' : 'workplace');
   const ghost = (await room.state(spirit.session.token)).me;
-  assert.deepEqual(ghost.visits.map((visit) => visit.id), ['funeral', 'workplace']);
+  assert.deepEqual(ghost.visits.map((visit) => visit.id), ['family-dream', 'funeral', 'workplace']);
+  assert.match(ghost.visits[0].text, /꿈에/);
   const family = await app.request(room.root + '/profile/' + successor.id, spirit.session.token);
   assert.equal(family.status, 200);
   assert.equal(family.body.lives.length, 2);
