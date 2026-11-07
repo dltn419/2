@@ -28,10 +28,20 @@ npm start
 | --- | --- | --- |
 | 교실 내부망 | 교사 PC에서 `npm start`를 실행하고 학생에게 `http://교사PC의내부IP:3000`을 공유합니다. 교사 화면도 이 주소로 열어야 초대 링크가 학생에게 열립니다. 같은 네트워크에서 기기 간 연결과 3000 포트가 허용돼야 합니다. | 교사 PC의 `data/` 폴더 |
 | Railway | 저장소를 연결해 Node 서비스로 실행합니다. 시작 명령은 `npm start`, 헬스 체크는 `/api/health`입니다. 서비스에 공개 도메인을 만들고 `/data`에 볼륨을 붙인 뒤 `DATA_DIR=/data`를 설정합니다. [Railway 볼륨 안내](https://docs.railway.com/volumes/reference) | 붙인 볼륨에 보관 |
+| Vercel | 저장소를 가져오고 아래의 Neon과 교사용 비밀번호를 설정합니다. | 연결한 Neon PostgreSQL에 보관 |
 | Render | 저장소를 **Web Service**에 연결합니다. Build Command는 `npm install`, Start Command는 `npm start`입니다. Node 22 이상을 사용합니다. 수업 기록 보관이 필요하면 유료 디스크를 `/var/data`에 마운트하고 `DATA_DIR=/var/data`를 설정합니다. [Render 무료 서비스 안내](https://render.com/docs/free) | 무료 테스트에서는 재시작·절전 시 기록이 초기화됨 |
 | 학교 서버 또는 VPS | Node 22 이상으로 한 프로세스를 실행하고, 외부 공개 시 HTTPS 역방향 프록시를 연결합니다. | 서버의 지정 폴더 |
 
 이 앱은 Node 서버가 방과 선택을 관리합니다. GitHub Pages는 정적 호스팅입니다. [GitHub Pages 안내](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages)
+
+### Vercel 설정
+
+1. Vercel에서 이 저장소를 프로젝트로 가져옵니다. `vercel.json`이 화면과 게임 API를 배포합니다.
+2. 프로젝트의 **Storage**에서 **Neon**을 연결합니다. 새 데이터베이스라면 **Free**와 **Tokyo** 리전을 선택하고 **Production**에 연결합니다. Tokyo는 이 저장소의 Vercel Functions 실행 리전과 같습니다. [Neon 연동 안내](https://vercel.com/marketplace/neon)
+3. 프로젝트의 **Settings → Environment Variables**에서 Production용 `HOST_PIN`을 설정합니다. 방을 만드는 교사가 입력할 비밀번호입니다. Neon을 연결하면 `DATABASE_URL`이 환경 변수에 자동으로 추가됩니다.
+4. 다시 배포한 뒤 공개 주소의 `/api/health`에서 `{"status":"ok"}`를 확인합니다. 앱은 전용 방 테이블을 자동으로 만듭니다. 교사는 프로덕션 주소에서 방을 만들고 학생들에게 참가 링크를 공유합니다.
+
+Vercel 버전은 학생이나 교사가 접속해 있을 때 타이머와 턴 마감을 처리합니다. 여러 기기에서 같은 방을 열어도 선택과 턴 마감은 한 건씩 순서대로 저장됩니다.
 
 ## 운영 설정
 
@@ -39,10 +49,11 @@ npm start
 | --- | --- | --- |
 | `PORT` | `3000` | HTTP 포트 |
 | `DATA_DIR` | `./data` | 방 상태와 인생 기록을 저장할 경로 |
-| `HOST_PIN` | 빈 값 | 공개 주소에서 방 만들기를 교사에게 제한할 때 서버 환경 변수로 설정 |
+| `HOST_PIN` | 빈 값 | 방 만들기용 교사 비밀번호. Vercel에서는 필수 |
+| `DATABASE_URL` | 빈 값 | Vercel에서 사용할 PostgreSQL 연결 주소. Neon 연동 시 자동 설정 |
 
 - 학생은 코드와 별명을 사용합니다. 새로고침이나 같은 브라우저의 이어 하기로 기존 캐릭터에 다시 들어갈 수 있습니다.
-- 방 상태는 선택을 받을 때마다 파일에 저장됩니다. 상태가 바뀌지 않고 7일이 지난 방은 정리 대상입니다. 교사와 학생은 같은 서버 한 곳에 접속해야 합니다.
+- 방 상태는 선택을 받을 때마다 저장됩니다. Node 서버는 로컬 파일, Vercel은 연결한 데이터베이스에 저장합니다. 상태가 바뀌지 않고 7일이 지난 방은 정리 대상입니다.
 - 배포 플랫폼에서 인스턴스를 하나로 유지하고 영구 저장소를 연결하면 프로세스 재시작 후에도 방을 다시 열 수 있습니다.
 - 게임 규칙과 인생 이야기는 각각 `public/game.mjs`, `public/content.mjs`에 있습니다.
 

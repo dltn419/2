@@ -4,10 +4,16 @@
   "private": true,
   "description": "교실에서 함께 플레이하는 인생 시뮬레이션",
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "node server.mjs",
     "start": "node server.mjs",
     "test": "node --test"
+  },
+  "dependencies": {
+    "@vercel/functions": "^3.11.0",
+    "pg": "^8.23.1"
   }
 }
