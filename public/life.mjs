@@ -1,26 +1,27 @@
 import { CAREERS, pick } from './content.mjs';
+import { finishCare, illnessCare } from './health.mjs';
 
 export const SEXES = { male: '남자', female: '여자' };
 export const SCHOOLS = { general: '일반고', science: '과학고·영재학교', vocational: '직업계고', arts: '예술고', outside: '학교 밖 진로' };
 export const DREAMS = {
-  science: { label: '연구·과학', title: '궁금한 것을 연구하는 사람', mark: 'book', career: 'lab', need: { learning: 32 }, effect: { learning: 4 } },
-  art: { label: '그림·음악·창작', title: '만들고 표현하는 사람', mark: 'spark', career: 'studio', need: { art: 24 }, effect: { art: 4 } },
-  tech: { label: '기술·제작', title: '손으로 고치고 만드는 사람', mark: 'settings', career: 'tech', need: { learning: 21 }, effect: { learning: 3, art: 2 } },
-  people: { label: '교육·돌봄', title: '사람을 돕고 가르치는 사람', mark: 'link', career: 'care', need: { bond: 24 }, effect: { bond: 4 } },
-  business: { label: '가게·경영', title: '작은 가게를 꾸리는 사람', mark: 'coin', career: 'shop', need: { money: 22 }, effect: { money: 3, bond: 1 } },
-  explore: { label: '진로 탐색', title: '조금 더 알아보고 싶어요', mark: 'leaf', effect: { joy: 3, learning: 1 } },
+  science: { label: '과학과 연구', title: '궁금한 것을 알아봐요.', mark: 'book', career: 'lab', need: { learning: 32 } },
+  art: { label: '그림과 음악', title: '작품을 만들고 보여 줘요.', mark: 'spark', career: 'studio', need: { art: 25 } },
+  tech: { label: '기술과 만들기', title: '손으로 고치고 만들어요.', mark: 'settings', career: 'tech', need: { learning: 23 } },
+  people: { label: '가르치고 돕기', title: '사람을 돌보고 가르쳐요.', mark: 'link', career: 'care', need: { bond: 24 } },
+  business: { label: '가게 운영', title: '내 가게를 꾸려요.', mark: 'coin', career: 'shop', need: { money: 24 } },
+  explore: { label: '아직 모르겠어요', title: '더 알아본 뒤에 정해요.', mark: 'leaf' },
 };
 
 const PROGRAMS = {
-  college: { label: '전문대', degree: '전문학사', years: 2 },
-  university: { label: '대학', degree: '학사', years: 4 },
-  graduate: { label: '대학원', degree: '석사', years: 2 },
-  training: { label: '직업훈련', degree: '직업훈련 수료', years: 1 },
+  college: { label: '전문대', years: 2 },
+  university: { label: '대학', years: 4 },
+  graduate: { label: '대학원', years: 2 },
+  training: { label: '직업훈련', years: 1 },
 };
 
 export function newPath(sex = null) {
   return { sex, dreams: [], school: null, diploma: false, program: null, degree: null, training: false,
-    service: null, partner: null, married: null, children: [], retired: null };
+    service: null, partner: null, married: null, children: [], retired: null, home: null, illness: null, recoveredAt: null };
 }
 
 const EMPTY_PATH = newPath();
@@ -28,124 +29,159 @@ export const pathOf = (life) => life.path ?? EMPTY_PATH;
 const mostRecentDream = (path) => path.dreams.at(-1)?.field ?? 'explore';
 const fieldLabel = (field) => DREAMS[field]?.label ?? DREAMS.explore.label;
 const scene = (title, detail, choices, after = '') => ({ title, detail, choices, after });
-const rest = (title = '쉬어 가기', detail = '한 박자 느리게 지내며 내 마음과 몸을 살핀다.', effect = { health: 3, joy: 2 }) => pick('rest', title, detail, 'leaf', effect);
+const rest = (title = '쉬어 가기', detail = '몸과 마음을 쉬게 해요.', effect = { health: 3, joy: 1 }) => pick('rest', title, detail, 'leaf', effect);
 const option = (id, title, detail, mark, effect, kind, value, after, extra = {}) =>
   pick(id, title, detail, mark, effect, { action: { kind, value }, after, ...extra });
 
 const CHILDHOOD = [
-  scene('세상에 온 첫해', '어른이 되면 이 해를 기억하지 못할 거예요. 누군가는 아주 오래 기억할 날이에요.', [
-    pick('birth-voice', '익숙한 목소리를 듣는다', '울음이 잦아들 때까지 누군가 낮은 목소리로 말을 걸어 준다.', 'link', { bond: 3, joy: 2 }, { after: '나중에 들어 보니, 그날 가장 많이 불린 말은 내 이름이었대요.' }),
-    pick('birth-light', '창가의 빛을 바라본다', '햇빛이 벽을 천천히 옮겨 가는 모습을 가만히 본다.', 'sun', { learning: 2, art: 2 }, { after: '처음 본 세상은 생각보다 밝았어요.' }),
-    rest('품에 안겨 잠든다', '따뜻한 품에서 하루 중 가장 길고 편안한 잠을 잔다.', { health: 4, joy: 2 }),
+  scene('세상에 온 첫해', '누군가 나를 꼭 안아 줘요.', [
+    pick('birth-voice', '목소리 듣기', '내 이름을 불러 줘요.', 'link', { bond: 1, joy: 1 }, { after: '그날 가족이 가장 많이 한 말은 내 이름이었대요.' }),
+    pick('birth-light', '햇빛 바라보기', '벽에 비친 빛을 봐요.', 'sun', { learning: 1, art: 1 }),
+    rest('품에서 잠들기', '따뜻한 품에서 잠이 와요.', { health: 2 }),
   ]),
-  scene('두 걸음', '방 건너편에서 누군가 두 팔을 벌리고 기다려요. 소파를 잡은 손을 떼 볼까요?', [
-    pick('first-steps', '손을 떼고 한 발 내딛는다', '바닥에 주저앉아도 다시 일어나 본다.', 'heart', { health: 4, joy: 2 }),
-    pick('first-reach', '손을 내민다', '함께 잡고 걸으니 방 한쪽이 조금 가까워진다.', 'link', { bond: 4, learning: 1 }),
-    rest('앉아서 장난감을 만진다', '굴러가는 공을 따라 눈과 손을 움직인다.'),
+  scene('첫걸음', '누군가 두 팔을 벌리고 기다려요.', [
+    pick('first-steps', '한 발 내딛기', '소파를 잡은 손을 놓아요.', 'heart', { health: 2, joy: 1 }),
+    pick('first-reach', '손잡고 걷기', '한 발씩 함께 걸어요.', 'link', { bond: 2, health: 1 }),
+    rest('공 굴리기', '공을 따라 손을 뻗어요.', { art: 1, learning: 1 }),
   ], '처음 걷던 날 이야기를 집에서는 몇 번이나 다시 했어요.'),
-  scene('하루 종일 같은 말', '어제까지는 가리키기만 하던 것에, 오늘은 이름을 붙일 수 있어요.', [
-    pick('first-word', '물건 이름을 하나씩 따라 한다', '컵, 문, 우산. 말할 수 있는 것이 자꾸 늘어난다.', 'book', { learning: 4, bond: 2 }),
-    pick('little-song', '들었던 노래를 흥얼거린다', '가사를 몰라도 후렴만큼은 비슷하게 부른다.', 'spark', { art: 4, joy: 3 }),
-    rest('그림책을 가져온다', '가장 마음에 드는 페이지를 다시 읽어 달라고 한다.'),
+  scene('말을 배우는 날', '아는 말이 하나씩 늘어요.', [
+    pick('first-word', '이름 따라 말하기', '컵, 문, 우산을 말해요.', 'book', { learning: 2, bond: 1 }),
+    pick('little-song', '노래 따라 부르기', '좋아하는 부분을 불러요.', 'spark', { art: 2, joy: 1 }),
+    rest('그림책 보기', '좋아하는 그림을 다시 봐요.', { art: 1, learning: 1 }),
   ]),
-  scene('양말 한 짝', '하고 싶은 말이 하나 생겼어요. “내가 해 볼래.”', [
-    pick('try-socks', '양말을 혼자 신어 본다', '발뒤꿈치가 앞에 와도 이번엔 끝까지 해 본다.', 'heart', { health: 3, learning: 2 }),
-    pick('try-together', '함께 블록 집을 만든다', '무너지면 같이 쌓는다. 이번엔 문도 만든다.', 'spark', { art: 3, bond: 3 }),
-    rest('오늘은 손을 빌린다', '내가 할 수 있는 것부터 천천히 한다.'),
+  scene('혼자 해 볼래', '이제는 내가 해 보고 싶은 게 생겨요.', [
+    pick('try-socks', '양말 신어 보기', '뒤집어 신어도 다시 해요.', 'heart', { health: 1, learning: 2 }),
+    pick('try-together', '블록 집 만들기', '무너지면 함께 쌓아요.', 'spark', { art: 2, bond: 1 }),
+    rest('도움받기', '어려운 건 손을 빌려요.', { joy: 1, bond: 1 }),
   ]),
-  scene('새로운 신발장', '어린이집이나 유치원 신발장에 내 이름이 있어요. 작은 가방을 멘 채 문 앞에 서 있어요.', [
-    pick('new-room', '먼저 와 있던 아이에게 인사한다', '같은 장난감을 고른 아이 옆에 앉는다.', 'link', { bond: 4, joy: 2 }),
-    pick('small-drawing', '앉아서 내 자리의 그림을 그린다', '크레파스로 익숙한 집 모양을 그린다.', 'spark', { art: 4, learning: 1 }),
-    rest('문 앞에서 잠깐 기다린다', '준비가 되면 손을 잡고 들어간다.'),
+  scene('새로운 신발장', '작은 신발장에 내 이름이 있어요.', [
+    pick('new-room', '친구에게 인사하기', '친구 옆에서 같이 놀아요.', 'link', { bond: 2, joy: 1 }),
+    pick('small-drawing', '크레파스로 그리기', '내가 사는 집을 그려요.', 'spark', { art: 2, learning: 1 }),
+    rest('손잡고 들어가기', '마음의 준비를 하고 들어가요.', { health: 1, joy: 1 }),
   ]),
-  scene('오늘은 내가 빵집 주인', '친구들과 역할놀이를 해요. 종이돈과 빈 상자가 제법 그럴듯해요.', [
-    pick('play-store', '친구들과 가게 놀이를 한다', '손님이 와서 무엇을 좋아하는지 물어본다.', 'coin', { learning: 3, bond: 3 }),
-    pick('play-stage', '상자에 그림을 그려 무대를 꾸민다', '모두가 무슨 이야기를 할지 같이 정한다.', 'spark', { art: 4, joy: 3 }),
-    rest('놀이터에서 친구를 기다린다', '친구가 오면 함께 미끄럼틀을 탄다.'),
+  scene('가게 놀이', '종이돈과 빈 상자로 가게를 만들어요.', [
+    pick('play-store', '가게 주인 되기', '손님에게 무엇이 필요한지 물어요.', 'coin', { learning: 2, bond: 1 }),
+    pick('play-stage', '가게 간판 그리기', '상자에 그림을 그려요.', 'spark', { art: 2, joy: 1 }),
+    rest('친구와 놀이터 가기', '함께 미끄럼틀을 타요.', { health: 2, bond: 1 }),
   ]),
-  scene('가방을 메 보는 날', '내년에는 초등학교에 가요. 집에서 가방을 메 보니 등이 반쯤 가려져요.', [
-    pick('name-tag', '공책에 이름을 써 본다', '내 글씨로 이름표를 만들어 붙인다.', 'book', { learning: 4, joy: 2 }),
-    pick('school-route', '보호자와 학교 가는 길을 걸어 본다', '횡단보도와 놀이터가 어디 있는지 기억해 둔다.', 'heart', { health: 3, bond: 3 }),
-    rest('친구와 한 번 더 신나게 논다', '저녁이 올 때까지 놀다가 집에 돌아온다.'),
-  ], '가방이 내 등보다 커 보이던 때는 생각보다 금세 지나갔어요.'),
+  scene('새 가방', '내년에는 초등학교에 가요.', [
+    pick('name-tag', '이름표 쓰기', '공책에 내 이름을 써요.', 'book', { learning: 2, joy: 1 }),
+    pick('school-route', '학교 가는 길 걷기', '학교까지 함께 걸어 봐요.', 'heart', { health: 2, bond: 1 }),
+    rest('친구와 한 번 더 놀기', '저녁까지 신나게 놀아요.', { health: 1, joy: 2 }),
+  ], '가방이 내 등보다 커 보이던 때는 금세 지나갔어요.'),
 ];
 
 const SCHOOL_YEARS = {
-  7: scene('초등학교 첫날', '교실 앞에서 안녕이라고 말하고 나니, 내 자리에도 아침 햇빛이 들어왔어요.', [
-    pick('first-desk', '짝에게 먼저 인사하기', '같은 책상에 앉은 아이 이름을 배운다.', 'link', { bond: 5, joy: 2 }),
-    pick('first-class', '교실 구석구석 살펴보기', '어디에 책과 색연필이 있는지 살핀다.', 'book', { learning: 5, art: 1 }),
-    rest('하루씩 학교에 익숙해지기', '교실 문을 열기 전 깊게 숨을 들이쉰다.'),
+  7: scene('초등학교 첫날', '새 교실에 내 자리가 생겼어요.', [
+    pick('first-desk', '짝에게 인사하기', '짝의 이름을 물어봐요.', 'link', { bond: 3, joy: 1 }),
+    pick('first-class', '교실 살펴보기', '책과 색연필이 어디 있는지 봐요.', 'book', { learning: 3, art: 1 }),
+    rest('학교에 익숙해지기', '하루씩 천천히 적응해요.'),
   ]),
-  8: scene('쉬는 시간 십 분', '종이 치면 운동장까지 뛰어갔다 와도 시간이 조금 남아요.', [
-    pick('playground-team', '친구들과 운동장 뛰기', '처음 해 보는 팀 놀이에 끼어 본다.', 'heart', { health: 4, bond: 4 }),
-    pick('school-library', '도서실에서 책 한 권 빌리기', '내 이름으로 처음 대출증을 쓴다.', 'book', { learning: 5, art: 2 }),
-    rest('친구 옆에서 천천히 쉬기', '같은 창밖을 보며 종이 칠 때까지 앉아 있는다.'),
+  8: scene('쉬는 시간', '종이 치자 친구들이 달려 나가요.', [
+    pick('playground-team', '운동장에서 뛰기', '친구와 공놀이를 해요.', 'heart', { health: 3, bond: 2 }),
+    pick('school-library', '책 한 권 빌리기', '도서실에서 마음에 드는 책을 골라요.', 'book', { learning: 3, art: 1 }),
+    rest('친구 옆에서 쉬기', '같이 앉아 이야기를 해요.'),
   ]),
-  9: scene('우리 반의 첫 발표', '종이에 쓴 문장을 읽다 보니, 내 목소리가 내가 생각한 것보다 컸어요.', [
-    pick('class-talk', '좋아하는 것을 앞에서 소개하기', '친구들이 물어보면 한 마디씩 더 이야기한다.', 'book', { learning: 4, bond: 4 }),
-    pick('class-picture', '발표에 쓸 그림 만들기', '말로 하기 어려운 장면을 그림에 담는다.', 'spark', { art: 5, joy: 3 }),
-    rest('다른 친구의 발표 듣기', '다음에 내가 써 볼 이야기 한 줄을 생각한다.'),
+  9: scene('우리 반 첫 발표', '친구들에게 좋아하는 것을 소개해요.', [
+    pick('class-talk', '앞에서 말하기', '떨려도 천천히 말해요.', 'book', { learning: 3, bond: 2 }),
+    pick('class-picture', '발표 그림 그리기', '말로 어려운 부분은 그림으로 보여 줘요.', 'spark', { art: 3, joy: 2 }),
+    rest('친구 발표 듣기', '다음에 소개할 것을 생각해요.'),
   ]),
-  11: scene('반에서 내가 잘하는 일', '요즘 친구들이 가끔 내게 무언가를 부탁해요. 내가 잘하는 게 있었나 봐요.', [
-    pick('class-share', '친구에게 방법을 알려 주기', '먼저 알게 된 것을 혼자 들고 있지 않는다.', 'link', { bond: 5, learning: 3 }),
-    pick('class-practice', '관심 있는 일을 더 연습하기', '잘하고 싶은 일에 방과 후 시간을 써 본다.', 'spark', { art: 5, learning: 3, health: -2 }),
-    rest('하루쯤 약속을 비워 두기', '늘 하던 길을 조금 느리게 걸어간다.'),
+  10: scene('우리 반 작은 전시', '교실 벽에 친구들의 작품을 걸어요.', [
+    pick('class-display', '작품 만들기', '올해 기억하고 싶은 일을 그려요.', 'spark', { art: 4, joy: 1 }),
+    pick('class-guide', '작품 소개하기', '친구들에게 작품 이야기를 들려줘요.', 'book', { learning: 3, bond: 2 }),
+    rest('친구 작품 보기', '마음에 드는 작품에 쪽지를 남겨요.'),
   ]),
-  12: scene('교실을 비우는 날', '졸업을 앞두고 사물함을 비워요. 바닥에 이름을 쓴 지우개 하나가 남았어요.', [
-    pick('primary-letter', '친구에게 짧은 편지 쓰기', '쉬는 시간마다 같이 하던 일을 한 줄로 적는다.', 'link', { bond: 6, joy: 3 }, { after: '친구는 나중에도 그 편지를 필통에 넣어 두었다고 했어요.' }),
-    pick('primary-drawing', '교실을 그림으로 남기기', '없어지기 전에 창가와 책상 자리를 그린다.', 'spark', { art: 5, learning: 2 }),
-    rest('교실을 천천히 한 바퀴 돌기', '내 자리에서 보이던 풍경을 잠깐 더 바라본다.'),
+  11: scene('내가 잘하는 일', '친구가 어떻게 하는지 물어봐요.', [
+    pick('class-share', '친구에게 알려 주기', '먼저 배운 방법을 보여 줘요.', 'link', { bond: 3, learning: 2 }),
+    pick('class-practice', '좋아하는 것 연습하기', '방과 후에 조금 더 해 봐요.', 'spark', { art: 4, health: -1 }),
+    rest('하루 쉬기', '집에 일찍 가서 쉬어요.'),
   ]),
-  13: scene('중학교 첫 시간표', '교과마다 다른 선생님이 들어와요. 쉬는 시간에는 반에서 아직 낯선 목소리가 들려요.', [
-    pick('middle-club', '동아리 체험해 보기', '교실 밖에서 만난 사람들과 시간을 보낸다.', 'link', { bond: 5, joy: 3 }),
-    pick('middle-notes', '수업마다 공부 방법 찾아보기', '친구가 보여 준 노트에서 한 가지를 배운다.', 'book', { learning: 6, health: -1 }),
-    rest('시간표에 적응하기', '다음 시간 교실부터 천천히 익힌다.'),
+  12: scene('초등학교 졸업', '사물함 바닥에 내 이름을 쓴 지우개가 남았어요.', [
+    pick('primary-letter', '친구에게 편지 쓰기', '같이 웃었던 날을 한 줄 적어요.', 'link', { bond: 4, joy: 2 }, { after: '친구는 나중에도 그 편지를 필통에 넣어 뒀대요.' }),
+    pick('primary-drawing', '교실 그림 그리기', '잊기 전에 창가와 내 자리를 그려요.', 'spark', { art: 4, learning: 1 }),
+    rest('교실 한 바퀴 돌기', '내 자리에서 보던 풍경을 다시 봐요.'),
   ]),
-  15: scene('교실에 붙은 고등학교 안내', '안내문을 읽다 보니 고등학교마다 수업이 꽤 달라요. 한 곳을 정하기 전에 무엇을 해 볼까요?', [
-    pick('high-explore', '학교 설명회에 가 보기', '수업과 동아리, 졸업 뒤의 길을 물어본다.', 'book', { learning: 5, bond: 2 }),
-    pick('high-workshop', '직업 체험에 참여하기', '일이 생각했던 것과 어디가 다른지 살펴본다.', 'settings', { learning: 3, art: 4 }),
-    rest('내 속도로 생각 정리하기', '친구들이 정한 속도와 내 속도를 구분해 본다.'),
+  13: scene('중학교 첫날', '수업마다 다른 선생님이 들어와요.', [
+    pick('middle-club', '동아리 구경하기', '새 친구를 만나요.', 'link', { bond: 3, joy: 2 }),
+    pick('middle-notes', '공부 방법 찾기', '친구가 필기한 노트를 보고 배워요.', 'book', { learning: 4, health: -1 }),
+    rest('새 시간표 익히기', '다음 수업을 차근차근 준비해요.'),
+  ]),
+  14: scene('동아리 발표회', '올해 함께 배운 걸 보여 줄 시간이에요.', [
+    pick('club-show', '무대에 오르기', '친구와 연습한 걸 보여 줘요.', 'spark', { art: 4, bond: 2 }),
+    pick('club-plan', '발표 준비 돕기', '해야 할 일과 순서를 정해요.', 'book', { learning: 4, bond: 2 }),
+    rest('객석에서 응원하기', '친구들에게 박수를 보내요.'),
+  ]),
+  15: scene('고등학교 알아보기', '학교마다 어떤 걸 배우는지 살펴봐요.', [
+    pick('high-explore', '학교 설명회 가기', '수업과 동아리가 궁금해요.', 'book', { learning: 4, bond: 1 }),
+    pick('high-workshop', '직업 체험하기', '관심 있는 일을 직접 해 봐요.', 'settings', { learning: 2, art: 3 }),
+    rest('천천히 생각하기', '내가 좋아하는 일부터 떠올려요.'),
+  ]),
+  16: scene('고등학교 첫해', '새 학교에서 내게 맞는 일을 찾아봐요.', [
+    pick('high-first', '새 과목에 도전하기', '모르는 것은 질문해요.', 'book', { learning: 4, health: -1 }),
+    pick('high-friends', '친구와 동아리 하기', '같이 하고 싶은 활동을 골라요.', 'link', { bond: 4, art: 2 }),
+    rest('새 생활에 적응하기', '무리하지 않고 하루씩 지내요.'),
+  ]),
+  17: scene('내가 좋아하는 과목', '이제는 더 배우고 싶은 것이 있어요.', [
+    pick('high-project', '탐구 주제 정하기', '궁금한 걸 자료에서 찾아봐요.', 'book', { learning: 5, health: -1 }),
+    pick('high-team', '친구와 작품 만들기', '할 일을 나누고 하나씩 완성해요.', 'spark', { art: 4, bond: 2 }),
+    rest('운동하며 쉬기', '친구와 가볍게 몸을 움직여요.'),
+  ]),
+  18: scene('고등학교 마지막 해', '졸업 뒤에 할 일을 하나씩 준비해요.', [
+    pick('high-applications', '대학과 전공 알아보기', '무엇을 배우고 싶은지 찾아봐요.', 'book', { learning: 5, health: -1 }),
+    pick('high-portfolio', '내가 만든 것 모으기', '일터나 학교에 보여 줄 작품을 골라요.', 'settings', { learning: 3, art: 4 }),
+    rest('졸업 사진 남기기', '늘 보던 친구들과 사진을 찍어요.'),
   ]),
 };
 
+function schoolYear(life, path) {
+  const age = life.age;
+  if (age < 16 || path.school !== 'outside') return SCHOOL_YEARS[age];
+  return scene(['학교 밖의 첫해', '나만의 공부 계획', '다음 길을 준비하는 해'][age - 16], '관심 있는 일을 찾아 하나씩 배워요.', [
+    pick('outside-portfolio', '만든 것 모아 보기', '혼자 해 본 일을 사진과 글로 남겨요.', 'settings', { learning: 3, art: 3 }),
+    pick('outside-learn', '관심 있는 것 배우기', '도서관이나 배움터에서 공부해요.', 'book', { learning: 4, bond: 1 }),
+    rest('쉬면서 길 찾아보기', '지금 할 수 있는 것부터 해요.'),
+  ]);
+}
+
 function dreamSurvey(life) {
   const path = pathOf(life);
-  const label = life.age === 10 ? '초등학교' : life.age === 14 ? '중학교' : path.school === 'outside' ? '진로 상담' : '고등학교';
+  const label = life.age === 10 ? '초등학교' : life.age === 14 ? '중학교' : path.school === 'outside' ? '학교 밖' : '고등학교';
   const old = mostRecentDream(path);
-  const detail = old === 'explore' ? '진로 희망란에 지금 관심 있는 일을 적어요. 이 기록은 훗날 전공과 일자리를 고를 때 다시 만나요.'
-    : `지난번엔 ‘${fieldLabel(old)}’를 적었어요. 지금 마음에 드는 답을 적어 봐요.`;
-  return scene(`${label} 장래희망 조사`, detail, Object.entries(DREAMS).map(([field, dream]) =>
-    option(field === 'explore' ? 'rest' : `dream-${field}`, dream.title, field === 'explore' ? '정답을 쓰는 칸은 아니니까, 아직 궁금한 게 많다고 적는다.' : `지금 마음이 가는 ‘${dream.label}’를 적어 둔다.`,
-      dream.mark, dream.effect, 'dream', field, field === 'explore' ? '종이에 빈칸을 남겨 두는 것도 내 답이었어요.' : '그날 적은 글씨는 삐뚤었지만, 종이를 접어 오래 간직했어요.')));
+  const detail = old === 'explore' ? '어떤 일이 궁금해요? 나중에 전공과 일자리를 고를 때 기억해요.'
+    : `지난번에는 ‘${fieldLabel(old)}’를 골랐어요. 지금은 어때요?`;
+  return scene(`${label} 장래희망`, detail, Object.entries(DREAMS).map(([field, dream]) =>
+    option(field === 'explore' ? 'rest' : `dream-${field}`, dream.label, dream.title, dream.mark, {}, 'dream', field,
+      field === 'explore' ? '천천히 찾아보기로 했어요.' : '오늘 고른 꿈을 기록장에 적었어요.')));
 }
 
 function highSchool(life) {
   const dream = mostRecentDream(pathOf(life));
-  return scene('고등학교를 고르는 해', '같은 나이의 친구들이 저마다 다른 학교와 배움의 길을 알아보고 있어요.', [
-    option('high-general', '일반고에 진학하기', '여러 과목을 배우며 대학과 취업을 함께 알아본다.', 'book', { learning: 5, bond: 2 }, 'school', 'general', '교복이 아직 몸에 맞지 않았지만 거울 앞에 한참 서 있었어요.'),
-    option('high-science', '과학고·영재학교에 진학하기', '실험하고 연구하는 수업이 많은 학교를 택한다.', 'book', { learning: 8, health: -3 }, 'school', 'science', '모르는 것을 적는 노트가 조금씩 두꺼워졌어요.', { need: { learning: dream === 'science' ? 24 : 30 } }),
-    option('high-vocational', '직업계고에 진학하기', '특성화고나 마이스터고에서 실습하며 기술을 익힌다.', 'settings', { learning: 5, art: 3 }, 'school', 'vocational', '실습복에 처음 묻은 자국을 그날은 왠지 지우고 싶지 않았어요.'),
-    option('high-arts', '예술고에 진학하기', '연습과 작품 활동에 더 많은 시간을 써 본다.', 'spark', { art: 8, health: -2 }, 'school', 'arts', '누가 시키지 않아도 계속하고 싶었던 일이 하루의 가운데로 왔어요.', { need: { art: dream === 'art' ? 18 : 23 } }),
-    option('rest', '고교 진학을 미루기', '학교 밖에서 관심사를 찾고, 필요하면 검정고시를 준비한다.', 'leaf', { joy: 3, learning: 2 }, 'school', 'outside', '친구들과 다른 달력을 펼쳤어요. 그해 내 시간이 그렇게 시작됐어요.'),
+  return scene('고등학교 고르기', '어디에서 무엇을 배우고 싶어요?', [
+    option('high-general', '일반고 가기', '여러 과목을 배우고 진로를 찾아요.', 'book', {}, 'school', 'general', '새 교복을 입고 거울 앞에 한참 서 있었어요.'),
+    option('high-science', '과학고나 영재학교 가기', '실험과 연구를 많이 해요.', 'book', {}, 'school', 'science', '궁금한 걸 새 공책에 적었어요.', { need: { learning: dream === 'science' ? 21 : 25 } }),
+    option('high-vocational', '직업계고 가기', '직접 만들고 고치는 기술을 배워요.', 'settings', {}, 'school', 'vocational', '처음으로 내 손으로 기계를 움직였어요.'),
+    option('high-arts', '예술고 가기', '그림이나 음악을 깊이 배워요.', 'spark', {}, 'school', 'arts', '좋아하던 일을 학교에서도 하게 됐어요.', { need: { art: dream === 'art' ? 17 : 21 } }),
+    option('rest', '학교 밖에서 배우기', '나만의 길을 찾아봐요. 나중에 검정고시도 볼 수 있어요.', 'leaf', {}, 'school', 'outside', '친구들과 다른 곳에서 새 학년을 맞았어요.'),
   ]);
 }
 
 function examChoice() {
-  return option('equivalency', '고졸 검정고시 준비하기', '공부를 다시 시작해 고등학교 졸업과 동등한 자격을 얻는다.', 'book', { learning: 6, health: -2 },
-    'diploma', true, '자리에 앉는 시간부터 다시 배웠어요. 결과를 기다리던 날엔 어린 시절의 내가 떠올랐어요.');
+  return option('equivalency', '고졸 검정고시 보기', '시험을 보고 고등학교를 마친 것과 같은 자격을 얻어요.', 'book', { learning: 2 },
+    'diploma', true, '혼자 공부해 온 시간이 새 길을 열어 줬어요.', { need: { learning: 16 } });
 }
 
 function universityChoice(kind, life) {
   const field = mostRecentDream(pathOf(life));
   const data = PROGRAMS[kind];
-  const track = field === 'explore' ? '' : ` · ${fieldLabel(field)}`;
   const label = kind === 'university' ? '4년제 대학' : data.label;
-  const need = kind === 'graduate' && pathOf(life).degree?.kind !== 'university' && pathOf(life).degree?.kind !== 'graduate'
-    ? { locked: '학사 학위 필요' } : {};
-  return option(`study-${kind}`, `${label}${kind === 'training' ? ' 시작하기' : ' 진학하기'}${track}`,
-    field === 'explore' ? '새로 만나게 될 과목과 사람들 사이에서 내 관심을 더 찾아본다.' : `예전에 적어 둔 ‘${fieldLabel(field)}’에 시간을 더 써 본다.`,
-    kind === 'training' ? 'settings' : 'book', { learning: kind === 'university' ? 7 : 5, money: kind === 'university' ? -4 : -2, health: -2 },
-    'study', kind, field === 'explore' ? '처음 들어간 강의실에 내가 모르는 이야기가 가득했어요.' : `오래전에 종이에 적은 ‘${fieldLabel(field)}’가 이번엔 내 시간표에 적혀 있었어요.`, need);
+  const cost = { university: 6, college: 4, graduate: 8, training: 3 }[kind];
+  const detail = field !== 'explore' && kind !== 'training' ? `${data.years}년 동안 ‘${fieldLabel(field)}’를 배워요.`
+    : `${data.years}년 동안 새로 배우고 싶은 것을 공부해요.`;
+  const extra = kind === 'university' ? { need: { learning: field === 'explore' ? 22 : 19 } } : {};
+  return option(`study-${kind}`, kind === 'training' ? '일할 기술 배우기' : `${label} 가기`, detail,
+    kind === 'training' ? 'settings' : 'book', { money: -cost }, 'study', kind,
+    field === 'explore' ? '처음 보는 시간표를 받아 들었어요.' : `예전에 적은 ‘${fieldLabel(field)}’가 새 시간표에 있었어요.`, extra);
 }
 
 function workChoices(life) {
@@ -155,157 +191,206 @@ function workChoices(life) {
     .find((item) => item && item !== 'explore') ?? 'explore';
   const dream = DREAMS[field];
   const work = [
-    pick('work-staff', path.school === 'vocational' ? '현장실습을 살려 취업하기' : '첫 일자리에서 일 시작하기', '현장에서 일을 배우고 내 손으로 첫 월급을 받는다.', 'coin',
-      { money: 8, learning: 2, health: -3 }, { employment: true, after: '월급이 들어온 날엔 집에 가는 길에 무엇을 사 갈지 먼저 생각했어요.' }),
+    pick('work-staff', '회사에 취업하기', path.school === 'vocational' ? '학교에서 실습한 기술을 써요.' : '첫 일터에서 일을 배워요.', 'coin',
+      {}, { employment: true, after: '첫 출근에 입을 옷을 전날 꺼내 놨어요.' }),
   ];
   if (dream.career) {
     const first = path.dreams.find((entry) => entry.field === field);
-    work.unshift(pick('work-dream', `${CAREERS[dream.career].title}로 첫발 내딛기`,
-      first ? `${first.age}살에 적은 희망과 연결되는 자리예요.` : `‘${dream.label}’에서 익힌 것을 일로 이어 간다.`, dream.mark,
-      { money: dream.career === 'shop' ? -8 : 6, learning: 3, joy: 3, health: -3 },
+    work.unshift(pick('work-dream', `${CAREERS[dream.career].title} 되기`,
+      first ? `${first.age}살에 고른 꿈과 이어지는 일이에요.` : `‘${dream.label}’에서 배운 것을 써요.`, dream.mark,
+      dream.career === 'shop' ? { money: -15 } : {},
       { career: dream.career, need: dream.need, opportunity: true, after: first
-        ? `${first.age}살에 적던 그 글씨가 떠올랐어요. 일터에서 가장 먼저 배운 건 여전히 물어봐도 된다는 거였어요.`
-        : '오랜만에 스스로 고른 자리에서 하루를 시작했어요.' }));
+        ? `${first.age}살 때 꿈을 적던 글씨가 떠올랐어요.` : '내가 고른 일터에서 첫날을 보냈어요.' }));
   }
   return work;
 }
 
-function afterSchool(life, afterService = false) {
-  const path = pathOf(life);
+function educationPlan(life, path) {
   const eligible = path.school !== 'outside' || path.diploma;
-  const study = eligible ? [universityChoice('university', life), universityChoice('college', life)] : [examChoice()];
-  const service = life.age === 19 && path.sex === 'male' ? ' 병역판정검사를 받는 시기이기도 해서 입영 계획은 다음 해에 함께 정해요.' : '';
-  return scene(afterService ? '다시 내 시간표로' : '진학과 첫 일자리', `교실에서 보낸 시간이 이제 여러 길로 이어져요. 먼저 열어 볼 문을 골라요.${service}`,
-    [...study, ...workChoices(life), universityChoice('training', life), rest('한 해 동안 방향 알아보기')]);
+  const options = [];
+  if (eligible && !path.degree) options.push(universityChoice('university', life), universityChoice('college', life));
+  else if (!eligible) options.push(examChoice());
+  if (path.degree?.kind === 'university') options.push(universityChoice('graduate', life));
+  if (!path.training) options.push(universityChoice('training', life));
+  if (!life.career) options.push(...workChoices(life));
+  if (!options.length) return null;
+  const title = life.age === 19 ? '학교 다음에는?' : path.service?.endedAt === life.age ? '복무를 마친 뒤' :
+    path.degree?.age === life.age ? '졸업했어요' : '일할까, 더 배울까?';
+  const detail = life.age === 19 && path.sex === 'male' ? '학교나 일을 골라요. 군대는 스무 살부터 정해요.'
+    : '배울지, 일을 할지, 지금의 생활을 이어갈지 골라요.';
+  options.push(rest('조금 더 생각하기', '이번에는 지금 생활을 이어가요.', {}));
+  return scene(title, detail, options);
 }
 
-function militaryScene(life) {
-  const path = pathOf(life);
-  if (path.service?.status === 'serving') {
-    return scene('복무를 마무리하는 해', '전역 날이 적힌 달력 아래에 제대하면 하고 싶은 일을 몇 가지 적었어요.', [
-      pick('service-letter', '곁에 있던 사람에게 편지 쓰기', '큰말 대신 기다려 줘서 고마웠다고 쓴다.', 'link', { bond: 6, joy: 3 }),
-      pick('service-study', '돌아갈 준비를 하며 틈틈이 공부하기', '복학하거나 일터로 돌아가는 날을 준비한다.', 'book', { learning: 5, health: -1 }),
-      rest('동료들과 마지막 시간을 보내기', '고생 많았다는 말을 서로에게 건넨다.'),
-    ]);
+function militaryPlan(life, path) {
+  const detail = path.program ? '학교는 잠시 쉬고 2년 복무해요.' : life.career ? '일은 잠시 쉬고 2년 복무해요.' : '군대에서 2년을 보내요.';
+  const choices = [option('enlist', '군대에 가기', detail, 'flag', {},
+    'service', 'start', '짐을 싸며 돌아와서 할 일을 적었어요.')];
+  if (!path.service && path.program) {
+    choices.push(option('service-after-study', '졸업하고 군대 가기', '지금 다니는 학교를 마치고 복무해요.', 'book', {},
+      'service', life.age + path.program.remaining, '졸업할 때까지 지금의 시간표를 이어가요.'));
   }
-  const choices = [option('enlist', '입영해 복무 시작하기', '학교나 일터를 잠시 떠나 복무를 시작한다.', 'flag', { health: -2, bond: 2, money: 3 },
-    'service', 'start', '짐을 챙기며 다음에 돌아올 때도 내 자리가 남아 있기를 바랐어요.')];
-  if (!path.service && path.program?.until > life.age) {
-    choices.push(option('service-after-study', '학업을 이어가며 입영 시기 조정하기', '재학 중인 과정이 끝나는 해에 입영을 다시 준비한다.', 'book', { learning: 4, joy: 1 },
-      'service', path.program.until, '계속 배울 시간을 얻었어요. 달력 끝에 다음에 정할 일도 적어 뒀어요.'));
+  if (!path.service) {
+    choices.push(option('rest', '내년에 군대 가기', '올해는 학교나 일터를 다녀요.', 'leaf', {},
+      'service', life.age + 1, '입영할 해를 달력에 표시했어요.'));
   }
-  choices.push(path.service
-    ? option('rest', '복무를 시작하고 가까운 사람에게 소식 전하기', '새로운 일과에 적응하며 돌아갈 때를 생각한다.', 'link', { health: -2, bond: 4, money: 2 },
-      'service', 'start', '잘 도착했다는 짧은 소식부터 전했어요.')
-    : option('rest', '입영 준비에 시간을 쓰기', '건강과 일정, 돌아갈 학교나 일터의 일을 정리한다.', 'leaf', { health: 2, learning: 1 },
-      'service', life.age + 1, '내년을 앞두고 남아 있는 약속부터 하나씩 챙겼어요.'));
-  return scene('입영을 앞두고', '병역판정 뒤 안내받은 복무 일정을 학업이나 일과 어떻게 맞출지 생각해요.', choices);
+  return scene('군대 갈 때 정하기', '학교나 일과 복무 일정을 맞춰요.', choices);
 }
 
-function studying(life) {
-  const program = pathOf(life).program;
-  const label = PROGRAMS[program.kind].label;
-  const finalYear = program.until === life.age + 1;
-  return scene(finalYear ? `${label} 마지막 해` : `${label}에서 보내는 해`, finalYear
-    ? '처음 이곳에 왔을 때 알아듣지 못하던 말들이, 이제는 내가 쓰는 말이 됐어요.'
-    : '이번 해의 시간표에는 배우고 싶은 과목과 익숙해지고 싶은 일이 함께 있어요.', [
-    pick('study-project', finalYear ? '졸업 과제에 마음을 쓰기' : '전공 과제에 몰두하기', '어려운 부분을 붙들고 한 줄씩 풀어 본다.', 'book', { learning: 7, health: -3, art: 2 }),
-    pick('study-experience', '현장 경험과 사람을 만나기', '실습이나 모임에 나가 배운 것을 직접 써 본다.', 'link', { learning: 3, bond: 5, joy: 2 }),
-    rest('배움과 생활의 균형 지키기', '한 번에 잘해 내기 어려운 날에는 친구와 밥을 먹는다.'),
+function serving(life, path) {
+  const last = path.service.until === life.age + 1;
+  return scene(last ? '복무 마지막 해' : '복무 첫해', last ? '곧 집으로 돌아가요. 무엇을 준비할까요?' : '새로운 생활에 익숙해지는 중이에요.', [
+    pick('service-letter', '가족에게 편지 쓰기', '기다려 줘서 고맙다고 써요.', 'link', { bond: 4, joy: 2 }),
+    pick('service-study', '틈틈이 공부하기', '학교나 일터로 돌아갈 준비를 해요.', 'book', { learning: 4, health: -2 }),
+    rest('동료와 시간 보내기', '같이 밥을 먹고 쉬어요.'),
   ]);
 }
 
-function retrain(life, afterService = false) {
-  const path = pathOf(life);
-  const options = path.degree?.kind === 'university' ? [universityChoice('graduate', life)] : [];
-  if (path.school !== 'outside' || path.diploma) options.push(universityChoice('university', life));
-  else options.push(examChoice());
-  options.push(universityChoice('training', life));
-  if (!life.career) options.push(...workChoices(life));
-  options.push(rest(life.career ? '지금의 일과 일상을 이어가기' : '다음 기회를 살피며 쉬어 가기'));
-  const title = afterService ? '다시 내 시간표로' : path.degree?.age === life.age ? '배운 것을 어디에 쓸까요' : '다시 배우러 가는 길';
-  return scene(title,
-    '일을 하거나 쉬던 중에도 새로 궁금해지는 일이 생겨요. 지금의 나에게 필요한 방향을 골라 봐요.', options);
+function studying(life, path) {
+  const program = path.program;
+  const data = PROGRAMS[program.kind];
+  const year = data.years - program.remaining + 1;
+  const finalYear = program.remaining === 1;
+  const detail = finalYear ? '이번 해를 보내면 과정을 마쳐요.' : '배우고 싶은 것에 시간을 써요.';
+  return scene(`${data.label} ${year}년차`, path.service?.endedAt === life.age ? `학교로 돌아왔어요. ${detail}` : detail, [
+    pick('study-project', finalYear ? '마지막 과제 끝내기' : '수업과 과제에 힘쓰기', '모르는 곳을 끝까지 공부해요.', 'book', { learning: 6, health: -2 }),
+    pick('study-experience', '배운 것 써 보기', '직접 만들거나 현장에서 해 봐요.', 'settings', { learning: 3, art: 3, bond: 1 }),
+    rest('쉬는 시간 챙기기', '친구와 밥을 먹고 푹 쉬어요.'),
+  ]);
 }
 
 function relationships(life) {
   const age = life.age;
   const path = pathOf(life);
   if (path.partner === null && [24, 27, 30, 35, 41, 52].includes(age)) {
-    return scene('다음 약속을 잡는 날', '같이 걷다 보니 어느새 집 앞이에요. 조금 더 알아가고 싶은 사람이 생겼어요.', [
-      option('date', '서로의 마음을 묻고 연애 시작하기', '다음에 만나고 싶은 날을 먼저 물어본다.', 'link', { bond: 5, joy: 4 },
+    return scene('또 만나고 싶은 사람', '함께 있으면 시간이 금세 가요.', [
+      option('date', '연애 시작하기', '서로 마음이 같은지 물어요.', 'link', { bond: 4, joy: 5 },
         'partner', 'start', '돌아가는 길에 이미 했던 이야기를 두어 번 떠올렸어요.'),
-      pick('stay-friends', '친구로 만나기', '편하게 연락할 수 있는 사람으로 곁에 남는다.', 'link', { bond: 5, joy: 3 }),
-      rest('지금의 내 시간을 지키기', '지금 꼭 정해야 할 일은 아니어서 오늘은 혼자 걸어 돌아온다.'),
+      pick('stay-friends', '친구로 지내기', '편하게 만나 이야기를 나눠요.', 'link', { bond: 5, joy: 2 }),
+      rest('혼자만의 시간 보내기', '좋아하는 일을 하면서 쉬어요.'),
     ]);
   }
   if (path.partner !== null && path.married === null && age - path.partner >= 2 && [29, 32, 36, 43, 55].includes(age)) {
-    return scene('둘이서 써 보는 달력', '살고 싶은 곳과 서로의 일, 주말을 보내는 방법을 이야기하다 보니 결혼에 대한 이야기도 나왔어요.', [
-      option('marry', '결혼하고 생활을 함께 꾸리기', '작게 인사하는 자리를 만들고 함께 살 일들을 정한다.', 'link', { bond: 7, joy: 5, money: -5 },
-        'marry', true, '식이 끝나고 집에 왔을 때 둘이 가장 먼저 한 건 의자에 나란히 앉는 일이었어요.'),
-      pick('keep-dating', '지금의 관계를 천천히 이어가기', '서로 필요한 시간과 거리를 이야기한다.', 'heart', { bond: 5, joy: 4 }),
-      option('part', '서로 다른 길을 걷기로 하기', '함께 지낸 날을 고맙게 기억하며 앞으로의 시간을 고른다.', 'leaf', { health: 2, joy: 2 },
-        'partner', 'end', '마지막 인사를 하고도 그 사람이 무사히 집에 닿았으면 했어요.'),
+    return scene('함께 살까?', '어디에 살고 어떻게 지낼지 이야기해요.', [
+      option('marry', '결혼하기', '가까운 사람을 불러 작은 결혼식을 열어요.', 'link', { bond: 6, joy: 6, money: -12 },
+        'marry', true, '식이 끝나고 둘이 나란히 앉아 한참 쉬었어요.'),
+      pick('keep-dating', '지금처럼 만나기', '서로의 마음을 천천히 알아가요.', 'heart', { bond: 4, joy: 3 }),
+      option('part', '헤어지기', '함께한 시간을 기억하고 각자의 길을 가요.', 'leaf', { health: 2, joy: -2 },
+        'partner', 'end', '헤어지고도 그 사람이 집에 잘 닿았으면 했어요.'),
     ]);
   }
   if (path.partner !== null && path.children.length < 2 && age - (path.children.at(-1) ?? path.partner) >= 2 && [31, 34, 37, 40].includes(age)) {
-    return scene('한 사람이 더 오는 일', '아이를 맞이할지, 맞이한다면 일과 돌봄을 어떻게 나눌지 오래 이야기했어요.', [
-      option('have-child', '출산을 준비하고 아이를 맞이하기', '일정을 조정하고 돌봄을 함께 맡으며 새 식구를 기다린다.', 'sprout', { money: -4, health: -3, bond: 6, joy: 5 },
-        'child', true, '그 작은 손에 손가락 하나를 쥐여 주었어요. 오래전 누군가도 내게 이렇게 했을 거예요.'),
-      pick('later-family', '아직 준비할 시간을 갖기', '생활과 마음을 함께 살피며 생각을 더 나눈다.', 'clock', { learning: 2, health: 3, bond: 3 }),
-      rest('지금의 가족과 일상 지키기', '지금 곁에 있는 사람과 오래 가고 싶은 생활을 돌본다.'),
+    return scene('새 식구를 맞이할까?', '아이를 키운다면 돌봄을 어떻게 나눌지 생각해요.', [
+      option('have-child', '아이를 맞이하기', '태어날 아이를 위해 시간과 돈을 준비해요.', 'sprout', { money: -9, health: -3, bond: 6, joy: 5 },
+        'child', true, '작은 손에 내 손가락을 쥐여 줬어요. 누군가도 처음에 내게 그랬겠지요.'),
+      pick('later-family', '조금 더 기다리기', '지금 필요한 준비를 이야기해요.', 'clock', { health: 2, bond: 3 }),
+      rest('지금의 생활 이어가기', '곁에 있는 사람과 한 해를 보내요.'),
     ]);
   }
   const childAge = path.children.length ? age - path.children[0] : 0;
   if ([7, 19].includes(childAge)) {
     const school = childAge === 7;
-    return scene(school ? '이번엔 내가 교문 앞에' : '현관에 놓인 아이의 가방',
-      school ? '가방이 아이 등을 반쯤 덮었어요. 내가 처음 학교에 가던 날의 가방도 저만했을 거예요.' : '다른 집에서 처음 자게 된 아이가 가방을 다시 한번 확인해요.', [
-      pick('child-sendoff', '나란히 조금 더 걸어가기', '내가 기억하는 처음을 말해 주고, 아이의 이야기를 듣는다.', 'link', { bond: 6, joy: 3 }),
-      pick('child-note', '가방 속에 짧은 메모 남기기', '힘들면 돌아올 자리가 있다고 한 줄 쓴다.', 'spark', { art: 4, bond: 4 }),
-      rest('손을 흔들고 집으로 돌아오기', '문이 닫히기 전까지 그 자리에 서 있는다.'),
+    return scene(school ? '아이의 첫 등교' : '아이가 집을 떠나는 날',
+      school ? '가방이 아이의 등을 다 덮었어요. 내 첫 가방도 저렇게 컸을까요?' : '현관에 아이가 챙긴 큰 가방이 놓여 있어요.', [
+      pick('child-sendoff', '함께 걸어가기', '새로 시작할 이야기를 들어요.', 'link', { bond: 5, joy: 3 }),
+      pick('child-note', '가방에 쪽지 넣기', '힘들면 언제든 돌아오라고 써요.', 'spark', { art: 4, bond: 3 }),
+      rest('손 흔들어 주기', '모습이 멀어질 때까지 바라봐요.'),
     ]);
   }
   return null;
 }
 
-function laterLife(life) {
+const HOME_NAMES = { rent: '월세집', lease: '전셋집', own: '내 집' };
+const LEASE_DEPOSIT = 36;
+
+function housing(life, path) {
   const age = life.age;
-  const path = pathOf(life);
-  if (age === 28) {
-    return scene('내가 살 자리를 고르는 날', '일터나 학교 가까이에 살지, 익숙한 집에서 오갈지 생각해 봐요. 집까지 가는 시간도 하루의 일부니까요.', [
-      pick('rent-room', '작은 집을 얻어 독립하기', '월세와 생활비를 계산하고 내가 살 공간을 꾸린다.', 'house', { money: -7, joy: 5, learning: 3 },
-        { after: '첫날에는 방이 생각보다 조용했어요. 늦은 밤에야 커튼을 사야 한다는 게 떠올랐어요.' }),
-      pick('share-home', '가까운 사람과 집을 나눠 쓰기', '각자가 쉬는 시간과 함께 맡을 일을 정한다.', 'link', { money: -3, bond: 6, joy: 2 }),
-      rest('지금 사는 곳에서 조금 더 지내기', '익숙한 집에서 하루를 보내며 다음에 쓸 자금을 모은다.', { money: 4, health: 2, joy: 2 }),
-    ]);
+  const home = path.home;
+  const first = !home && [23, 28].includes(age);
+  const buying = home?.kind !== 'own' && [33, 39, 47].includes(age);
+  const moving = [54, 68].includes(age);
+  if (!first && !buying && !moving) return null;
+  const refund = home?.deposit ?? 0;
+  const move = (id, title, detail, cost, kind, effect, after) =>
+    option(id, title, detail, 'house', { money: refund - cost, ...effect }, 'move', kind, after);
+  const choices = home?.kind === 'own' ? [
+    move('move-home', '다른 집으로 옮기기', '집을 바꿔 편한 곳으로 이사해요.', 16, 'own', { joy: 6, health: 3 }, '새 집에서 창문을 열었어요. 골목 소리가 예전과 달랐어요.'),
+    pick('fix-home', '지금 집 고치기', '오래 산 집을 더 편하게 만들어요.', 'house', { money: -9, joy: 4, health: 2 }),
+  ] : [
+    move('rent-room', home ? '월세집으로 이사하기' : '월세집 구하기',
+      refund ? '전세금을 돌려받아요. 해마다 집세 2코인을 내요.' : '먼저 이사비를 내고 해마다 집세 2코인을 내요.', 8, 'rent', { joy: 3, health: 2 },
+      '새 집의 첫날 밤엔 커튼을 달아야겠다는 생각이 났어요.'),
+    move('lease-home', home?.kind === 'lease' ? '다른 전셋집으로 옮기기' : '전셋집 구하기',
+      '맡겨 둔 돈은 이사할 때 돌려받아요.', LEASE_DEPOSIT + 4, 'lease', { joy: 5, health: 2 },
+      '처음 내 열쇠로 문을 열었어요.'),
+  ];
+  if (buying || (moving && home?.kind !== 'own')) {
+    choices.unshift(move('buy-home', '내 집 사기', refund ? '돌려받는 전세금을 집값에 보태요.' : '오래 모은 돈으로 집을 사요.', 80, 'own', { joy: 9, bond: 3 },
+      '처음으로 벽에 못을 박고, 오래 간직한 사진을 걸었어요.'));
   }
-  if (age === 45 || age === 54) {
-    const title = age === 45 ? '오랜만에 걸려 온 전화' : '오래 살던 집을 정리하는 날';
-    const detail = age === 45 ? '나를 기다려 주던 사람의 목소리가 전화 너머에서 예전보다 작게 들려요.' : '서랍에서 어릴 적 이름표와 한동안 잊고 있던 사진을 발견했어요.';
+  choices.push(rest('지금 집에서 지내기', '살던 곳에서 지내며 몸과 마음을 쉬게 해요.'));
+  return scene(first ? '처음 집 구하기' : moving ? '어디에서 지낼까?' : '내 집을 살까?',
+    first ? '내가 살 곳을 골라요.' : moving ? '일터나 가족 가까이 갈지 생각해요.' : '집값과 모아 둔 돈을 살펴봐요.', choices);
+}
+
+function laterLife(life, path) {
+  const age = life.age;
+  if (age === 45 || age === 53) {
+    const title = age === 45 ? '오랜만에 온 전화' : '옛날 사진을 찾은 날';
+    const detail = age === 45 ? '보고 싶었던 사람의 목소리가 들려요.' : '서랍에서 어릴 적 이름표와 사진을 찾았어요.';
     return scene(title, detail, [
-      pick('care-visit', '시간을 내어 찾아가기', '먼저 안부를 묻고 가까운 곳을 천천히 걷는다.', 'link', { bond: 7, joy: 3, money: -2 }, { after: '별다른 얘기는 없었어요. 나란히 앉아 있다는 게 생각보다 오래 남았어요.' }),
-      pick('care-record', '오래된 이야기를 글로 남기기', '다시 묻기 전에 지금 들을 수 있는 말을 적어 둔다.', 'spark', { art: 6, learning: 3, bond: 2 }),
-      rest('내가 할 수 있는 만큼 연락하기', '하루가 끝나기 전에 한 번 더 안부를 묻는다.'),
+      pick('care-visit', '찾아가서 안부 묻기', '함께 걷고 이야기를 나눠요.', 'link', { bond: 6, joy: 3, money: -2 }, { after: '별말 없이 나란히 앉았던 시간이 오래 남았어요.' }),
+      pick('care-record', '이야기 글로 남기기', '지금 듣는 말을 공책에 적어요.', 'spark', { art: 5, learning: 2, bond: 2 }),
+      rest('전화 한 통 더 하기', '어떻게 지내는지 물어요.'),
     ]);
   }
   if ([60, 65].includes(age) && life.career && path.retired === null) {
-    return scene('퇴근길에 바라본 일터', '누군가에게 처음 일을 배운 곳에서 이제 내가 누군가의 첫날을 보고 있어요.', [
-      option('retire', '일터에서 물러나 새 일상 시작하기', '정해진 출근 시간을 내려놓고 하루를 다시 꾸린다.', 'leaf', { health: 5, joy: 4 },
-        'retire', true, '마지막 날에는 문을 평소처럼 닫았어요. 돌아보니 켜진 불이 아직 환했어요.'),
-      pick('mentor-work', '일을 이어가며 후배에게 알려 주기', '내가 처음 듣고 싶었던 말부터 전해 본다.', 'book', { learning: 4, bond: 6, health: -2 }),
-      rest('근무와 쉼을 조정하기', '내가 잘할 수 있는 속도를 조금씩 찾는다.'),
+    return scene('일을 그만둘 때가 올까?', '처음 일을 배운 곳에서 이제는 내가 후배를 가르쳐요.', [
+      option('retire', '은퇴하기', '일을 그만두고 쉬는 시간을 늘려요.', 'leaf', { health: 4, joy: 4 },
+        'retire', true, '마지막 날 문을 평소처럼 닫았어요. 돌아보니 불이 아직 환했어요.'),
+      pick('mentor-work', '일하면서 후배 돕기', '처음 일을 배울 때 듣고 싶던 말을 해 줘요.', 'book', { learning: 3, bond: 5, health: -2 }),
+      rest('조금 천천히 일하기', '무리하지 않고 지금 일을 해요.'),
     ]);
   }
   if ([70, 82, 93].includes(age)) {
     const first = path.dreams.find((entry) => entry.field !== 'explore');
-    const detail = first ? `오래된 공책에 ${first.age}살 때 적은 ‘${fieldLabel(first.field)}’가 보여요. 그 글씨로 쓴 내 이름은 지금과 조금 달라요.`
-      : '예전에 쓰던 서랍에서 오래된 종이가 나왔어요. 그때의 내가 무엇을 기다렸는지 조금은 알 것 같아요.';
-    return scene('오래된 공책을 펼치는 저녁', detail, [
-      pick('memory-note', '지금의 내가 그때의 나에게 쓰기', '괜찮았던 일도 어려웠던 일도 한 줄씩 적는다.', 'spark', { art: 6, joy: 5 }, { after: '마지막에는 걱정했던 것만큼 혼자는 아니었다고 썼어요.' }),
-      pick('memory-share', '가까운 사람에게 보여 주기', '이미 알고 있다고 생각했던 이야기를 처음부터 들려준다.', 'link', { bond: 6, joy: 3 }),
-      rest('공책을 덮고 조용히 쉬기', '차가 식을 때까지 옛날을 조금 더 생각한다.'),
+    const detail = first ? `공책에 ${first.age}살의 꿈 ‘${fieldLabel(first.field)}’이 적혀 있어요.`
+      : '서랍에서 오래된 공책이 나왔어요.';
+    return scene('옛 공책을 펼친 저녁', detail, [
+      pick('memory-note', '어린 나에게 편지 쓰기', '좋았던 날과 힘들었던 날을 적어요.', 'spark', { art: 5, joy: 4 }, { after: '마지막엔 “생각보다 좋은 날이 많았어”라고 썼어요.' }),
+      pick('memory-share', '가까운 사람에게 보여 주기', '공책에 적힌 이야기를 들려줘요.', 'link', { bond: 5, joy: 3 }),
+      rest('공책 덮고 쉬기', '차가 식을 때까지 옛날을 생각해요.'),
     ]);
+  }
+  return null;
+}
+
+export function bonusScene(life, done) {
+  const age = life.age;
+  const path = pathOf(life);
+  if (path.illness && !done.includes('illness')) return { ...illnessCare(path), key: 'illness', fallback: 'rest' };
+  if ([10, 14, 17].includes(age) && !path.dreams.some((entry) => entry.age === age)) {
+    return { ...dreamSurvey(life), key: 'dream', fallback: 'rest' };
+  }
+  if (age === 16 && !path.school) return { ...highSchool(life), key: 'school', fallback: 'high-general' };
+  if (age === 18 && path.school === 'outside' && !path.diploma && !done.includes('education')) {
+    return { ...scene('검정고시를 볼까?', '이 시험을 통과하면 대학에도 지원할 수 있어요.', [
+      examChoice(), rest('조금 더 공부하기', '시험은 나중에 볼 수 있어요.', {}),
+    ]), key: 'education', fallback: 'rest' };
+  }
+  if (path.sex === 'male' && age >= 20 && age <= 28 && !done.includes('military') &&
+    (!path.service || (path.service.status === 'planned' && age >= path.service.at))) {
+    const entry = militaryPlan(life, path);
+    const fallback = entry.choices.find((choice) => choice.id === 'service-after-study')?.id ?? entry.choices.at(-1).id;
+    return { ...entry, key: 'military', fallback };
+  }
+  const continuing = path.program || path.service?.status === 'serving';
+  const planning = [19, 22, 26, 38, 50].includes(age) || path.degree?.age === age ||
+    path.diplomaAge === age - 1 || (!life.career && path.trainingAge === age) ||
+    (path.service?.endedAt === age && (!life.career || path.degree));
+  if (!continuing && planning && !done.includes('education')) {
+    const entry = educationPlan(life, path);
+    if (entry) return { ...entry, key: 'education', fallback: 'rest' };
   }
   return null;
 }
@@ -314,66 +399,75 @@ export function annualScene(life) {
   const age = life.age;
   const path = pathOf(life);
   if (age < CHILDHOOD.length) return CHILDHOOD[age];
-  if (SCHOOL_YEARS[age]) return SCHOOL_YEARS[age];
-  if ([10, 14, 17].includes(age)) return dreamSurvey(life);
-  if (age === 16) return highSchool(life);
-  if (age === 18) return path.school === 'outside'
-    ? scene('학교 밖에서 만든 시간표', '그동안 학교 밖에서 배운 게 있어요. 다음 기회에 필요한 자격도 알아볼 수 있어요.', [
-      examChoice(), pick('outside-portfolio', '작업과 기술을 기록하기', '그동안 혼자 해 본 일을 보여 줄 수 있게 정리한다.', 'settings', { learning: 4, art: 4 }), rest(),
-    ])
-    : scene('고교 마지막 해의 선택', '원서와 실습 기록, 친구들과의 약속이 한 책상 위에 있어요.', [
-      pick('high-applications', '입시와 전공 알아보기', '어떤 학과에서 내가 궁금한 것을 배울 수 있을지 찾는다.', 'book', { learning: 7, health: -2 }),
-      pick('high-portfolio', '실습과 포트폴리오에 집중하기', '일터나 학과에 보여 줄 내 손의 결과를 모은다.', 'settings', { learning: 4, art: 5 }),
-      rest('졸업 전 친구들과 추억 남기기', '계속 볼 줄 알았던 교실과 친구들을 조금 더 오래 본다.'),
+  if (age < 19) return schoolYear(life, path);
+  if (path.service?.status === 'serving') return serving(life, path);
+  if (path.program && (age === 19 || path.service?.endedAt === age)) return studying(life, path);
+  if (path.firstJobAge === age) {
+    return scene('일터에서 보낸 첫해', '새 일터에서 내 자리를 찾아요.', [
+      pick('work-learn', '일을 배우기', '모르는 것을 동료에게 물어요.', 'book', { learning: 5, bond: 2 }),
+      pick('work-more', '일을 더 맡아 저축하기', '바쁘지만 돈을 더 모아요.', 'coin', { money: 8, health: -3 }),
+      rest('퇴근 뒤 시간 챙기기', '일이 끝나면 몸과 마음을 쉬게 해요.'),
     ]);
-  if (age === 19) return afterSchool(life);
-  if (path.sex === 'male' && age >= 20 && (
-    path.service?.status === 'serving'
-    || (age <= 28 && (!path.service || (path.service.status === 'planned' && age >= path.service.at)))
-  )) return militaryScene(life);
-  if (path.service?.endedAt === age && !life.career && !path.program) return path.degree ? retrain(life, true) : afterSchool(life, true);
-  if (path.degree?.age === age) return retrain(life);
-  const relationship = relationships(life);
-  if (relationship) return relationship;
-  if (path.program) return studying(life);
-  if ([22, 26, 38, 50].includes(age)) return retrain(life);
-  return laterLife(life);
+  }
+  return relationships(life) ?? housing(life, path) ?? (path.program ? studying(life, path) : laterLife(life, path));
 }
 
-export function applyPath(life, previousAge, choice) {
+export function applyPath(life, age, choice) {
   const path = life.path ??= newPath();
   const action = choice.action;
-  const text = [choice.after];
   switch (action?.kind) {
-    case 'dream': path.dreams.push({ age: previousAge, field: action.value }); break;
+    case 'dream': path.dreams.push({ age, field: action.value }); break;
     case 'school': path.school = action.value; break;
-    case 'diploma': path.diploma = true; break;
+    case 'diploma':
+      path.diploma = true;
+      path.diplomaAge = age;
+      break;
     case 'study':
-      path.program = { kind: action.value, field: mostRecentDream(path), until: previousAge + PROGRAMS[action.value].years };
+      path.program = { kind: action.value, field: mostRecentDream(path), remaining: PROGRAMS[action.value].years };
       break;
     case 'service':
-      if (action.value === 'start') {
-        path.service = { status: 'serving', until: previousAge + 2 };
-        if (path.program) path.program.until += 2;
-      } else path.service = { status: 'planned', at: action.value };
+      path.service = action.value === 'start' ? { status: 'serving', until: age + 2 } : { status: 'planned', at: action.value };
       break;
-    case 'partner': path.partner = action.value === 'start' ? previousAge : null; break;
-    case 'marry': path.married = previousAge; break;
-    case 'child': path.children.push(previousAge); break;
-    case 'retire': path.retired = previousAge; break;
+    case 'partner': path.partner = action.value === 'start' ? age : null; break;
+    case 'marry': path.married = age; break;
+    case 'child': path.children.push(age); break;
+    case 'retire': path.retired = age; break;
+    case 'move':
+      path.home = { kind: action.value, at: age, deposit: action.value === 'lease' ? LEASE_DEPOSIT : 0 };
+      break;
+    case 'care': return [choice.after, finishCare(path, age, action.value)].filter(Boolean).join(' ');
   }
-  if (path.service?.status === 'serving' && life.age >= path.service.until) {
+  return choice.after ?? '';
+}
+
+export function advancePath(life) {
+  const path = life.path;
+  if (path.service?.status === 'serving') {
+    if (life.age < path.service.until) return '';
     path.service = { status: 'complete', endedAt: life.age };
-    text.push('복무를 마쳤어요. 문을 열고 나오니 바람이 여느 날과 같았고, 내 시간은 다시 내 것이었어요.');
+    return path.program ? '복무를 마쳤어요. 다니던 학교로 돌아가요.' : '복무를 마치고 집으로 돌아와요.';
   }
-  if (path.program && life.age >= path.program.until) {
-    const { kind, field } = path.program;
-    if (kind === 'training') path.training = true;
-    else path.degree = { kind, field, age: life.age };
-    text.push(`${PROGRAMS[kind].degree} 과정을 마쳤어요. 처음 갈 때 맸던 가방은 이제 많이 해졌어요.`);
-    path.program = null;
+  if (!path.program) return '';
+  path.program.remaining -= 1;
+  if (path.program.remaining > 0) return '';
+  const { kind, field } = path.program;
+  if (kind === 'training') {
+    path.training = true;
+    path.trainingAge = life.age;
+  } else path.degree = { kind, field, age: life.age };
+  path.program = null;
+  return kind === 'training' ? '기술을 배우는 과정을 마쳤어요.' : `${PROGRAMS[kind].label}을 마쳤어요. 처음 메던 가방이 많이 해졌어요.`;
+}
+
+export function updateLifePath(life) {
+  const path = life.path ??= newPath();
+  const program = path.program;
+  if (program && !Number.isInteger(program.remaining)) {
+    const leave = path.service?.status === 'serving' ? Math.max(0, path.service.until - life.age) : 0;
+    program.remaining = Math.max(1, Math.min(PROGRAMS[program.kind].years, program.until - life.age - leave));
+    delete program.until;
   }
-  return text.filter(Boolean).join(' ');
+  for (const stat of Object.keys(life.stats)) life.stats[stat] = Math.max(1, life.stats[stat]);
 }
 
 export function chanceDiscount(life, career, stat) {
@@ -391,9 +485,11 @@ export function lifeBadges(life) {
   return [
     SEXES[path.sex],
     life.age < 19 && SCHOOLS[path.school],
-    path.program && path.service?.status !== 'serving' && PROGRAMS[path.program.kind].label + '에서 배우는 중',
+    path.program && `${PROGRAMS[path.program.kind].label} · ${path.program.remaining}년 남음`,
     path.service?.status === 'serving' && '복무 중',
     path.retired !== null ? '은퇴' : CAREERS[life.career]?.title,
+    path.home && HOME_NAMES[path.home.kind],
+    path.illness && '치료 중',
   ].filter(Boolean);
 }
 
@@ -403,9 +499,10 @@ export function pathNotes(life) {
     ...path.dreams.map(({ age, field }) => `${age}살 희망 · ${fieldLabel(field)}`),
     path.school && SCHOOLS[path.school],
     path.diploma && '고졸 검정고시',
-    path.degree && PROGRAMS[path.degree.kind].degree,
+    path.degree && `${path.degree.age}살에 ${PROGRAMS[path.degree.kind].label} 마침`,
     path.training && '직업훈련 수료',
-    path.service?.status === 'complete' && '복무 마침',
+    path.service?.status === 'complete' && `${path.service.endedAt}살에 복무 마침`,
+    path.home && `${path.home.at}살에 ${HOME_NAMES[path.home.kind]}`,
     path.married !== null && `${path.married}살에 결혼`,
     ...path.children.map((age) => `${age}살에 아이를 맞이함`),
   ].filter(Boolean);

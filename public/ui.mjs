@@ -59,7 +59,6 @@ export function changes(effect = {}) {
 export function statGrid(stats) {
   return `<div class="stat-grid">${Object.entries(STATS).map(([key, item]) => `<div class="stat-tile ${item.color}">
     <span class="stat-label">${icon(item.mark)} ${item.label}</span>
-    <strong>${numeral(stats[key])}${item.unit ? ` <small>${item.unit}</small>` : ''}</strong>
-    ${key === 'money' ? '' : `<span class="stat-bar"><i style="width:${stats[key]}%"></i></span>`}
+    <strong>${numeral(stats[key])} <small>${item.unit ?? '점'}</small></strong>
   </div>`).join('')}</div>`;
 }

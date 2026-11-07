@@ -83,9 +83,12 @@ function render() {
     headerKey = key;
   }
   const focused = document.activeElement?.dataset.focus;
+  const openedResult = main.querySelector('.latest[open]')?.dataset.result;
   main.innerHTML = state ? roomView(session, state, { pane, rank, offline }) :
     homeView(invitedCode, selectedAvatar, { player: read(localStorage, lastKey('player')), host: read(localStorage, lastKey('host')) });
   if (focused) main.querySelector(`[data-focus="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
+  const nextResult = main.querySelector('details.latest');
+  if (nextResult && nextResult.dataset.result === openedResult) nextResult.open = true;
   updateClock();
 }
 
@@ -104,10 +107,18 @@ function updateClock() {
 
 function accept(next, expected = session) {
   if (!next || expected !== session || (state && next.revision < state.revision)) return;
+  const newChoice = state?.me?.scene && next.me?.scene &&
+    (state.turn.number !== next.turn.number || state.me.scene.key !== next.me.scene.key);
+  const played = document.activeElement?.dataset.action === 'choose';
   clockOffset = next.serverNow - Date.now();
   state = next;
   offline = false;
   render();
+  if (newChoice && pane === 'play' && !dialog.open && !next.paused) {
+    const story = main.querySelector('.story-panel');
+    if (story?.getBoundingClientRect().top < 0) story.scrollIntoView({ block: 'start' });
+    if (played) story?.querySelector('h2')?.focus({ preventScroll: true });
+  }
 }
 
 function activate(nextSession, nextState) {
@@ -218,11 +229,11 @@ function confirmation(title, text, action, id = '') {
 }
 
 function help() {
-  modal('100년 플레이 안내', `<ol class="help-list">
-    <li><b>태어날 캐릭터를 골라요.</b><p>교사가 방을 만들면 학생은 6자리 코드, 별명, 캐릭터 성별로 참가해요. 한 방에 최대 20명이 함께할 수 있어요.</p></li>
-    <li><b>해마다 한 번 골라요.</b><p>한 턴에 1년이 지나요. 학교에서 적은 장래희망은 전공과 일자리에 영향을 줘요. 진학과 일, 관계는 나이와 지나온 선택에 맞춰 나타나요. 병역은 남자 캐릭터의 청년기 이야기에서 만나요.</p></li>
-    <li><b>새 세대를 만나거나 기억을 돌아봐요.</b><p>목표 나이에 이르거나 노년기에 체력이 다하면 한 삶의 기록을 덮어요. 다음 세대의 19살부터 이어가거나 영혼으로 남아 가족의 꿈과 기억이 있는 곳에 들를 수 있어요.</p></li>
-    <li><b>친구들의 기록을 읽어요.</b><p>친구들 메뉴에서 서로 다른 삶을 보고, 순위에서 자금·행복·장수 등 여러 분야를 비교해요. 선생님이 반의 마지막 장을 정해요.</p></li>
+  modal('100년 게임 안내', `<ol class="help-list">
+    <li><b>캐릭터를 골라요.</b><p>선생님에게 받은 6자리 코드로 들어가요. 한 방에 20명까지 함께해요.</p></li>
+    <li><b>한 해에 한 가지를 골라요.</b><p>모두 고르거나 시간이 끝나면 다음 해로 가요. 장래희망, 진학, 치료는 같은 나이에 한 번 더 골라요.</p></li>
+    <li><b>나이가 들면 다음 이야기를 골라요.</b><p>한 삶을 마치면 다음 세대로 이어 살거나 영혼이 되어 가족의 꿈과 살던 곳에 들러요.</p></li>
+    <li><b>친구들과 이야기를 나눠요.</b><p>친구들 메뉴에서 기록을 읽어요. 순위에서는 자금, 행복, 오래 산 나이 등을 볼 수 있어요.</p></li>
   </ol>`);
 }
 
@@ -286,7 +297,7 @@ function practiceSetup() {
 
 function startPractice(sex) {
   const now = Date.now();
-  practice = newRoom({ code: 'DEMO', seed: 'a-sunny-village', name: '혼자 체험', hostKey: null, settings: { seconds: 0 }, now });
+  practice = newRoom({ code: 'DEMO', seed: String(now), name: '혼자 체험', hostKey: null, settings: { seconds: 0 }, now });
   addPlayer(practice, { id: 'me', name: '나', avatar: selectedAvatar, sex });
   addPlayer(practice, { id: 'art', name: '노을', avatar: 3, sex: 'female' });
   addPlayer(practice, { id: 'money', name: '마루', avatar: 4, sex: 'male' });
@@ -303,13 +314,15 @@ function updatePractice() {
 function practiceChoice(id) {
   const now = Date.now();
   const round = practice.turn.number;
-  selectChoice(practice, 'me', { round, choice: id }, now);
+  selectChoice(practice, 'me', { round, scene: state.me.scene.key, choice: id }, now);
   for (const friend of practice.players.slice(1)) {
-    const { scene } = stateFor(practice, friend.id, now).me;
-    const options = scene.choices.filter((option) => !option.locked);
-    const pick = options.sort((left, right) => (right.effect[friend.id] ?? 0) - (left.effect[friend.id] ?? 0))[0];
-    const choice = friend.mode === 'fork' && friend.id === 'art' ? 'spirit' : pick.id;
-    selectChoice(practice, friend.id, { round, choice }, now);
+    while (practice.turn.number === round && !friend.choice) {
+      const { scene } = stateFor(practice, friend.id, now).me;
+      const options = scene.choices.filter((option) => !option.locked);
+      const best = options.sort((left, right) => (right.effect[friend.id] ?? 0) - (left.effect[friend.id] ?? 0))[0];
+      const choice = friend.mode === 'fork' && friend.id === 'art' ? 'spirit' : best.id;
+      selectChoice(practice, friend.id, { round, scene: scene.key, choice }, now);
+    }
   }
   updatePractice();
 }
@@ -336,15 +349,11 @@ document.addEventListener('click', (event) => {
       for (const item of document.querySelectorAll('.avatar-pick')) item.setAttribute('aria-pressed', String(item === target));
       break;
     case 'practice': practiceSetup(); break;
-    case 'practice-next':
-      teacherAction(practice, 'advance', { round: practice.turn.number, phase: 'review' }, Date.now());
-      updatePractice();
-      break;
     case 'pane': pane = id; render(); break;
     case 'rank-filter': rank = id; render(); break;
     case 'profile': void run(() => showProfile(id)); break;
     case 'generation': showGeneration(Number(index)); break;
-    case 'choose': void run(() => practice ? practiceChoice(id) : sendRoom('choice', { round: state.turn.number, choice: id })); break;
+    case 'choose': void run(() => practice ? practiceChoice(id) : sendRoom('choice', { round: state.turn.number, scene: state.me.scene.key, choice: id })); break;
     case 'start':
     case 'advance':
     case 'pause':

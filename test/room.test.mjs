@@ -50,8 +50,8 @@ async function fixture(t) {
         assert.equal(result.status, 200, JSON.stringify(result.body));
         return result.body;
       },
-      async choose(player, round, choice) {
-        return request(root + '/choice', player.session.token, { round, choice });
+      async choose(player, round, choice, scene) {
+        return request(root + '/choice', player.session.token, { round, choice, scene });
       },
     };
   }
@@ -62,7 +62,7 @@ async function fixture(t) {
 test('20명이 동시에 선택하면 한 턴만 마감하고 서버 재시작 뒤에도 이어진다', async (t) => {
   const app = await fixture(t);
   assert.equal((await app.request('/api/rooms', null, { name: '교실', pin: 'incorrect' })).status, 403);
-  const room = await app.room({ seconds: 0 });
+  const room = await app.room({ seconds: 10 });
   const joined = await Promise.all(Array.from({ length: 20 }, (_, index) => room.join(`학생 ${index + 1}`)));
   assert.ok(joined.every(({ status }) => status === 201));
   const players = joined.map(({ body }) => body);
@@ -75,9 +75,11 @@ test('20명이 동시에 선택하면 한 턴만 마감하고 서버 재시작 �
 
   const results = await Promise.all(players.map((player) => room.choose(player, 1, 'rest')));
   assert.ok(results.every(({ status }) => status === 200));
-  assert.equal(results.filter(({ body }) => body.phase === 'review').length, 1);
+  assert.equal(results.filter(({ body }) => body.turn.number === 2).length, 1);
   assert.equal((await room.choose(players[0], 1, 'rest')).status, 409);
   const reviewed = await room.state(players[0].session.token);
+  assert.equal(reviewed.phase, 'play');
+  assert.equal(reviewed.me.scene.title, '첫걸음');
   assert.equal(reviewed.year, 1);
   assert.equal(reviewed.me.age, 1);
   assert.equal(reviewed.me.life.history.length, 1);
@@ -87,16 +89,36 @@ test('20명이 동시에 선택하면 한 턴만 마감하고 서버 재시작 �
   await app.restart();
   app.elapse(30_000);
   const paused = await room.state();
-  assert.equal(paused.phase, 'review');
+  assert.equal(paused.phase, 'play');
+  assert.equal(paused.turn.number, 2);
   assert.equal(paused.paused, true);
-  await room.teacher('settings', { settings: { years: 5, maxAge: 110 } });
+  await room.teacher('settings', { settings: { years: 5, maxAge: 110, seconds: 0 } });
   await room.teacher('resume');
-  app.elapse(6001);
+  app.elapse(10_001);
   const next = await room.state();
-  assert.equal(next.turn.number, 2);
-  assert.equal(next.turn.to, 2);
+  assert.equal(next.turn.number, 3);
+  assert.equal(next.turn.to, 3);
+  assert.equal(next.turn.deadline, null);
   assert.equal(next.settings.years, 1);
   assert.equal(next.settings.maxAge, 100);
+
+  let school = next;
+  while (school.year < 10) school = await room.teacher('advance', { round: school.turn.number, phase: 'play' });
+  const schoolRound = school.turn.number;
+  const surveys = await Promise.all(players.map(async (player) => {
+    let { me } = await room.state(player.session.token);
+    if (me.scene.key === 'illness') {
+      const rested = await room.choose(player, schoolRound, me.scene.fallback, me.scene.key);
+      assert.equal(rested.status, 200);
+      me = rested.body.me;
+    }
+    assert.equal(me.scene.key, 'dream');
+    return room.choose(player, schoolRound, 'dream-art', me.scene.key);
+  }));
+  assert.ok(surveys.every(({ status, body }) => status === 200 && body.year === 10 && !body.me.submitted &&
+    body.me.age === 10 && body.me.scene.title === '우리 반 작은 전시'));
+  const schoolYears = await Promise.all(players.map((player) => room.choose(player, schoolRound, 'rest', 'year')));
+  assert.equal(schoolYears.filter(({ body }) => body.year === 11).length, 1);
 });
 
 test('수명에 도달한 두 플레이어가 자녀와 영혼으로 갈라지고 기록이 남는다', async (t) => {
@@ -109,19 +131,26 @@ test('수명에 도달한 두 플레이어가 자녀와 영혼으로 갈라지�
   async function advance(choices) {
     const state = await room.state();
     await Promise.all([child, spirit].map(async (player, index) => {
-      const me = (await room.state(player.session.token)).me;
-      const result = await room.choose(player, state.turn.number, choices(me, index));
+      let { me } = await room.state(player.session.token);
+      while (me.scene.bonus) {
+        const choice = me.age === 19 && me.scene.key === 'education' ? 'work-staff' : me.scene.fallback;
+        const selected = await room.choose(player, state.turn.number, choice, me.scene.key);
+        assert.equal(selected.status, 200, JSON.stringify(selected.body));
+        assert.equal(selected.body.me.age, me.age);
+        me = selected.body.me;
+      }
+      const result = await room.choose(player, state.turn.number, choices(me, index), me.scene.key);
       assert.equal(result.status, 200, JSON.stringify(result.body));
     }));
-    const review = await room.teacher('advance', { round: state.turn.number, phase: 'play' });
-    assert.equal(review.phase, 'review');
-    await room.teacher('advance', { round: state.turn.number, phase: 'review' });
+    const next = await room.teacher('advance', { round: state.turn.number, phase: 'play' });
+    assert.equal(next.phase, 'play');
+    assert.equal(next.turn.number, state.turn.number + 1);
   }
 
   for (let age = 0; age < 80; age++) {
     await advance((me) => {
       const options = me.scene.choices.filter((item) => !item.locked);
-      return age === 19 ? 'work-staff' : (options.find((item) => item.id === 'rest') ?? options[0]).id;
+      return (options.find((item) => item.id === 'rest') ?? options[0]).id;
     });
   }
   const fork = (await room.state(spirit.session.token)).me;

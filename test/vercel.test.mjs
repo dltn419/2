@@ -47,10 +47,11 @@ test('PostgreSQL에 연결한 두 요청 처리기에서 20명이 방과 턴을 
     token: data.session.token, body: { round: 1, choice: 'rest' },
   })));
   assert.ok(submissions.every((result) => result.status === 200), JSON.stringify(submissions.map((result) => result.status)));
-  assert.equal(submissions.filter(({ data }) => data.phase === 'review').length, 1);
+  assert.equal(submissions.filter(({ data }) => data.turn.number === 2).length, 1);
 
   const { data: { me } } = await request(students, room, { token: joined[0].data.session.token });
   assert.equal(me.age, 1);
+  assert.equal(me.scene.title, '첫걸음');
   assert.equal(me.life.history.length, 1);
   const saved = await request(students, room, { token });
   assert.equal(saved.data.rankings.age.length, 20);
