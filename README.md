@@ -37,7 +37,7 @@ npm start
 ### Vercel 설정
 
 1. Vercel에서 이 저장소를 프로젝트로 가져옵니다. `vercel.json`이 화면과 게임 API를 배포합니다.
-2. 프로젝트의 **Storage**에서 **Neon**을 연결합니다. 새 데이터베이스라면 **Free**와 **Tokyo** 리전을 선택하고 **Production**에 연결합니다. Tokyo는 이 저장소의 Vercel Functions 실행 리전과 같습니다. [Neon 연동 안내](https://vercel.com/marketplace/neon)
+2. 프로젝트의 **Storage**에서 **Neon**을 연결합니다. 새 데이터베이스는 **Free**에서 선택 가능한 리전에 만들고 **Production**에 연결합니다. Vercel 프로젝트의 Functions 리전은 데이터베이스와 가까운 곳을 선택합니다. [Neon 연동 안내](https://vercel.com/marketplace/neon)
 3. 프로젝트의 **Settings → Environment Variables**에서 Production용 `HOST_PIN`을 설정합니다. 방을 만드는 교사가 입력할 비밀번호입니다. Neon을 연결하면 `DATABASE_URL`이 환경 변수에 자동으로 추가됩니다.
 4. 다시 배포한 뒤 공개 주소의 `/api/health`에서 `{"status":"ok"}`를 확인합니다. 앱은 전용 방 테이블을 자동으로 만듭니다. 교사는 프로덕션 주소에서 방을 만들고 학생들에게 참가 링크를 공유합니다.
 
