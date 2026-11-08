@@ -1,4 +1,4 @@
-import { CAREERS, pick } from './content.mjs';
+import { CAREERS, HABITS, pick } from './content.mjs';
 import { finishCare, illnessCare } from './health.mjs';
 
 export const SEXES = { male: '남자', female: '여자' };
@@ -21,7 +21,7 @@ const PROGRAMS = {
 
 export function newPath(sex = null) {
   return { sex, dreams: [], school: null, diploma: false, program: null, degree: null, training: false,
-    service: null, partner: null, married: null, children: [], retired: null, home: null, illness: null, recoveredAt: null };
+    service: null, partner: null, married: null, children: [], retired: null, home: null, illness: null, recoveredAt: null, habit: null };
 }
 
 const EMPTY_PATH = newPath();
@@ -279,8 +279,9 @@ function relationships(life) {
         'partner', 'end', '헤어지고도 그 사람이 집에 잘 닿았으면 했어요.'),
     ]);
   }
-  if (path.partner !== null && path.children.length < 2 && age - (path.children.at(-1) ?? path.partner) >= 2 && [31, 34, 37, 40].includes(age)) {
-    return scene('새 식구를 맞이할까?', '아이를 키운다면 돌봄을 어떻게 나눌지 생각해요.', [
+  if (path.married !== null && path.children.length < 2 && [31, 34, 37, 40].includes(age) &&
+    age - Math.max(path.married, path.children.at(-1) ?? path.married) >= 2) {
+    return scene('새 식구를 맞이할까?', '배우자와 아이를 돌볼 시간과 돈을 생각해요.', [
       option('have-child', '아이를 맞이하기', '태어날 아이를 위해 시간과 돈을 준비해요.', 'sprout', { money: -9, health: -3, bond: 6, joy: 5 },
         'child', true, '작은 손에 내 손가락을 쥐여 줬어요. 누군가도 처음에 내게 그랬겠지요.'),
       pick('later-family', '조금 더 기다리기', '지금 필요한 준비를 이야기해요.', 'clock', { health: 2, bond: 3 }),
@@ -318,7 +319,8 @@ function housing(life, path) {
     pick('fix-home', '지금 집 고치기', '오래 산 집을 더 편하게 만들어요.', 'house', { money: -9, joy: 4, health: 2 }),
   ] : [
     move('rent-room', home ? '월세집으로 이사하기' : '월세집 구하기',
-      refund ? '전세금을 돌려받아요. 해마다 집세 2코인을 내요.' : '먼저 이사비를 내고 해마다 집세 2코인을 내요.', 8, 'rent', { joy: 3, health: 2 },
+      home?.kind === 'rent' ? '이사 뒤에도 해마다 월세 2코인을 내요.' :
+        refund ? '전세금을 돌려받고 월세집으로 옮겨요.' : '처음에 이사비를 내고 해마다 월세를 내요.', 8, 'rent', { joy: 3, health: 2 },
       '새 집의 첫날 밤엔 커튼을 달아야겠다는 생각이 났어요.'),
     move('lease-home', home?.kind === 'lease' ? '다른 전셋집으로 옮기기' : '전셋집 구하기',
       '맡겨 둔 돈은 이사할 때 돌려받아요.', LEASE_DEPOSIT + 4, 'lease', { joy: 5, health: 2 },
@@ -414,6 +416,7 @@ export function annualScene(life) {
 
 export function applyPath(life, age, choice) {
   const path = life.path ??= newPath();
+  if (choice.habit) path.habit = { kind: choice.habit, until: age + 1 + HABITS[choice.habit].years };
   const action = choice.action;
   switch (action?.kind) {
     case 'dream': path.dreams.push({ age, field: action.value }); break;
@@ -442,6 +445,7 @@ export function applyPath(life, age, choice) {
 
 export function advancePath(life) {
   const path = life.path;
+  if (path.habit && life.age >= path.habit.until) path.habit = null;
   if (path.service?.status === 'serving') {
     if (life.age < path.service.until) return '';
     path.service = { status: 'complete', endedAt: life.age };
@@ -457,6 +461,45 @@ export function advancePath(life) {
   } else path.degree = { kind, field, age: life.age };
   path.program = null;
   return kind === 'training' ? '기술을 배우는 과정을 마쳤어요.' : `${PROGRAMS[kind].label}을 마쳤어요. 처음 메던 가방이 많이 해졌어요.`;
+}
+
+export function yearlySources(life) {
+  const { age } = life;
+  const path = pathOf(life);
+  const serving = path.service?.status === 'serving';
+  const career = CAREERS[life.career];
+  const sources = [];
+  if (serving) {
+    sources.push({ id: 'service', label: '복무 중 받는 돈', years: path.service.until - age, effect: { money: 1 } });
+  } else if (path.retired !== null) {
+    sources.push({ id: 'pension', label: '은퇴 뒤 받는 돈', effect: { money: 1 } });
+  } else if (career) {
+    sources.push({ id: `job-${life.career}`, label: `${career.title} 수입${career.fatigue ? '과 피로' : ''}`, term: '일하는 동안',
+      effect: { money: career.wage, ...(career.fatigue ? { health: -career.fatigue } : {}) } });
+  }
+  if (!serving && path.program) {
+    const { kind, remaining } = path.program;
+    sources.push({ id: `study-${kind}`, label: `${PROGRAMS[kind].label}에서 배우기`, years: remaining,
+      effect: { learning: kind === 'graduate' ? 2 : 1 } });
+  }
+  if (path.home?.kind === 'rent') {
+    sources.push({ id: 'rent', label: '월세', term: '이 집에 사는 동안', effect: { money: -2 } });
+  }
+  if (path.married !== null) sources.push({ id: 'married', label: '배우자와 지내기', effect: { bond: 1 } });
+  for (const [index, born] of path.children.entries()) {
+    if (age - born >= 19) continue;
+    sources.push({ id: `child-${index}`, label: index === 0 ? '첫째 돌봄' : '둘째 돌봄', term: '아이가 19살 되기 전까지',
+      effect: { money: -2, bond: 1 } });
+  }
+  if (path.habit && age < path.habit.until) {
+    const { kind, until } = path.habit;
+    const { label, effect } = HABITS[kind];
+    sources.push({ id: `habit-${kind}`, label, years: until - age, effect });
+  }
+  const aging = age >= 82 ? -3 : age >= 70 ? -2 : age >= 55 || (age >= 42 && age % 2 === 0) ? -1 : 0;
+  if (aging) sources.push({ id: 'aging', label: '나이가 들며', effect: { health: aging } });
+  if (path.illness?.serious) sources.push({ id: 'illness', label: '큰 병으로 지침', term: '치료하는 동안', effect: { health: -2 } });
+  return sources;
 }
 
 export function updateLifePath(life) {

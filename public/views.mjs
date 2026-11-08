@@ -104,6 +104,21 @@ function lifeStage(life, stage) {
   return stage.label;
 }
 
+function villageCast(me) {
+  const path = pathOf(me.life);
+  const member = (label, image, role) =>
+    `<span class="village-person ${role}">${image}<span class="village-person-label">${h(label)}</span></span>`;
+  const family = [member('나', avatar(me.avatar, me.mode), 'village-self')];
+  if (path.married !== null) family.push(member('배우자', avatar((me.avatar + 3) % AVATARS.length), 'village-spouse'));
+  for (const [index, born] of path.children.entries()) {
+    const age = Math.max(0, me.age - born);
+    const label = `${index === 0 ? '첫째' : '둘째'} · ${age}살`;
+    const role = age < 7 ? 'village-young' : age < 19 ? 'village-child' : 'village-grown';
+    family.push(member(label, avatar((me.avatar + 1 + 3 * index) % AVATARS.length), role));
+  }
+  return `<div class="village-cast" role="group" aria-label="${family.length > 1 ? '마을의 나와 가족' : '마을의 내 캐릭터'}">${family.join('')}</div>`;
+}
+
 function roomHero(session, state) {
   const teacher = session.role === 'host';
   const me = state.me;
@@ -112,15 +127,18 @@ function roomHero(session, state) {
   const sub = teacher ? h(state.name) : state.phase === 'lobby' ? h(state.name) :
     me.mode === 'alive' ? lifeStage(me.life, stage) : MODES[me.mode];
   const heroTone = me?.mode === 'spirit' ? 'spirit-hero' : '';
-  return `<section class="room-hero ${heroTone}">
+  return `<section class="room-hero ${teacher ? '' : 'player-hero'} ${heroTone}">
     <div class="room-hero-main">
       <div class="eyebrow"><i class="status-dot"></i> ${session.role === 'demo' ? '혼자 체험' : `ROOM ${state.code}`} <span class="sep">/</span> ${phaseLabel(state)}</div>
-      <div class="room-title">${teacher ? `<span class="tile-icon mint">${icon('board')}</span>` : avatar(me.avatar, me.mode)}
+      <div class="room-title">${teacher ? `<span class="tile-icon mint">${icon('board')}</span>` : ''}
         <div><h1>${title}</h1><p>${sub}</p></div>
       </div>
       ${teacher || state.phase === 'lobby' ? '' : `<div class="life-chips"><span>${me.generation}대</span><span>${me.age}살</span>${lifeBadges(me.life).map((badge) => `<span>${h(badge)}</span>`).join('')}</div>`}
     </div>
-    <div class="room-hero-art"><img src="/art/village.svg" alt="" width="384" height="218"><span>${icon('sun')} ${state.phase === 'lobby' ? '새 이야기' : `마을 ${state.year}년차`}</span></div>
+    <div class="room-hero-art"><img src="/art/village.svg" alt="" width="384" height="218">
+      <span class="village-year">${icon('sun')} ${state.phase === 'lobby' ? '새 이야기' : `마을 ${state.year}년차`}</span>
+      ${teacher ? '' : villageCast(me)}
+    </div>
   </section>`;
 }
 
@@ -185,7 +203,32 @@ function roundMeta(state) {
   </div>`;
 }
 
-function choiceCard(option, me) {
+function sourceLine(source) {
+  const term = source.years ? `${source.years}년 동안` : source.term;
+  return `<span class="effect-row"><span class="effect-caption">${h(source.label)}${term ? ` <small>${h(term)}</small>` : ''}</span>
+    <span class="delta-list">${changes(source.effect)}</span></span>`;
+}
+
+function recurringView(option, bonus) {
+  if (!option.recurring) return '';
+  const { starts, stops } = option.recurring;
+  const when = bonus ? '올해부터' : '다음 해부터';
+  const end = option.action?.kind === 'service' ? '복무 중 잠시 멈춰요' : `${when} 끝나요`;
+  return `<span class="choice-recurring">
+    ${starts.length ? `<span class="effect-label">${icon('clock')} ${when} 매년</span>${starts.map(sourceLine).join('')}` : ''}
+    ${stops.length ? `<span class="effect-stop"><b>${end}</b> <span>${stops.map(h).join(' · ')}</span></span>` : ''}
+  </span>`;
+}
+
+function yearlyView(scene) {
+  if (!scene.yearly?.length) return '';
+  return `<details class="year-effects">
+    <summary data-focus="year-effects"><strong>올해 자동 변화</strong><span class="delta-list">${changes(scene.base) || '<span>합계 변화 없음</span>'}</span></summary>
+    <div class="year-effect-rows">${scene.yearly.map(sourceLine).join('')}</div>
+  </details>`;
+}
+
+function choiceCard(option, me, bonus) {
   const locked = Boolean(option.locked);
   const picked = me.choice === option.id;
   const tone = ({ heart: 'rose', book: 'blue', coin: 'amber', sun: 'lime', spark: 'plum', ghost: 'plum', flower: 'plum', house: 'amber' })[option.mark] ?? 'mint';
@@ -196,7 +239,9 @@ function choiceCard(option, me) {
       <strong>${h(option.title)}</strong>
       <span class="choice-tag" aria-hidden="true">${icon(locked ? 'lock' : picked ? 'check' : option.opportunity ? 'spark' : 'arrow')}</span></span>
     <span class="choice-detail">${h(option.detail)}</span>
-    ${locked || effect ? `<span class="choice-bottom">${effect}${locked ? `<span class="requirement">${h(option.locked)}</span>` : ''}</span>` : ''}
+    ${effect ? `<span class="choice-bottom"><span class="effect-once">이번에 한 번</span>${effect}</span>` : ''}
+    ${recurringView(option, bonus)}
+    ${locked ? `<span class="requirement">${h(option.locked)}</span>` : ''}
   </button>`;
 }
 
@@ -233,17 +278,16 @@ function playerView(session, state, rank) {
     body = `${roundMeta(state)}<div class="empty paused">${icon('pause')}<strong>잠시 쉬어요</strong><span>선생님이 시작하면 계속 골라요.</span></div>`;
   } else {
     const { scene } = me;
-    const base = changes(scene.base);
     const waiting = state.turn.auto ? '골랐어요. 친구들을 기다려요.' : '골랐어요. 선생님이 마감하면 다음 해로 가요.';
     body = `${roundMeta(state)}
       ${scene.bonus ? '<p class="extra-label">추가 선택 <span>지금 나이 그대로</span></p>' : ''}
       <h2 tabindex="-1">${h(scene.title)}</h2><p class="subtle scene-detail">${h(scene.detail)}</p>
       ${me.mode === 'fork' && me.life.end ? `<p class="fork-note">${icon('book')} ${h(me.life.end.note)}</p>` : ''}
-      <div class="choice-grid">${scene.choices.map((item) => choiceCard(item, me)).join('')}</div>
+      <div class="choice-grid">${scene.choices.map((item) => choiceCard(item, me, scene.bonus)).join('')}</div>
       <div class="choice-footer"><span>${scene.bonus ? '고르면 같은 나이의 이야기가 이어져요.' :
         me.choice ? waiting : session.role === 'demo' ? '고르면 바로 다음 해로 가요.' : '하나를 눌러 골라요.'}</span>
         ${me.mode !== 'alive' ? button('choose', me.choice === 'pass' ? '기다리기를 골랐어요' : '이번엔 기다리기', 'clock', 'quiet', 'data-id="pass"') : ''}</div>
-      ${base ? `<div class="year-effects"><span>올해 기본 변화</span><div class="delta-list">${base}</div></div>` : ''}
+      ${yearlyView(scene)}
       ${session.role === 'demo' ? '' : `<div class="submission-note"><span>${icon('users')} ${progress}</span></div>`}
       ${latestView(me.latest)}`;
   }

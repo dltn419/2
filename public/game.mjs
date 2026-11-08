@@ -1,11 +1,11 @@
 import {
-  AVATARS, CAREERS, IDLE, LIFE_EVENTS, OPPORTUNITIES, SPIRIT_SCENES, STAGES, STATS, STORIES, pick, spiritChoices,
+  AVATARS, IDLE, LIFE_EVENTS, OPPORTUNITIES, SPIRIT_SCENES, STAGES, STATS, STORIES, pick, spiritChoices,
 } from './content.mjs';
-import { SEXES, advancePath, annualScene, applyPath, bonusScene, chanceDiscount, familyDream, farewell, newPath, pathOf, updateLifePath } from './life.mjs';
+import { SEXES, advancePath, annualScene, applyPath, bonusScene, chanceDiscount, familyDream, farewell, newPath, pathOf, updateLifePath, yearlySources } from './life.mjs';
 import { fallIll } from './health.mjs';
 
 export const CAPACITY = 20;
-export const RULE_VERSION = 3;
+export const RULE_VERSION = 4;
 export const DEFAULTS = { years: 1, seconds: 30, maxAge: 100, pace: 'auto' };
 const EXTRA_SECONDS = 12;
 export const PASS = { id: 'pass', title: '이번에는 기다리기', effect: {} };
@@ -86,6 +86,33 @@ export function stageAt(age) {
   return STAGES.findLastIndex((stage) => age >= stage.min);
 }
 
+const YEARLY_ACTIONS = new Set(['study', 'service', 'move', 'marry', 'child', 'retire', 'care']);
+
+function projectedSources(life, option, bonus) {
+  const next = { ...life, path: structuredClone(pathOf(life)) };
+  if (option) applyDecision(next, life.age, option);
+  if (!bonus) {
+    next.age += 1;
+    advancePath(next);
+  }
+  return yearlySources(next);
+}
+
+function choiceSources(life, option, bonus, before) {
+  const after = projectedSources(life, option, bonus);
+  const starts = after.filter((source) => !before.some((previous) => previous.id === source.id && previous.years === source.years));
+  const stops = before.filter((source) => !after.some((next) => next.id === source.id)).map((source) => source.label);
+  return starts.length || stops.length ? { starts, stops } : null;
+}
+
+function sumEffects(...effects) {
+  const total = {};
+  for (const effect of effects) {
+    for (const [stat, delta] of Object.entries(effect)) total[stat] = (total[stat] ?? 0) + delta;
+  }
+  return total;
+}
+
 function choicesFor(room, player) {
   const { mode, life } = player;
   if (mode === 'fork') {
@@ -110,18 +137,26 @@ function choicesFor(room, player) {
 
   const extra = bonusScene(life, player.bonuses);
   const entry = extra ?? { key: 'year', ...(annualScene(life) ?? everydayScene(room, life)) };
-  const base = extra ? {} : yearlyEffects(life);
+  const yearly = yearlySources(life);
+  const base = sumEffects(...yearly.map((source) => source.effect));
+  let before = extra ? yearly : null;
   return {
-    ...entry, bonus: Boolean(extra), base,
+    ...entry, bonus: Boolean(extra), base, yearly,
     choices: entry.choices.map((option) => {
       const need = Object.fromEntries(Object.entries(option.need ?? {}).map(([stat, minimum]) =>
         [stat, Math.max(1, minimum - chanceDiscount(life, option.career, stat))]));
       for (const [stat, delta] of Object.entries(option.effect)) {
-        if (delta < 0) need[stat] = Math.max(need[stat] ?? 1, 1 - delta - Math.min(0, base[stat] ?? 0));
+        if (delta < 0) {
+          const yearlyLoss = extra ? 0 : Math.min(0, base[stat] ?? 0);
+          need[stat] = Math.max(need[stat] ?? 1, 1 - delta - yearlyLoss);
+        }
       }
       const locked = option.locked || Object.entries(need).filter(([stat, minimum]) => life.stats[stat] < minimum)
         .map(([stat, minimum]) => `${STATS[stat].label} ${minimum}${STATS[stat].unit ?? '점'} 필요`).join(' · ');
-      return { ...option, locked };
+      const changesYearly = option.habit || option.career || (option.employment && !life.career) || YEARLY_ACTIONS.has(option.action?.kind);
+      if (!changesYearly) return { ...option, locked };
+      before ??= projectedSources(life, null, false);
+      return { ...option, locked, recurring: choiceSources(life, option, Boolean(extra), before) };
     }),
   };
 }
@@ -135,17 +170,6 @@ function everydayScene(room, life) {
   const available = OPPORTUNITIES[stage].filter((option) => !option.career || (!retired && option.career !== life.career));
   const offer = available[(life.age + hash(`${room.seed}:offer:${stage}`)) % available.length];
   return { ...entry, choices: offer ? [...entry.choices, { ...offer, opportunity: true }] : entry.choices };
-}
-
-function yearlyEffects(life) {
-  const { age } = life;
-  const path = pathOf(life);
-  const serving = path.service?.status === 'serving';
-  const wage = CAREERS[life.career]?.wage ?? 0;
-  const income = serving ? 1 : path.retired !== null ? 1 : wage;
-  const rent = path.home?.kind === 'rent' ? 2 : 0;
-  const aging = age >= 82 ? -3 : age >= 70 ? -2 : age >= 55 || (age >= 42 && age % 2 === 0) ? -1 : 0;
-  return { health: aging - (path.illness?.serious ? 2 : 0), money: income - rent };
 }
 
 function applyEffects(life, effects) {
@@ -192,10 +216,7 @@ function changeLife(room, player, option, after) {
   const randomKey = `${room.seed}:${player.id}:${life.generation}:${age}`;
   const chance = hash(`${randomKey}:event`);
   const event = !option.action && age >= 7 && chance % 7 === 0 ? LIFE_EVENTS[(chance >>> 8) % LIFE_EVENTS.length] : null;
-  const effects = { ...option.effect };
-  for (const source of [yearlyEffects(life), event?.effect ?? {}]) {
-    for (const [stat, delta] of Object.entries(source)) effects[stat] = (effects[stat] ?? 0) + delta;
-  }
+  const effects = sumEffects(option.effect, event?.effect ?? {}, ...yearlySources(life).map((source) => source.effect));
   const changes = applyEffects(life, effects);
   const decision = applyDecision(life, age, option);
   life.age += 1;
@@ -282,7 +303,17 @@ function closeTurn(room, now) {
 
 export function updateRoomRules(room, now) {
   if (room.rules === RULE_VERSION) return false;
+  const previous = room.rules ?? 1;
   room.rules = RULE_VERSION;
+  if (previous >= 3) {
+    if (room.phase === 'play') {
+      for (const player of room.players) {
+        if (player.choice && player.choice !== PASS.id &&
+          !choicesFor(room, player).choices.some((choice) => choice.id === player.choice && !choice.locked)) player.choice = null;
+      }
+    }
+    return true;
+  }
   room.settings.years = 1;
   for (const player of room.players) {
     for (const life of [...player.archives, player.life]) updateLifePath(life);

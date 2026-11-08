@@ -14,6 +14,7 @@ function classroom(students, { age = 0, settings } = {}) {
 }
 
 const me = (room, id) => stateFor(room, id).me;
+const optionAt = (room, id, choice) => me(room, id).scene.choices.find((option) => option.id === choice);
 
 function pick(room, id, scene, choice) {
   return selectChoice(room, id, { round: room.turn.number, scene, choice }, 1_000);
@@ -87,14 +88,19 @@ test('장래희망과 진학을 골라도 같은 나이의 학교생활을 한�
 test('4년제는 학업 4년으로 끝나고 복무한 해만큼만 늦어진다', () => {
   const room = classroom({ 입영: 'male', 미루기: 'male', 여학생: 'female' }, { age: 19 });
   for (const { life } of room.players) Object.assign(life.stats, { money: 80, learning: 35 });
+  assert.deepEqual(optionAt(room, '입영', 'study-university').recurring.starts[0].effect, { learning: 1 });
+  assert.equal(optionAt(room, '입영', 'study-university').recurring.starts[0].years, 4);
   year(room, Object.fromEntries(room.players.map(({ id }) => [id, { education: 'study-university' }])));
+  assert.deepEqual(optionAt(room, '입영', 'enlist').recurring.stops, ['대학에서 배우기']);
   year(room, { 입영: { military: 'enlist' }, 미루기: { military: 'service-after-study' } });
+  assert.deepEqual(me(room, '입영').scene.yearly.map(({ id }) => id), ['service']);
   assert.equal(me(room, '입영').life.path.program.remaining, 3);
   assert.equal(me(room, '미루기').life.path.program.remaining, 2);
   assert.equal(me(room, '여학생').life.path.service, null);
   year(room);
   assert.equal(me(room, '입영').life.path.service.endedAt, 22);
   assert.match(extras(room, '입영').scene.detail, /학교로 돌아왔어요/);
+  assert.equal(me(room, '입영').scene.base.learning, 1);
   year(room);
   assert.equal(me(room, '미루기').life.path.degree.age, 23);
   assert.equal(me(room, '여학생').life.path.degree.age, 23);
@@ -158,6 +164,88 @@ test('전세금을 집값에 보태고 능력치는 100을 넘겨도 계속 쌓�
   year(room, {}, () => 'move-home');
   assert.equal(life.path.home.at, 54);
   assert.equal(life.stats.money, 1);
+});
+
+test('운동 효과는 선택한 해 다음부터 3년간 한 번씩 쌓인다', () => {
+  const room = classroom({ 운동: 'female' }, { age: 24 });
+  const { life } = room.players[0];
+  while (!optionAt(room, '운동', 'routine') && life.age < 33) year(room);
+  const at = life.age;
+  const routine = optionAt(room, '운동', 'routine');
+  assert.deepEqual(routine.recurring.starts[0], { id: 'habit-exercise', label: '꾸준한 운동', years: 3, effect: { health: 2 } });
+  assert.equal(life.path.habit, null);
+  const healthBefore = life.stats.health;
+  year(room, {}, () => 'routine');
+  assert.equal(life.stats.health, healthBefore + routine.effect.health);
+  for (const years of [3, 2, 1]) {
+    const view = extras(room, '운동');
+    assert.equal(view.scene.yearly.find(({ id }) => id === 'habit-exercise').years, years);
+    const health = life.stats.health;
+    const rest = view.scene.choices.find(({ id }) => id === 'rest');
+    year(room);
+    assert.ok(life.stats.health >= health + rest.effect.health + 2);
+  }
+  assert.equal(life.age, at + 4);
+  assert.equal(life.path.habit, null);
+  assert.ok(!me(room, '운동').scene.yearly.some(({ id }) => id === 'habit-exercise'));
+});
+
+test('월급과 월세를 따로 표시하고 집을 사면 다음 해 월세가 끝난다', () => {
+  const room = classroom({ 학생: 'female' }, { age: 19 });
+  assert.deepEqual(optionAt(room, '학생', 'work-staff').recurring.starts[0].effect, { money: 2 });
+  year(room, { 학생: { education: 'work-staff' } });
+  const { life } = room.players[0];
+  life.age = 28;
+  life.stats.money = 100;
+  const rent = optionAt(room, '학생', 'rent-room');
+  assert.equal(rent.effect.money, -8);
+  assert.deepEqual(rent.recurring.starts[0].effect, { money: -2 });
+  year(room, {}, () => 'rent-room');
+  assert.equal(life.stats.money, 94);
+  assert.equal(me(room, '학생').scene.base.money, 0);
+  assert.deepEqual(me(room, '학생').scene.yearly.map(({ id }) => id), ['job-staff', 'rent']);
+  life.age = 33;
+  assert.deepEqual(optionAt(room, '학생', 'buy-home').recurring.stops, ['월세']);
+  year(room, {}, () => 'buy-home');
+  assert.equal(life.stats.money, 14);
+  assert.equal(me(room, '학생').scene.base.money, 2);
+});
+
+test('결혼한 뒤에만 아이를 맞이하고 자녀가 자랄 때까지 돌봄이 이어진다', () => {
+  const room = classroom({ 미혼: 'female', 부부: 'female' }, { age: 29 });
+  for (const { life } of room.players) {
+    life.path.partner = 24;
+    life.stats.money = 100;
+  }
+  assert.equal(optionAt(room, '부부', 'marry').recurring.starts[0].effect.bond, 1);
+  year(room, {}, (_, id) => id === '부부' ? 'marry' : 'keep-dating');
+  year(room);
+  assert.equal(me(room, '미혼').life.path.married, null);
+  assert.equal(optionAt(room, '미혼', 'have-child'), undefined);
+  assert.throws(() => pick(room, '미혼', 'year', 'have-child'), /선택을 할 수 없어요/);
+  assert.equal(optionAt(room, '부부', 'have-child').recurring.starts[0].effect.money, -2);
+  year(room, {}, (_, id) => id === '부부' ? 'have-child' : undefined);
+  assert.deepEqual(me(room, '부부').life.path.children, [31]);
+  assert.equal(me(room, '부부').scene.base.bond, 2);
+  assert.equal(me(room, '부부').scene.base.money, -2);
+  room.players[1].life.age = 50;
+  assert.ok(!me(room, '부부').scene.yearly.some(({ id }) => id === 'child-0'));
+});
+
+test('현재 방의 정상 선택과 지난 가족 기록을 유지하고 미혼 출산 제출만 다시 받는다', () => {
+  const room = classroom({ 한명: 'female', 두명: 'female' }, { age: 34 });
+  const [first, second] = room.players;
+  first.life.path.partner = 24;
+  first.life.path.children = [31];
+  first.choice = 'have-child';
+  second.choice = 'rest';
+  room.rules = 3;
+  const turn = { ...room.turn };
+  assert.equal(updateRoomRules(room, 2_000), true);
+  assert.deepEqual(room.turn, turn);
+  assert.equal(first.choice, null);
+  assert.equal(second.choice, 'rest');
+  assert.deepEqual(first.life.path.children, [31]);
 });
 
 test('예전 방을 열면 기록과 학년을 보존하고 한 해 선택을 다시 연다', () => {

@@ -84,11 +84,14 @@ function render() {
   }
   const focused = document.activeElement?.dataset.focus;
   const openedResult = main.querySelector('.latest[open]')?.dataset.result;
+  const showYearly = main.querySelector('.year-effects[open]');
   main.innerHTML = state ? roomView(session, state, { pane, rank, offline }) :
     homeView(invitedCode, selectedAvatar, { player: read(localStorage, lastKey('player')), host: read(localStorage, lastKey('host')) });
   if (focused) main.querySelector(`[data-focus="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
   const nextResult = main.querySelector('details.latest');
   if (nextResult && nextResult.dataset.result === openedResult) nextResult.open = true;
+  const nextYearly = main.querySelector('details.year-effects');
+  if (nextYearly && showYearly) nextYearly.open = true;
   updateClock();
 }
 
@@ -232,6 +235,7 @@ function help() {
   modal('100년 게임 안내', `<ol class="help-list">
     <li><b>캐릭터를 골라요.</b><p>선생님에게 받은 6자리 코드로 들어가요. 한 방에 20명까지 함께해요.</p></li>
     <li><b>한 해에 한 가지를 골라요.</b><p>모두 고르거나 시간이 끝나면 다음 해로 가요. 장래희망, 진학, 치료는 같은 나이에 한 번 더 골라요.</p></li>
+    <li><b>몇 해 동안 이어지는 선택도 있어요.</b><p>카드에서 한 번만 바뀌는 수치와 매년 바뀌는 수치를 봐요. 올해 자동 변화를 누르면 월급, 집세처럼 이유별로 볼 수 있어요.</p></li>
     <li><b>나이가 들면 다음 이야기를 골라요.</b><p>한 삶을 마치면 다음 세대로 이어 살거나 영혼이 되어 가족의 꿈과 살던 곳에 들러요.</p></li>
     <li><b>친구들과 이야기를 나눠요.</b><p>친구들 메뉴에서 기록을 읽어요. 순위에서는 자금, 행복, 오래 산 나이 등을 볼 수 있어요.</p></li>
   </ol>`);
