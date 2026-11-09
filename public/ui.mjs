@@ -55,8 +55,8 @@ export const numeral = (number) => number.toLocaleString('ko-KR');
 export const deltaText = (delta) => `${delta > 0 ? '+' : '−'}${numeral(Math.abs(delta))}`;
 
 export function changes(effect = {}) {
-  return Object.entries(effect).filter(([, change]) => change !== 0).map(([stat, change]) => {
-    const { label, color } = STATS[stat];
+  return Object.entries(STATS).filter(([stat]) => effect[stat]).map(([stat, { label, color }]) => {
+    const change = effect[stat];
     return `<span class="delta ${color}${change < 0 ? ' minus' : ''}">${label} ${deltaText(change)}</span>`;
   }).join('');
 }

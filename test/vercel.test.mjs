@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import pg from 'pg';
+import { choiceFeedbackView } from '../public/views.mjs';
 import { makeGameApi } from '../server/game-api.mjs';
 import { postgresRooms } from '../server/postgres-rooms.mjs';
 
@@ -55,10 +56,12 @@ test('PostgreSQL에 연결한 두 요청 처리기에서 20명이 제각기 한 
   assert.equal(start.status, 200);
   assert.equal(start.data.turn, null);
   const first = await request(students, `${room}/choice`, {
-    token: joined[0].data.session.token, body: { round: 1, scene: 'year', choice: 'rest' },
+    token: joined[0].data.session.token, body: { round: 1, scene: 'year', choice: 'birth-voice' },
   });
   assert.equal(first.data.me.age, 1);
   assert.equal(first.data.players[1].age, 0);
+  const readBack = await request(teacher, room, { token: joined[0].data.session.token });
+  assert.equal(choiceFeedbackView(readBack.data), choiceFeedbackView(first.data));
   const submissions = await Promise.all(joined.map(({ data }, index) => request(index % 2 ? teacher : students, `${room}/choice`, {
     token: data.session.token, body: { round: index === 0 ? 2 : 1, scene: 'year', choice: 'rest' },
   })));
