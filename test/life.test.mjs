@@ -268,7 +268,7 @@ test('추가 선택에도 현재 나이에서 입학과 장래희망 이야기�
   const dreamed = stateFor(school, '이수');
   assert.equal(dreamed.me.age, 10);
   assert.deepEqual(dreamed.me.life.stats, before.me.life.stats);
-  assert.match(choiceFeedbackView(dreamed), /장래희망 칸에 ‘예술·체육·창작’이라고/);
+  assert.match(choiceFeedbackView(dreamed), /장래희망 칸에 ‘예술·체육·창작’라고/);
   assert.doesNotMatch(choiceFeedbackView(dreamed), /class="delta /);
 });
 
@@ -624,6 +624,7 @@ test('결혼한 뒤에만 아이를 맞이하고 자녀가 자랄 때까지 돌�
   year(room);
   assert.equal(me(room, '미혼').life.path.married, null);
   assert.equal(optionAt(room, '미혼', 'have-child'), undefined);
+  extras(room, '미혼', { dating: 'date-walk' });
   assert.throws(() => pick(room, '미혼', 'year', 'have-child'), /선택을 할 수 없어요/);
   assert.equal(optionAt(room, '부부', 'have-child').recurring.starts[0].effect.money, -2);
   year(room, {}, (_, id) => id === '부부' ? 'have-child' : undefined);
