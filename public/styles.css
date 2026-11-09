@@ -221,6 +221,10 @@ body:has(.playing-room) .footer { display: none; }
 .person-caption { display: block; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
 .person .small-badge { padding: 2px 4px; font-size: 11px; }
 .person .icon-button { width: 28px; height: 34px; }
+.person-kick { flex: none; border: 1px solid #edd6cc; background: #fbf1ec; color: #8b493f;
+  border-radius: 4px; min-height: 32px; padding: 5px 8px; font-size: 11px; font-weight: 800; }
+.person-kick:hover { background: #f5e1d9; }
+.person-kick:focus-visible { outline: 2px solid #8b493f; outline-offset: 2px; }
 .person small, .rank-row strong small { color: #507b51; }
 .progress-card { padding: 10px; margin: 10px 0; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px; font-size: 13px; background: #f4f6e6; border: 1px solid #dde4ca; border-radius: 4px; }
 .progress-bar { grid-column: 1 / -1; height: 8px; background: #e4ead0; }

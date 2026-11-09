@@ -502,8 +502,14 @@ export function teacherAction(room, action, body, now) {
       }
     }
     room.settings = settings;
-  } else if (action === 'kick' && room.phase === 'lobby') {
-    room.players = room.players.filter((player) => player.id !== body.playerId);
+  } else if (action === 'kick' && (room.phase === 'lobby' || room.phase === 'play')) {
+    const index = room.players.findIndex((player) => player.id === body.playerId);
+    if (index < 0) throw new GameError('퇴장할 학생을 찾을 수 없어요.', 404);
+    // 학생의 참가 토큰과 인생 기록이 함께 제거되어 예전 접속으로는 돌아올 수 없습니다.
+    room.players.splice(index, 1);
+    // 자동 진행에서 미제출자를 퇴장시켰다면 남은 학생들의 제출 상태로 마감을 다시 판단합니다.
+    if (room.phase === 'play' && !room.paused && room.turn?.auto &&
+      room.players.length > 0 && room.players.every((player) => player.choice)) closeTurn(room, now);
   } else if (action === 'start' && room.phase === 'lobby') {
     if (!room.players.length) throw new GameError('한 명 이상 참가하면 시작할 수 있어요.');
     if (room.settings.pace === 'personal') room.phase = 'play';
