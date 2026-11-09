@@ -115,7 +115,10 @@ function render() {
   const focused = active?.dataset.focus;
   const openedResult = main.querySelector('.latest[open]')?.dataset.result;
   const showYearly = main.querySelector('.year-effects[open]');
+  const openTeacherSettings = Boolean(main.querySelector('.teacher-settings[open]'));
   const oldStory = main.querySelector('[data-story-key]');
+  const openGoals = new Set(Array.from(oldStory?.querySelectorAll('[data-career-goal][open]') ?? [],
+    (card) => card.dataset.careerGoal);
   const oldStoryKey = oldStory?.dataset.storyKey;
   const openSections = new Set(Array.from(oldStory?.querySelectorAll('[data-choice-section][open]') ?? [],
     (section) => section.dataset.choiceSection));
@@ -132,6 +135,11 @@ function render() {
   if (nextResult && nextResult.dataset.result === openedResult) nextResult.open = true;
   const nextYearly = main.querySelector('details.year-effects');
   if (nextYearly && showYearly) nextYearly.open = true;
+  const nextTeacherSettings = main.querySelector('.teacher-settings');
+  if (nextTeacherSettings && openTeacherSettings) nextTeacherSettings.open = true;
+  for (const card of main.querySelectorAll('[data-career-goal]')) {
+    if (openGoals.has(card.dataset.careerGoal)) card.open = true;
+  }
   const newStory = main.querySelector('[data-story-key]');
   if (oldStoryKey && newStory?.dataset.storyKey === oldStoryKey) {
     if (newStory !== oldStory) {
