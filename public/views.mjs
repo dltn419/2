@@ -174,7 +174,7 @@ export function homeView(code, selected, saved) {
       <article id="join" class="panel entry-panel">
         <div class="entry-top"><span class="tile-icon mint">${icon('users')}</span><span class="eyebrow">학생</span></div>
         <h2>친구들과 시작하기</h2>
-        <p class="subtle">${code ? '초대받은 방의 코드가 들어 있어요. 별명을 골라 참가하세요.' : '선생님에게 받은 6자리 코드로 같은 방에 들어가요.'}</p>
+        <p class="subtle">${code ? '초대받은 방의 코드가 들어 있어요. 별명을 골라 참가하세요.' : '선생님에게 받은 6자리 코드로 같은 방에 들어가요.'} 게임이 이미 시작됐어도 참가할 수 있고, 새 인생은 0살부터 시작해요.</p>
         <form id="join-form">
           <div class="join-fields">
             <label>참가 코드<input name="code" type="text" placeholder="예  ABC234" value="${h(code)}" required minlength="6" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>
@@ -588,6 +588,7 @@ function teacherView(state) {
     <section class="panel section-panel">
       <div class="section-heading"><div class="eyebrow">${icon('users')} 실시간 참가 현황</div><span class="small-badge mint">${players.length} / ${CAPACITY}명</span></div>
       <h2>${ended ? '우리 반 최종 기록' : personal ? '학생들의 현재 인생' : '누가 선택을 마쳤나요?'}</h2>
+      ${ended ? '' : '<p class="field-note">진행 중에도 QR이나 참가 코드로 학생을 추가할 수 있어요. 새 학생은 0살부터 시작해요.</p>'}
       ${phase === 'play' && !personal ? `<div class="progress-card"><span>선택 제출</span><strong>${submitted} / ${players.length}명</strong><span class="progress-bar"><i style="width:${(players.length ? submitted * 100 / players.length : 0)}%"></i></span></div>` : ''}
       ${roster(players, { teacher: phase === 'play' && !personal, kickable: phase === 'play' })}
     </section>

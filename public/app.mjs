@@ -487,7 +487,7 @@ document.addEventListener('click', (event) => {
       if (session?.role !== 'host' || !targetPlayer || !['lobby', 'play'].includes(state.phase)) break;
       const progress = state.phase === 'play' ? ` (${targetPlayer.age}살, ${targetPlayer.generation}대)` : '';
       confirmation('학생 퇴장시키기',
-        `${targetPlayer.name}${progress} 학생을 이 방에서 내보낼까요? 이 학생의 참가 정보와 인생 기록이 삭제되고 접속이 끊겨요. 진행 중인 게임에는 다시 참가할 수 없어요. 다른 학생들의 기록은 유지돼요.`,
+        `${targetPlayer.name}${progress} 학생을 이 방에서 내보낼까요? 이 학생의 참가 정보와 인생 기록이 삭제되고 접속이 끊겨요. 나중에 다시 입장하더라도 0살부터 새로 시작해요. 다른 학생들의 기록은 유지돼요.`,
         'confirm-kick', id);
       break;
     }
