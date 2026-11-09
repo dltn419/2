@@ -163,7 +163,9 @@ function highlightStats(before, after) {
   if (!before || !after || before.generation !== after.generation) return;
   for (const tile of main.querySelectorAll('.play-stats [data-stat]')) {
     const stat = tile.dataset.stat;
-    const delta = after.stats[stat] - before.stats[stat];
+    const delta = stat === 'affection'
+      ? (after.path?.romance?.affection ?? 0) - (before.path?.romance?.affection ?? 0)
+      : after.stats[stat] - before.stats[stat];
     if (!delta) continue;
     const badge = document.createElement('span');
     badge.className = 'stat-pop';

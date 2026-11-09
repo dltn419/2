@@ -3,12 +3,12 @@ import {
 } from './content.mjs';
 import {
   SEXES, advancePath, annualScene, applyPath, bonusScene, careerPay, chanceDiscount, creditWorkYear,
-  familyDream, farewell, newPath, pathOf, restoreWorkYears, updateLifePath, yearlySources,
+  familyDream, farewell, newPath, pathOf, restoreWorkYears, updateLifePath, upgradeLifePath, yearlySources,
 } from './life.mjs';
 import { fallIll, illnessDeathRisk, settleHealth } from './health.mjs';
 
 export const CAPACITY = 20;
-export const RULE_VERSION = 7;
+export const RULE_VERSION = 8;
 export const DEFAULTS = { years: 1, seconds: 0, maxAge: 100, pace: 'personal' };
 const EXTRA_SECONDS = 12;
 export const PASS = { id: 'pass', title: '이번에는 기다리기', detail: '잠시 쉬며 친구들의 이야기를 지켜봐요.', effect: {} };
@@ -49,13 +49,15 @@ export function nickname(value, maximum = 14) {
   return name;
 }
 
-function newLife(generation, sex, parent) {
+function newLife(generation, sex, parent, seed = 0) {
   const stats = { ...INITIAL_STATS };
   if (parent) {
     stats.money += Math.min(30, Math.floor(Math.max(0, parent.stats.money ?? 0) * 0.15));
     stats.bond += Math.min(8, Math.floor(Math.max(0, parent.stats.bond ?? 0) / 12));
   }
-  return { generation, age: 0, stats, career: null, path: newPath(sex), history: [], end: null };
+  const path = newPath(sex);
+  path.romanceSeed = seed;
+  return { generation, age: 0, stats, career: null, path, history: [], end: null };
 }
 
 export function newRoom({ code, seed, name, hostKey, settings, now = Date.now() }) {
@@ -74,7 +76,7 @@ export function addPlayer(room, { id, key, name, avatar, sex = null }) {
   }
   number(avatar, 0, AVATARS.length - 1, '캐릭터 번호');
   if (sex !== null && (typeof sex !== 'string' || !Object.hasOwn(SEXES, sex))) throw new GameError('캐릭터의 성별을 골라 주세요.', 400);
-  const player = { id, key, name: normalized, avatar, mode: 'alive', choice: null, bonuses: [], life: newLife(1, sex), archives: [], visits: [], latest: null };
+  const player = { id, key, name: normalized, avatar, mode: 'alive', choice: null, bonuses: [], life: newLife(1, sex, null, hash(`${room.seed}:${id}:1`)), archives: [], visits: [], latest: null };
   room.players.push(player);
   return player;
 }
@@ -89,7 +91,7 @@ export function stageAt(age) {
   return STAGES.findLastIndex((stage) => age >= stage.min);
 }
 
-const YEARLY_ACTIONS = new Set(['study', 'service', 'move', 'marry', 'child', 'retire', 'care']);
+const YEARLY_ACTIONS = new Set(['study', 'service', 'move', 'marry', 'child', 'retire', 'care', 'saving']);
 
 function projectedSources(life, option, bonus) {
   const next = { ...life, path: structuredClone(pathOf(life)) };
@@ -225,7 +227,12 @@ function recordChoice(player, year, option, age, changes, text, type, raise) {
 function addBonus(player, year, entry, option) {
   const { life } = player;
   const changes = applyEffects(life, option.effect);
+  const affectionBefore = pathOf(life).romance?.affection;
   const text = applyDecision(life, life.age, option);
+  const affectionAfter = pathOf(life).romance?.affection;
+  if (affectionAfter !== undefined && affectionAfter !== affectionBefore) {
+    changes.affection = affectionAfter - (affectionBefore ?? 0);
+  }
   player.bonuses.push(entry.key);
   recordChoice(player, year, option, life.age, changes, text, 'bonus');
 }
@@ -243,10 +250,22 @@ function changeLife(room, player, year, option, after) {
   const event = !option.action && age >= 7 && chance % 7 === 0 ? LIFE_EVENTS[(chance >>> 8) % LIFE_EVENTS.length] : null;
   const sources = yearlySources(life);
   const salary = sources.find(({ id }) => id === `job-${life.career}`)?.effect.money ?? 0;
-  const effects = sumEffects(option.effect, event?.effect ?? {}, ...sources.map((source) => source.effect));
+  const savings = sources.find(({ id }) => id === 'retirement-saving');
+  const ordinaryEffects = sumEffects(option.effect, event?.effect ?? {},
+    ...sources.filter(({ id }) => id !== 'retirement-saving').map((source) => source.effect));
+  // 실제로 낼 수 있는 자금만 적립해 부족한 해에 공짜 저축이 생기지 않게 합니다.
+  const deposit = savings ? Math.min(-savings.effect.money,
+    Math.max(0, life.stats.money + (ordinaryEffects.money ?? 0) - 1)) : 0;
+  const effects = deposit ? { ...ordinaryEffects, money: (ordinaryEffects.money ?? 0) - deposit } : ordinaryEffects;
   const changes = applyEffects(life, effects);
+  if (deposit && life.path.savings) life.path.savings.balance += deposit;
   if (salary) creditWorkYear(life);
+  const affectionBefore = pathOf(life).romance?.affection;
   const decision = applyDecision(life, age, option);
+  const affectionAfter = pathOf(life).romance?.affection;
+  if (affectionAfter !== undefined && affectionAfter !== affectionBefore) {
+    changes.affection = affectionAfter - (affectionBefore ?? 0);
+  }
   const diedFromIllness = hash(`${randomKey}:illness-ending`) % 100 < illnessDeathRisk(life);
   settleHealth(life);
   life.age += 1;
@@ -269,7 +288,8 @@ function branch(player, year, option) {
   const { life } = player;
   if (option.successor) {
     player.archives.push(life);
-    player.life = newLife(life.generation + 1, option.successor, life);
+    player.life = newLife(life.generation + 1, option.successor, life,
+      hash(`${player.id}:${life.generation + 1}:${year}`));
     player.mode = 'alive';
     player.visits = [];
     player.latest = {
@@ -357,6 +377,7 @@ export function updateRoomRules(room, now) {
     for (const life of [...player.archives, player.life]) {
       if (previous < 3) updateLifePath(life);
       restoreWorkYears(life);
+      if (previous < 8) upgradeLifePath(life, hash(`${room.seed}:${player.id}:${life.generation}`));
     }
   }
   if (previous >= 3) {
@@ -364,8 +385,21 @@ export function updateRoomRules(room, now) {
       for (const player of room.players) {
         if (!player.choice || player.choice === PASS.id || player.afterlifeDone) continue;
         // Keep an annual choice already submitted when a new extra scene is added.
-        const newScenes = previous >= 5 ? ['career', 'education'] : ['career'];
+        const newScenes = previous >= 5 ? ['career', 'education', 'saving', 'dating'] : ['career', 'saving', 'dating'];
         const skipped = newScenes.filter((key) => !player.bonuses.includes(key));
+        player.bonuses.push(...skipped);
+        const entry = choicesFor(room, player);
+        const selected = findChoice(entry, player.choice);
+        if (entry.bonus || !selected || selected.locked) {
+          player.choice = null;
+          player.bonuses.length -= skipped.length;
+        }
+      }
+    }
+    if (previous >= 6 && previous < 8 && room.phase === 'play') {
+      for (const player of room.players) {
+        if (!player.choice || player.choice === PASS.id || player.afterlifeDone || player.mode !== 'alive') continue;
+        const skipped = ['saving', 'dating'].filter((key) => !player.bonuses.includes(key));
         player.bonuses.push(...skipped);
         const entry = choicesFor(room, player);
         const selected = findChoice(entry, player.choice);

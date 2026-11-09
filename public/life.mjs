@@ -55,9 +55,20 @@ const LICENSES = {
   nursing: { title: '간호사', choice: 'nurse-license', record: 'nursingLicenseAge', learning: 53 },
 };
 
+const PARTNER_NAMES = {
+  male: ['철수', '민수', '영수', '준호', '지훈'],
+  female: ['영희', '지영', '수진', '민지', '지은'],
+};
+const PARTNER_CAREERS = [
+  'crew', 'staff', 'factory', 'care', 'farmer', 'studio', 'cook', 'caregiver', 'sales',
+  'marketing', 'tech', 'creator', 'civil', 'teacher', 'nurse', 'lab', 'developer', 'shop', 'restaurant',
+];
+const RETIREMENT_YEARS = 10;
+
 export function newPath(sex = null) {
   return { sex, dreams: [], school: null, diploma: false, program: null, degree: null, training: false,
-    service: null, partner: null, married: null, children: [], retired: null, workYears: {}, home: null, illness: null, recoveredAt: null, habit: null };
+    service: null, partner: null, romance: null, romanceSeed: 0, married: null, children: [],
+    retired: null, savings: null, workYears: {}, home: null, illness: null, recoveredAt: null, habit: null };
 }
 
 const EMPTY_PATH = newPath();
@@ -71,6 +82,32 @@ const isStem = (field) => ['science', 'tech', 'stem'].includes(field);
 const degreesOf = (path) => [...(path.previousDegrees ?? []), ...(path.degree ? [path.degree] : [])];
 const undergraduate = (degrees) => degrees.findLast(({ kind }) => kind !== 'college' && kind !== 'graduate');
 const jobFields = (job) => [job?.field, ...(job?.related ?? [])].filter(Boolean);
+
+function encounter(life) {
+  const path = pathOf(life);
+  const seed = ((path.romanceSeed ?? 0) ^ Math.imul(life.age, 2654435761)) >>> 0;
+  const sex = path.sex === 'female' ? 'male' : 'female';
+  const names = PARTNER_NAMES[sex];
+  const age = Math.max(19, life.age + (seed % 7) - 3);
+  const career = PARTNER_CAREERS[Math.floor(seed / 7) % PARTNER_CAREERS.length];
+  return { name: names[Math.floor(seed / 31) % names.length], career,
+    ageOffset: age - life.age, metAge: life.age, affection: 55 };
+}
+
+export const partnerAge = (life) => life.age + (pathOf(life).romance?.ageOffset ?? 0);
+
+function spouseContribution(life) {
+  const person = pathOf(life).romance;
+  if (!person) return 0;
+  const age = partnerAge(life);
+  if (age >= 65) return 1;
+  const base = CAREERS[person.career]?.wage ?? 3;
+  const growth = Math.min(2, Math.floor(Math.max(0, age - (person.metAge + person.ageOffset)) / 10));
+  return Math.max(1, Math.floor(base * 0.7) + growth);
+}
+
+export const retirementPayout = (savings) => Math.floor(Math.max(0, savings?.balance ?? 0) / RETIREMENT_YEARS);
+export const retirementTax = (savings) => Math.max(0, savings?.balance ?? 0) % RETIREMENT_YEARS;
 const scene = (title, detail, choices, after = '') => ({ title, detail, choices, after });
 const rest = (title = '쉬어 가기', detail = '잠시 숨을 고르고 쉬어요.', effect = { health: 3, joy: 1 }) => pick('rest', title, detail, 'leaf', effect);
 const option = (id, title, detail, mark, effect, kind, value, after, extra = {}) =>
@@ -475,21 +512,37 @@ function studying(life, path) {
 function relationships(life) {
   const age = life.age;
   const path = pathOf(life);
-  if (path.partner === null && [24, 27, 30, 35, 41, 52].includes(age)) {
-    return scene('또 만나고 싶은 사람', '함께 있으면 시간이 금세 가요.', [
-      option('date', '연애 시작하기', '서로 마음이 같은지 물어요.', 'link', { bond: 4, joy: 5 },
-        'partner', 'start', '돌아가는 길에 이미 했던 이야기를 두어 번 떠올렸어요.',
-        { narration: '마음을 전하고 다음에 함께 걸을 길을 이야기했어요.' }),
-      pick('stay-friends', '친구로 지내기', '편하게 만나 이야기를 나눠요.', 'link', { bond: 5, joy: 2 }),
-      rest('혼자만의 시간 보내기', '좋아하는 일을 하면서 쉬어요.'),
+  if (path.partner === null && path.married === null && [24, 27, 30, 35, 41, 52].includes(age)) {
+    const candidate = encounter(life);
+    const job = CAREERS[candidate.career]?.title ?? '회사원';
+    return scene('또 만나고 싶은 사람',
+      `소개로 ${candidate.name}(${age + candidate.ageOffset}세, ${job})을 만났어요. 다시 만나고 싶은 마음이 생겼어요.`, [
+        option('date', '연애 시작하기', `${candidate.name}에게 마음을 전해요.`, 'heart', { bond: 4, joy: 5 },
+          'partner', 'start', '돌아가는 길에 이미 했던 이야기를 두어 번 떠올렸어요.',
+          { partnerInfo: candidate, narration: `${candidate.name}와 연애를 시작했어요.` }),
+        pick('stay-friends', '친구로 지내기', '편하게 만나 이야기를 나눠요.', 'link', { bond: 5, joy: 2 }),
+        rest('혼자만의 시간 보내기', '좋아하는 일을 하면서 쉬어요.'),
+      ]);
+  }
+  if (path.partner !== null && path.married === null && (path.romance?.affection ?? 55) <= 20) {
+    return scene('멀어진 마음', `${path.romance?.name ?? '연인'}와 요즘 대화가 줄었어요. 관계를 돌아볼 때예요.`, [
+      pick('make-up', '솔직하게 대화하기', '마음에 담아 둔 이야기를 나눠요.', 'heart', { bond: 2, joy: 1 },
+        { affection: 12, narration: '서운했던 일을 꺼내고 서로의 말을 들었어요.' }),
+      option('part', '헤어지기', '각자의 길로 돌아가기로 해요.', 'leaf', { joy: -2 },
+        'partner', 'end', '함께한 날들에 고마움을 전했어요.'),
     ]);
   }
   if (path.partner !== null && path.married === null && age - path.partner >= 2 && [29, 32, 36, 43, 55].includes(age)) {
-    return scene('함께 살까?', '어디에 살고 어떻게 지낼지 이야기해요.', [
-      option('marry', '결혼하기', '가까운 사람을 불러 작은 결혼식을 열어요.', 'link', { bond: 6, joy: 6, money: -12 },
-        'marry', true, '식이 끝나고 둘이 나란히 앉아 한참 쉬었어요.',
-        { narration: '가까운 사람들의 박수를 받으며 함께 살아갈 약속을 했어요.' }),
-      pick('keep-dating', '지금처럼 만나기', '서로의 마음을 천천히 알아가요.', 'heart', { bond: 4, joy: 3 }),
+    const loved = path.romance?.name ?? '연인';
+    return scene('함께 살까?', `${loved}와 함께할 미래를 상상해요. 결혼에는 20코인이 필요해요.`, [
+      option('marry', '결혼하기', '결혼식과 새 살림에 20코인을 써요. 결혼 후 맞벌이 가계를 꾸려요.', 'heart',
+        { bond: 6, joy: 6, money: -20 }, 'marry', true,
+        `${loved}와 함께 살아갈 약속을 했어요.`, {
+          conditions: [{ label: '애정 65점 이상', met: (path.romance?.affection ?? 70) >= 65 }],
+          affection: 5, narration: `${loved}와 결혼식을 열었어요.`,
+        }),
+      pick('keep-dating', '지금처럼 만나기', '서로를 더 알아가요.', 'heart', { bond: 4, joy: 3 },
+        { affection: 4 }),
       option('part', '헤어지기', '함께한 시간을 기억하고 각자의 길을 가요.', 'leaf', { health: 2, joy: -2 },
         'partner', 'end', '헤어지고도 그 사람이 집에 잘 닿았으면 했어요.',
         { narration: '함께한 날들에 고마움을 전하고 각자의 길을 걷기로 했어요.' }),
@@ -586,6 +639,32 @@ function laterLife(life, path) {
   return null;
 }
 
+function dateActivities(life) {
+  const name = pathOf(life).romance?.name ?? '연인';
+  return scene(`${name}와 보내는 시간`, '올해는 어떤 추억을 만들까요? 쉬기만 하면 애정이 떨어질 수 있어요.', [
+    pick('date-trip', '여행 가기', '함께 새로운 곳을 여행해요.', 'spark', { money: -5, joy: 5 },
+      { affection: 12, narration: '길을 잘못 들었지만 함께 웃으며 새로운 풍경을 만났어요.' }),
+    pick('date-dinner', '맛집 가기', '맛있는 음식을 먹으며 이야기를 나눠요.', 'sun', { money: -2, joy: 3 },
+      { affection: 7, narration: '맛집에서 나눈 작은 이야기가 오래 기억에 남았어요.' }),
+    pick('date-walk', '동네 산책하기', '돈을 들이지 않고 함께 시간을 보내요.', 'leaf', { joy: 2 },
+      { affection: 4, narration: '익숙한 길을 천천히 걷다 서로의 이야기를 더 알게 되었어요.' }),
+    pick('date-alone', '혼자 쉬기', '혼자서 편안히 쉬지만 함께할 시간은 줄어요.', 'heart', { joy: 3 },
+      { affection: -5, narration: '하루 푹 쉬었지만 서로 만나지 못해 조금 서운했어요.' }),
+  ]);
+}
+
+function savingsOffer(life) {
+  return scene('노후 저축을 시작할까요?',
+    '일하는 동안 해마다 돈을 모아요. 은퇴하면 적립한 돈을 10년간 나눠 받고, 10으로 나눈 나머지는 세금이 돼요.', [
+      option('save-none', '저금하지 않기', '당장은 돈을 더 쓸 수 있지만 은퇴 뒤 저축 수입은 없어요.',
+        'leaf', {}, 'saving', 0, '이번에는 따로 노후 저축을 하지 않기로 했어요.'),
+      ...[1, 2, 4].map((amount) =>
+        option(`save-${amount}`, `매년 ${amount}코인 저금`,
+          `일하는 해마다 ${amount}코인을 따로 모아요. 은퇴 후 10년 동안 나눠 받아요.`,
+          'coin', {}, 'saving', amount, `매년 ${amount}코인씩 저축하기로 했어요.`)),
+    ]);
+}
+
 export function bonusScene(life, done) {
   const age = life.age;
   const path = pathOf(life);
@@ -604,6 +683,16 @@ export function bonusScene(life, done) {
     return { ...militaryPlan(life, path), key: 'military' };
   }
   const continuing = path.program || path.service?.status === 'serving';
+  // 첫 취업 뒤 1~3년 안에 한 번만 노후 저축을 고르게 합니다.
+  const firstJob = path.firstJobAge;
+  const offerAge = Number.isInteger(firstJob) ? firstJob + 1 + ((path.romanceSeed ?? 0) % 3) : Infinity;
+  if (!continuing && life.career && path.retired === null && path.savings === null &&
+    age >= offerAge && age <= Math.max(offerAge, firstJob + 5) && !done.includes('saving')) {
+    return { ...savingsOffer(life), key: 'saving', fallback: 'save-none' };
+  }
+  if (path.partner !== null && path.married === null && !done.includes('dating')) {
+    return { ...dateActivities(life), key: 'dating', fallback: 'date-alone' };
+  }
   const license = degreesOf(path).findLast(({ kind, age: graduatedAt }) =>
     LICENSES[kind] && !Number.isInteger(path[LICENSES[kind].record]) &&
     (graduatedAt === age || path.service?.endedAt === age || [26, 30, 34, 38, 42, 50, 56].includes(age)));
@@ -653,6 +742,9 @@ export function annualScene(life) {
 export function applyPath(life, age, choice) {
   const path = life.path ??= newPath();
   if (choice.habit) path.habit = { kind: choice.habit, until: age + 1 + HABITS[choice.habit].years };
+  if (choice.affection && path.romance) {
+    path.romance.affection = Math.max(0, Math.min(100, (path.romance.affection ?? 55) + choice.affection));
+  }
   const action = choice.action;
   switch (action?.kind) {
     case 'dream': path.dreams.push({ age, field: action.value }); break;
@@ -671,8 +763,17 @@ export function applyPath(life, age, choice) {
       else if (action.value === 'exempt') path.service = { status: 'exempt', endedAt: age };
       else path.service = { status: 'serving', kind: action.value === 'community' ? 'community' : 'military', until: age + 2 };
       break;
-    case 'partner': path.partner = action.value === 'start' ? age : null; break;
+    case 'partner':
+      if (action.value === 'start') {
+        path.partner = age;
+        path.romance = { ...(choice.partnerInfo ?? encounter(life)), metAge: age, affection: 55 };
+      } else {
+        path.partner = null;
+        path.romance = null;
+      }
+      break;
     case 'marry': path.married = age; break;
+    case 'saving': path.savings = { annual: action.value, balance: 0, chosenAt: age }; break;
     case 'child': path.children.push(age); break;
     case 'retire': path.retired = age; break;
     case 'move':
@@ -762,6 +863,16 @@ export function yearlySources(life) {
     const pay = careerPay(life);
     sources.push({ id: `job-${life.career}`, label: `${career.title} 수입${career.fatigue ? '과 피로' : ''}`, term: `경력 ${pay.years}년`,
       effect: { money: pay.total, ...(career.fatigue ? { health: -career.fatigue } : {}) } });
+    if (path.savings?.annual > 0) {
+      sources.push({ id: 'retirement-saving', label: '노후 저축', term: '은퇴할 때까지', effect: { money: -path.savings.annual } });
+    }
+  }
+  if (path.retired !== null && path.savings?.annual > 0 && age > path.retired &&
+    age <= path.retired + RETIREMENT_YEARS) {
+    const payout = retirementPayout(path.savings);
+    if (payout > 0) sources.push({ id: 'retirement-payout', label: '모아 둔 노후 저축 받기',
+      term: `은퇴 후 ${age - path.retired}/10년차`, years: RETIREMENT_YEARS - (age - path.retired) + 1,
+      effect: { money: payout } });
   }
   if (!serving && path.program) {
     const { kind, remaining } = path.program;
@@ -771,7 +882,13 @@ export function yearlySources(life) {
   if (path.home?.kind === 'rent') {
     sources.push({ id: 'rent', label: '월세', term: '이 집에 사는 동안', effect: { money: -2 } });
   }
-  if (path.married !== null) sources.push({ id: 'married', label: '배우자와 지내기', effect: { bond: 1 } });
+  if (path.married !== null) {
+    sources.push({ id: 'married', label: '배우자와 지내기', effect: { bond: 1 } });
+    const contribution = spouseContribution(life);
+    if (contribution) sources.push({ id: 'spouse-income', label: `${path.romance?.name ?? '배우자'}의 가계 소득`,
+      effect: { money: contribution } });
+    sources.push({ id: 'household', label: '함께 쓰는 생활비', effect: { money: -2 } });
+  }
   for (const [index, born] of path.children.entries()) {
     if (age - born >= 19) continue;
     sources.push({ id: `child-${index}`, label: index === 0 ? '첫째 돌봄' : '둘째 돌봄', term: '아이가 19살 되기 전까지',
@@ -797,6 +914,21 @@ export function updateLifePath(life) {
     delete program.until;
   }
   for (const stat of Object.keys(life.stats)) life.stats[stat] = Math.max(1, life.stats[stat]);
+}
+
+export function upgradeLifePath(life, seed = 0) {
+  const path = life.path ??= newPath();
+  if (!path.romanceSeed) path.romanceSeed = seed;
+  path.savings ??= null;
+  if ((path.partner !== null && path.partner !== undefined || path.married !== null && path.married !== undefined) && !path.romance) {
+    const at = Number.isInteger(path.partner) ? path.partner : path.married;
+    const candidate = encounter({ ...life, age: at, path });
+    path.romance = { ...candidate, metAge: at };
+  }
+  if (!Number.isInteger(path.firstJobAge) && life.career && path.workYears) {
+    const years = path.workYears[life.career] ?? 0;
+    if (years > 0) path.firstJobAge = Math.max(19, life.age - years);
+  }
 }
 
 export function chanceDiscount(life, career, stat) {
@@ -839,7 +971,11 @@ export function pathNotes(life) {
     path.service?.status === 'complete' && `${path.service.endedAt}살에 복무 마침`,
     path.service?.status === 'exempt' && '건강 사유로 복무 면제',
     path.home && `${path.home.at}살에 ${HOME_NAMES[path.home.kind]}`,
-    path.married !== null && `${path.married}살에 결혼`,
+    path.partner !== null && path.romance && `${path.partner}살에 ${path.romance.name}와 연애 시작`,
+    path.married !== null && `${path.married}살에 ${path.romance?.name ?? '배우자'}와 결혼`,
+    path.savings && (path.savings.annual ? `노후 저축 · 매년 ${path.savings.annual}코인, 누적 ${path.savings.balance}코인` : '노후 저축 선택하지 않음'),
+    path.retired !== null && path.savings?.annual > 0 &&
+      `은퇴 후 10년간 매년 ${retirementPayout(path.savings)}코인 수령 · 잔액 ${retirementTax(path.savings)}코인 세금`,
     ...path.children.map((age) => `${age}살에 아이를 맞이함`),
   ].filter(Boolean);
 }
