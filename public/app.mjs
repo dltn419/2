@@ -331,7 +331,7 @@ function resetRoomConfirmation() {
     <p class="field-note">방 코드, 교사 비밀번호, 이름과 진행 설정은 유지돼요. 학생들은 다시 참가해야 해요.</p>
     <form id="reset-room-form">
       <label>확인을 위해 방 코드 <strong>${h(state.code)}</strong> 입력
-        <input name="confirmCode" type="text" required minlength="6" maxlength="6" pattern="[A-HJ-NP-Z2-9]{6}"
+        <input name="confirmCode" type="text" required minlength="6" maxlength="6" pattern="[A-Za-z0-9]{6}"
           placeholder="${h(state.code)}" autocomplete="off" autocapitalize="characters" spellcheck="false">
       </label>
       <div class="actions">
