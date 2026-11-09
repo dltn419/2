@@ -395,7 +395,8 @@ function retirementDetails(life) {
       : account.payoutMode === 'pension'
         ? `10년간 매년 ${numeral(retirementPayout(account))}코인 · 세금 ${numeral(retirementTax(account))}코인`
         : '은퇴 저축 수령 방식을 선택할 수 있어요';
-  return `<p class="life-extra">${icon('coin')} <strong>노후 저축 · ${numeral(account.balance)}코인</strong>
+  const totalLabel = path.retired === null ? '노후 저축' : '노후 적립 총액';
+  return `<p class="life-extra">${icon('coin')} <strong>${totalLabel} · ${numeral(account.balance)}코인</strong>
     <span>${details}</span></p>`;
 }
 
