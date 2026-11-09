@@ -746,7 +746,7 @@ function savingsOffer(life) {
       current > 0 ? `매년 ${amount}코인으로 증액` : `매년 ${amount}코인 저금`;
     const explanation = amount ? `매년 ${amount}코인을 적립해요. 기존 적금 잔액은 유지되고 4% 복리가 붙어요.`
       : '당장은 저축하지 않아도 다음에 연봉이 오르면 다시 선택할 수 있어요.';
-    return option(`save-${amount}`, label, explanation, amount ? 'coin' : 'leaf',
+    return option(amount ? `save-${amount}` : 'save-none', label, explanation, amount ? 'coin' : 'leaf',
       {}, 'saving', amount, amount ? `해마다 ${amount}코인씩 적금에 넣기로 했어요.` : '이번에는 저축을 하지 않기로 했어요.');
   }));
 }
@@ -798,7 +798,7 @@ export function bonusScene(life, done) {
   if (!continuing && life.career && path.retired === null && (firstOffer || raisedOffer) &&
     !done.includes('saving')) {
     return { ...savingsOffer(life), key: 'saving',
-      fallback: `save-${Math.max(0, Math.floor(path.savings?.annual ?? 0))}` };
+      fallback: path.savings?.annual ? `save-${Math.floor(path.savings.annual)}` : 'save-none' };
   }
   if (path.partner !== null && path.married === null && !done.includes('dating')) {
     return { ...dateActivities(life), key: 'dating', fallback: 'date-alone' };
