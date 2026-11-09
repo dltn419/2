@@ -597,7 +597,11 @@ function teacherView(state) {
         <h2>${ended ? '수업 마감' : '진행 제어'}</h2>
         <p class="subtle">${ended ? h(state.endReason) : paused ? '학생의 선택을 잠시 멈췄어요.' : personal ? '학생마다 자기 속도로 한 해씩 진행해요.' :
           state.turn.auto ? '전원이 고르거나 시간이 끝나면 다음 해가 열려요.' : '학생들이 다 고르면 올해를 마감하세요.'}</p>
-        ${ended ? button('pane', '최종 순위 보기', 'trophy', 'primary full', 'data-id="rank"') :
+        ${ended ? `<div class="stack compact">
+            ${button('pane', '최종 순위 보기', 'trophy', 'primary full', 'data-id="rank"')}
+            ${button('reset-room', '방 초기화 · 새 게임 준비', 'settings', 'quiet danger full')}
+            <p class="field-note">초기화하면 참가자와 인생 기록이 삭제돼요. 방 코드와 설정은 그대로예요.</p>
+          </div>` :
           `<div class="stack compact">
             ${paused ? button('resume', '계속 진행', 'play', 'primary full', 'data-focus="teacher-next"') :
               personal ? '' : button('advance', '올해 마감', 'arrow', 'primary full', 'data-focus="teacher-next"')}
