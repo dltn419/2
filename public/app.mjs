@@ -482,7 +482,15 @@ document.addEventListener('click', (event) => {
     case 'advance':
     case 'pause':
     case 'resume': void run(() => teacher(action)); break;
-    case 'kick': confirmation('참가자 내보내기', '이 별명으로 접속한 참가자를 대기실에서 내보낼까요?', 'confirm-kick', id); break;
+    case 'kick': {
+      const targetPlayer = state?.players.find((player) => player.id === id);
+      if (session?.role !== 'host' || !targetPlayer || !['lobby', 'play'].includes(state.phase)) break;
+      const progress = state.phase === 'play' ? ` (${targetPlayer.age}살, ${targetPlayer.generation}대)` : '';
+      confirmation('학생 퇴장시키기',
+        `${targetPlayer.name}${progress} 학생을 이 방에서 내보낼까요? 이 학생의 참가 정보와 인생 기록이 삭제되고 접속이 끊겨요. 진행 중인 게임에는 다시 참가할 수 없어요. 다른 학생들의 기록은 유지돼요.`,
+        'confirm-kick', id);
+      break;
+    }
     case 'finish': confirmation('전체 게임 마감', '지금까지의 인생과 순위를 우리 반의 최종 기록으로 남길까요?', 'confirm-finish'); break;
     case 'reset-room': resetRoomConfirmation(); break;
     case 'confirm-kick':
