@@ -36,7 +36,6 @@ export const DREAM_OPTIONS = {
 
 const SERVICE_LIMIT = 28;
 const COMMUNITY_HEALTH = 40;
-export const EXPERIENCE_STEPS = [3, 8, 15];
 const CAREER_BY_TITLE = new Map(Object.entries(CAREERS).map(([id, job]) => [job.title, id]));
 
 const PROGRAMS = {
