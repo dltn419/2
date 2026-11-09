@@ -122,6 +122,23 @@ test('성과 수입은 정규 연봉과 별도 지급되고 실제 1년 진행�
     path: { ...player.life.path, workYears: { farmer: 10 } } }).total + payout);
 });
 
+test('성과형 직업에는 승진 카드 없이 계속 일하기와 다른 직업 보기가 표시된다', () => {
+  const room = newRoom({ code: 'PERF42', seed: 'performance-career-ui', name: '성과 직업', settings: { pace: 'personal', maxAge: 110 } });
+  const player = addPlayer(room, { id: 'artist', name: '창작자', avatar: 0, sex: 'female' });
+  player.life.age = 42;
+  player.life.career = 'studio';
+  player.life.path.workYears.studio = 12;
+  player.life.stats.art = 90;
+  teacherAction(room, 'start', {}, 1000);
+  const current = stateFor(room, 'artist');
+  assert.equal(current.me.scene.key, 'career');
+  assert.ok(!current.me.scene.choices.some(({ careerGroup }) => careerGroup === 'advancement'));
+  const html = roomView({ role: 'player' }, current, { pane: 'play', rank: 'money' });
+  assert.match(html, /지금 일 계속하기/);
+  assert.match(html, /다른 직업 보기/);
+  assert.doesNotMatch(html, /<h3>승진·전직 기회<\/h3>/);
+});
+
 test('은퇴 또는 군복무 중에는 성과 보너스를 지급하지 않는다', () => {
   const person = life('athlete', 35);
   person.path.retired = 34;
