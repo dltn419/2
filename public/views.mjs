@@ -1,6 +1,6 @@
 import { AVATARS, CAREER_CREDENTIALS, CAREER_PROMOTIONS, CAREERS, STAGES, STATS } from './content.mjs';
 import { CAPACITY, MODES, PASS, RANKS, stageAt } from './game.mjs';
-import { SEXES, careerGrowth, careerPay, chanceDiscount, lifeBadges, pathNotes, pathOf,
+import { SEXES, careerGoals, careerGrowth, careerPay, chanceDiscount, lifeBadges, pathNotes, pathOf,
   performanceProfile, retirementAge, retirementLumpSum, retirementPayout, retirementTax } from './life.mjs';
 import { avatar, changes, escapeHtml as h, icon, numeral, statGrid } from './ui.mjs';
 
@@ -371,6 +371,40 @@ function conditionView(option) {
   return `<span class="requirement">${h(missing?.length ? `${missing.join(' · ')} 필요` : option.locked)}</span>`;
 }
 
+function careerGoalsView(life) {
+  const goals = careerGoals(life);
+  if (!goals.length) return '';
+  return `<section class="career-goals" aria-label="내 승진·전직 준비 현황">
+    <div class="career-goals-head"><strong>승진·전직 준비</strong><span>조건 달성 현황</span></div>
+    ${goals.map((goal) => {
+      const missing = goal.checks.filter(({ met }) => !met);
+      const summary = goal.ready
+        ? '모든 조건 충족 · 다음 직업 선택 때 도전할 수 있어요'
+        : `남은 조건: ${missing.map(({ label }) => label).join(' · ')}`;
+      return `<details class="career-goal-card">
+        <summary>
+          <span class="career-goal-main"><b>${h(goal.type)} 목표 · ${h(goal.title)}</b>
+            <span class="career-goal-progress${goal.ready ? ' complete' : ''}">${goal.met}/${goal.total} 충족</span></span>
+          <small class="career-goal-teaser">${h(summary)}</small>
+        </summary>
+        <ul class="career-goal-checks">
+          ${goal.checks.map((item) => `<li class="${item.met ? 'met' : 'unmet'}">
+            <span class="career-goal-check-icon" aria-hidden="true">${item.met ? '✓' : '○'}</span>
+            <span class="career-goal-check-name">${h(item.label)}</span>
+            <span class="career-goal-check-current">${item.required === undefined
+              ? (item.met ? '수료 완료' : '수료 필요')
+              : `${item.current}/${item.required}${h(item.unit)}`}</span>
+            <span class="career-goal-check-state">${item.met ? '충족' : '미충족'}</span>
+          </li>`).join('')}
+        </ul>
+        <p class="career-goal-note">${goal.type === '전직'
+          ? '조건이 충족되면 전직 선택 시기나 운동선수 은퇴 시점에 선택할 수 있어요.'
+          : '조건이 충족되면 다음 직업 선택 시기에 승진을 지원할 수 있어요.'}</p>
+      </details>`;
+    }).join('')}
+  </section>`;
+}
+
 function choiceCard(option, me, bonus) {
   const locked = Boolean(option.locked);
   const picked = me.choice === option.id;
@@ -503,6 +537,7 @@ function playerView(session, state, rank) {
     body = `${roundMeta(state)}
       ${scene.bonus ? '<p class="extra-label">추가 선택 · 나이 그대로</p>' : ''}
       <h2 tabindex="-1">${h(scene.title)}</h2><p class="subtle scene-detail">${h(scene.detail)}</p>
+      ${me.mode === 'alive' ? careerGoalsView(me.life) : ''}
       ${scene.healthWarning ? `<p class="health-warning">${icon('heart')} 큰 병을 치료 중이에요. 올해는 체력을 아껴요.</p>` : ''}
       ${me.mode === 'fork' && me.life.end ? `<p class="fork-note">${icon('book')} ${h(me.life.end.note)}</p>` : ''}
       <div class="choice-grid">${choices.map((item) => choiceCard(item, me, scene.bonus)).join('')}</div>
