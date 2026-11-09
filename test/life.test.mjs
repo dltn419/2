@@ -61,7 +61,7 @@ test('장래희망과 진학을 골라도 같은 나이의 학교생활을 한�
   for (let age = 0; age < 19; age++) {
     let choices;
     if ([10, 14, 17].includes(age)) {
-      choices = { 과학: { dream: 'dream-science' }, 기술: { dream: 'dream-tech' }, 도전: { dream: 'dream-art' } };
+      choices = { 과학: { dream: 'dream-stem' }, 기술: { dream: 'dream-stem' }, 도전: { dream: 'dream-creative' } };
     } else if (age === 16) {
       choices = { 과학: { school: 'high-science' }, 기술: { school: 'high-vocational' }, 도전: { school: 'rest' } };
     } else if (age === 18) choices = { 도전: { education: 'equivalency' } };
@@ -202,7 +202,7 @@ test('의료 장래희망에서 영재학교와 의대 6년을 지나 면허와 
       assert.equal(optionAt(room, '학생', 'high-science').need.learning, 34);
       assert.equal(optionAt(room, '학생', 'high-gifted').need.learning, 45);
     }
-    const choices = { dream: 'dream-medical', school: 'high-gifted', education: 'study-medicine' };
+    const choices = { dream: 'dream-stem', school: 'high-gifted', education: 'study-medicine' };
     year(room, { 학생: choices }, (view) => view.scene.choices.filter(({ locked, effect }) => !locked && effect.learning > 0)
       .sort((left, right) => right.effect.learning - left.effect.learning)[0]?.id);
     if (age >= 19 && age < 24) assert.equal(life.path.program.remaining, 24 - age);
@@ -264,11 +264,11 @@ test('추가 선택에도 현재 나이에서 입학과 장래희망 이야기�
 
   const school = classroom({ 이수: 'female' }, { age: 10, settings: { pace: 'personal' } });
   const before = stateFor(school, '이수');
-  pick(school, '이수', 'dream', 'dream-sports');
+  pick(school, '이수', 'dream', 'dream-creative');
   const dreamed = stateFor(school, '이수');
   assert.equal(dreamed.me.age, 10);
   assert.deepEqual(dreamed.me.life.stats, before.me.life.stats);
-  assert.match(choiceFeedbackView(dreamed), /장래희망 칸에 ‘운동과 스포츠’라고/);
+  assert.match(choiceFeedbackView(dreamed), /장래희망 칸에 ‘예술·체육·창작’이라고/);
   assert.doesNotMatch(choiceFeedbackView(dreamed), /class="delta /);
 });
 
@@ -355,7 +355,7 @@ test('다음 세대는 부모의 수치와 관계없이 기본 능력치 이상�
 test('운동선수는 훈련 기록과 체력이 필요하고 영상 크리에이터는 꿈이나 능력치에 따라 나타난다', () => {
   const room = classroom({ 운동: 'female', 꿈: 'female' }, { age: 11 });
   for (let age = 11; age < 19; age++) {
-    year(room, { 꿈: { dream: 'dream-sports' } },
+    year(room, { 꿈: { dream: 'dream-creative' } },
       (_, id) => id === '운동' && [11, 13].includes(age) ? 'sports-team' : 'rest');
   }
   assert.equal(me(room, '운동').life.path.sportYears, 2);
@@ -614,9 +614,12 @@ test('결혼한 뒤에만 아이를 맞이하고 자녀가 자랄 때까지 돌�
   const room = classroom({ 미혼: 'female', 부부: 'female' }, { age: 29 });
   for (const { life } of room.players) {
     life.path.partner = 24;
+    life.path.romance = { name: '철수', career: 'staff', ageOffset: 0, metAge: 24, affection: 75 };
     life.stats.money = 100;
   }
-  assert.equal(optionAt(room, '부부', 'marry').recurring.starts[0].effect.bond, 1);
+  extras(room, '부부', { dating: 'date-walk' });
+  extras(room, '미혼', { dating: 'date-walk' });
+  assert.ok(optionAt(room, '부부', 'marry').recurring.starts.some(({ id }) => id === 'spouse-income'));
   year(room, {}, (_, id) => id === '부부' ? 'marry' : 'keep-dating');
   year(room);
   assert.equal(me(room, '미혼').life.path.married, null);
@@ -626,7 +629,9 @@ test('결혼한 뒤에만 아이를 맞이하고 자녀가 자랄 때까지 돌�
   year(room, {}, (_, id) => id === '부부' ? 'have-child' : undefined);
   assert.deepEqual(me(room, '부부').life.path.children, [31]);
   assert.equal(me(room, '부부').scene.base.bond, 2);
-  assert.equal(me(room, '부부').scene.base.money, -2);
+  assert.ok(me(room, '부부').scene.yearly.some(({ id }) => id === 'spouse-income'));
+  assert.ok(me(room, '부부').scene.yearly.some(({ id }) => id === 'household'));
+  assert.ok(me(room, '부부').scene.yearly.some(({ id }) => id === 'child-0'));
   room.players[1].life.age = 50;
   assert.ok(!me(room, '부부').scene.yearly.some(({ id }) => id === 'child-0'));
 });
