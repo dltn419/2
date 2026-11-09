@@ -160,7 +160,10 @@ test('API는 교사만 플레이 도중 강퇴할 수 있고 퇴장 학생 토�
   assert.equal(kicked.data.players[0].name, '본 학생');
   assert.equal((await request(`/api/rooms/${code}`, undefined, studentToken)).status, 401);
   assert.equal((await request(`/api/rooms/${code}/choice`, { round: 1, scene: 'year', choice: 'rest' }, studentToken)).status, 401);
-  assert.equal((await request(`/api/rooms/${code}/join`, { name: '중복 학생', avatar: 1, sex: 'male' })).status, 409);
-  assert.equal(database.rooms.get(code).players.length, 1);
+  const rejoined = await request(`/api/rooms/${code}/join`, { name: '중복 학생', avatar: 1, sex: 'male' });
+  assert.equal(rejoined.status, 201);
+  assert.equal(rejoined.data.state.me.age, 0);
+  assert.notEqual(rejoined.data.state.me.id, duplicateId);
+  assert.equal(database.rooms.get(code).players.length, 2);
   assert.equal((await request(`/api/rooms/${code}`, undefined, joined.data.session.token)).status, 200);
 });
