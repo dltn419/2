@@ -276,7 +276,7 @@ function roomHero(session, state) {
   </section>`;
 }
 
-function roster(players, { teacher = false, lobby = false, meId } = {}) {
+function roster(players, { teacher = false, lobby = false, kickable = false, meId } = {}) {
   if (!players.length) return `<div class="empty">${icon('users')}<strong>아직 참가자가 없어요</strong><span>참가 코드나 초대 링크를 친구들에게 알려 주세요.</span></div>`;
   return `<div class="roster">${players.map((player) => `<article class="person">
     <button type="button" class="person-main" data-action="profile" data-id="${player.id}" data-focus="profile-${player.id}">
@@ -286,7 +286,7 @@ function roster(players, { teacher = false, lobby = false, meId } = {}) {
       ${!lobby && player.mode !== 'alive' ? `<span class="person-caption">${MODES[player.mode]}</span>` : ''}</span>
     </button>
     ${teacher && !lobby ? `<span class="small-badge ${player.submitted ? 'mint' : 'paper'}">${player.submitted ? '제출' : '대기'}</span>` : ''}
-    ${teacher && lobby ? `<button type="button" class="icon-button" aria-label="${h(player.name)} 내보내기" data-action="kick" data-id="${player.id}">${icon('close')}</button>` : ''}
+    ${kickable ? `<button type="button" class="icon-button" aria-label="${h(player.name)} 퇴장시키기" data-action="kick" data-id="${player.id}">${icon('close')}</button>` : ''}
   </article>`).join('')}</div>`;
 }
 
@@ -307,7 +307,7 @@ function lobbyView(session, state) {
       <div class="section-heading"><div class="eyebrow">${icon('users')} 대기실</div><span class="small-badge mint">${state.players.length} / ${CAPACITY}명</span></div>
       <h2>${teacher ? '참가자 명단' : '함께 시작할 친구들'}</h2>
       <p class="subtle">${teacher ? '학생이 모이면 게임을 시작하세요.' : '선생님이 시작하면 첫 번째 인생 선택이 열려요.'}</p>
-      ${roster(state.players, { teacher, lobby: true, meId: state.me?.id })}
+      ${roster(state.players, { teacher, kickable: teacher, lobby: true, meId: state.me?.id })}
     </section>
     <aside class="stack">
       <section class="panel section-panel code-panel">
@@ -588,8 +588,8 @@ function teacherView(state) {
     <section class="panel section-panel">
       <div class="section-heading"><div class="eyebrow">${icon('users')} 실시간 참가 현황</div><span class="small-badge mint">${players.length} / ${CAPACITY}명</span></div>
       <h2>${ended ? '우리 반 최종 기록' : personal ? '학생들의 현재 인생' : '누가 선택을 마쳤나요?'}</h2>
-      ${phase === 'play' && !personal ? `<div class="progress-card"><span>선택 제출</span><strong>${submitted} / ${players.length}명</strong><span class="progress-bar"><i style="width:${submitted * 100 / players.length}%"></i></span></div>` : ''}
-      ${roster(players, { teacher: phase === 'play' && !personal })}
+      ${phase === 'play' && !personal ? `<div class="progress-card"><span>선택 제출</span><strong>${submitted} / ${players.length}명</strong><span class="progress-bar"><i style="width:${(players.length ? submitted * 100 / players.length : 0)}%"></i></span></div>` : ''}
+      ${roster(players, { teacher: phase === 'play' && !personal, kickable: phase === 'play' })}
     </section>
     <aside class="stack">
       <section class="panel section-panel control-panel">
@@ -649,7 +649,7 @@ export function roomView(session, state, { pane, rank, offline }) {
       ${pane === 'rank' ? rankView(state, rank) : pane === 'friends' ? `<section class="panel section-panel sheet">
         <div class="eyebrow">${icon('users')} 마을 사람들</div>
         <h2>친구들의 인생 기록</h2><p class="subtle">한 사람을 고르면 어떤 선택을 하며 살아왔는지 볼 수 있어요.</p>
-        ${roster(state.players, { meId: state.me?.id })}</section>` : teacherView(state)}`}
+        ${roster(state.players, { meId: state.me?.id, kickable: teacher && state.phase === 'play' })}</section>` : teacherView(state)}`}
   </div>`;
 }
 
