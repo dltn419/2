@@ -116,7 +116,7 @@ function jobGuide(life) {
               <span><b>체력 소모</b> ${job.fatigue ? `매년 -${job.fatigue}점` : '기본 소모 없음'}</span>
             </div>
             ${performance ? `<div class="job-performance-info"><strong>성과 수입: 매년 0~${performance.max}코인</strong>
-              <p>${h(performance.description)}</p></div>` : ''}
+              <p><b>${h(performance.label)}</b> · ${h(performance.description)}</p></div>` : ''}
             <section class="job-promotion-detail">
               <h4>${route.length ? '승진·전직 경로와 필요 조건' : '성장 방식'}</h4>
               ${routeHtml}
