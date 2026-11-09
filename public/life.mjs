@@ -969,6 +969,9 @@ export function yearlySources(life) {
     effect: { money: -livingCost } });
   if (path.home?.kind === 'rent') {
     sources.push({ id: 'rent', label: '월세', term: '이 집에 사는 동안', effect: { money: -2 } });
+  } else if (path.home?.kind === 'own' && age >= 55) {
+    sources.push({ id: 'home-maintenance', label: '오래된 집 관리비', term: '55세부터',
+      effect: { money: age >= 75 ? -2 : -1 } });
   }
   if (path.married !== null) {
     sources.push({ id: 'married', label: '배우자와 지내기', effect: { bond: 1 } });
