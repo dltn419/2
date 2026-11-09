@@ -253,7 +253,7 @@ function confirmation(title, text, action, id = '') {
 function help() {
   modal('100년 게임 안내', `<ol class="help-list">
     <li><b>캐릭터를 골라요.</b><p>선생님에게 받은 6자리 코드로 들어가요. 한 방에 20명까지 함께해요.</p></li>
-    <li><b>한 해에 한 가지를 골라요.</b><p>모두 고르거나 시간이 끝나면 다음 해로 가요. 장래희망, 진학, 치료는 같은 나이에 한 번 더 골라요.</p></li>
+    <li><b>내 속도로 한 해씩 살아가요.</b><p>각자 진행하는 방에서는 일상 선택을 누르면 바로 한 살 자라요. 장래희망, 진학, 치료는 같은 나이에 더 고르는 선택이에요.</p></li>
     <li><b>직업마다 지원 조건이 있어요.</b><p>어떤 일은 학교를 마쳐야 하고, 어떤 일은 관계나 준비할 돈이 필요해요. 카드에서 조건과 한 해에 버는 돈을 봐요.</p></li>
     <li><b>몇 해 동안 이어지는 선택도 있어요.</b><p>카드에서 한 번만 바뀌는 수치와 매년 바뀌는 수치를 봐요. 올해 자동 변화를 누르면 월급, 집세처럼 이유별로 볼 수 있어요.</p></li>
     <li><b>몸이 약할 때는 치료 방법을 골라요.</b><p>큰 병과 낮은 체력이 겹치면 삶을 마칠 수 있어요. 병원 치료나 주변의 도움이 회복을 앞당겨요.</p></li>
@@ -322,7 +322,7 @@ function practiceSetup() {
 
 function startPractice(sex) {
   const now = Date.now();
-  practice = newRoom({ code: 'DEMO', seed: String(now), name: '혼자 체험', hostKey: null, settings: { seconds: 0 }, now });
+  practice = newRoom({ code: 'DEMO', seed: String(now), name: '혼자 체험', hostKey: null, settings: { pace: 'auto', seconds: 0 }, now });
   addPlayer(practice, { id: 'me', name: '나', avatar: selectedAvatar, sex });
   addPlayer(practice, { id: 'art', name: '노을', avatar: 3, sex: 'female' });
   addPlayer(practice, { id: 'money', name: '마루', avatar: 4, sex: 'male' });
@@ -393,7 +393,7 @@ document.addEventListener('click', (event) => {
     case 'pause':
     case 'resume': void run(() => teacher(action)); break;
     case 'kick': confirmation('참가자 내보내기', '이 별명으로 접속한 참가자를 대기실에서 내보낼까요?', 'confirm-kick', id); break;
-    case 'finish': confirmation('전체 게임 마감', '지금까지 마감한 턴을 우리 반의 최종 기록으로 남길까요?', 'confirm-finish'); break;
+    case 'finish': confirmation('전체 게임 마감', '지금까지의 인생과 순위를 우리 반의 최종 기록으로 남길까요?', 'confirm-finish'); break;
     case 'confirm-kick':
     case 'confirm-finish': void run(async () => {
       await teacher(action.slice(8), { playerId: id });
@@ -439,7 +439,8 @@ document.addEventListener('submit', (event) => {
       return;
     }
     const fields = form.elements;
-    const settings = { maxAge: fields.maxAge.valueAsNumber, seconds: fields.seconds.valueAsNumber, pace: fields.pace.value };
+    const settings = { maxAge: fields.maxAge.valueAsNumber, seconds: fields.seconds?.valueAsNumber ?? 0,
+      pace: fields.pace?.value ?? 'personal' };
     if (form.dataset.creating === 'true') {
       const result = await api('/api/rooms', { body: { name: fields.name.value, roomPassword: fields.roomPassword.value, pin: fields.pin?.value, settings } });
       activate(result.session, result.state);

@@ -20,7 +20,7 @@ const me = (room, id) => stateFor(room, id).me;
 const optionAt = (room, id, choice) => me(room, id).scene.choices.find((option) => option.id === choice);
 
 function pick(room, id, scene, choice) {
-  return selectChoice(room, id, { round: room.turn.number, scene, choice }, 1_000);
+  return selectChoice(room, id, { round: stateFor(room, id).turn.number, scene, choice }, 1_000);
 }
 
 function extras(room, id, choices = {}) {
@@ -235,6 +235,84 @@ test('플레이 화면은 성별이 다른 도트 캐릭터와 마을, 선택지
   assert.notEqual(female, avatar(0, 'alive', 'male'));
   assert.ok(html.includes(female));
   for (const region of ['play-sidebar', 'play-main', 'village-cast', 'stat-grid', 'choice-grid']) assert.ok(html.includes(region));
+});
+
+test('각자 진행에서 세대를 잇거나 영혼으로 선택해도 친구는 그대로이고 순위는 현재 인생을 보여 준다', () => {
+  const room = classroom({ 새싹: 'female', 바람: 'female' }, { age: 79, settings: { pace: 'personal', maxAge: 80 } });
+  room.players[0].life.career = 'crew';
+  room.players[1].life.career = 'nurse';
+  pick(room, '새싹', 'year', 'rest');
+  assert.equal(me(room, '바람').age, 79);
+  assert.equal(me(room, '새싹').mode, 'fork');
+  pick(room, '새싹', 'year', 'child-male');
+  assert.equal(me(room, '새싹').age, 19);
+  assert.equal(me(room, '새싹').scene.key, 'education');
+  assert.equal(me(room, '새싹').latest.type, 'child');
+  pick(room, '바람', 'year', 'rest');
+  pick(room, '바람', 'year', 'spirit');
+  pick(room, '바람', 'year', 'workplace');
+  assert.equal(me(room, '바람').age, 80);
+  assert.equal(me(room, '바람').visits.length, 1);
+  assert.ok(me(room, '바람').latest.text);
+  assert.throws(() => pick(room, '바람', 'year', 'workplace'), /이 선택을 할 수 없어요/);
+
+  const state = stateFor(room, '새싹');
+  const parent = state.rankings.age.find(({ name }) => name === '새싹');
+  assert.equal(parent.age, 19);
+  assert.equal(parent.career, null);
+  assert.equal(parent.value, 80);
+  assert.equal(parent.generation, 1);
+  const html = roomView({ role: 'player' }, state, { pane: 'rank', rank: 'age' });
+  assert.match(html, /19살 · 직업 없음/);
+  assert.match(html, /80살 · 간호사/);
+  const teacher = roomView({ role: 'host' }, stateFor(room, null), { pane: 'play', rank: 'age' });
+  assert.match(teacher, /학생들의 현재 인생/);
+  assert.doesNotMatch(teacher, /data-action="advance"|data-clock/);
+});
+
+test('운동선수는 훈련 기록과 체력이 필요하고 영상 크리에이터는 꿈이나 능력치에 따라 나타난다', () => {
+  const room = classroom({ 운동: 'female', 꿈: 'female' }, { age: 11 });
+  for (let age = 11; age < 19; age++) {
+    year(room, { 꿈: { dream: 'dream-sports' } },
+      (_, id) => id === '운동' && [11, 13].includes(age) ? 'sports-team' : 'rest');
+  }
+  assert.equal(me(room, '운동').life.path.sportYears, 2);
+  pick(room, '운동', 'education', 'rest');
+  pick(room, '꿈', 'education', 'rest');
+  assert.equal(optionAt(room, '운동', 'work-athlete').locked, '');
+  assert.match(optionAt(room, '꿈', 'work-athlete').locked, /훈련 2회/);
+  assert.equal(optionAt(room, '운동', 'work-creator'), undefined);
+  Object.assign(room.players[0].life.stats, { art: 35, bond: 24, money: 10 });
+  assert.equal(optionAt(room, '운동', 'work-creator').locked, '');
+  room.players[1].life.path.dreams.push({ age: 17, field: 'media' });
+  assert.match(optionAt(room, '꿈', 'work-creator').locked, /예술 30점/);
+});
+
+test('간호학과와 면허, 돌봄 교육과 시험이 서로 다른 직업을 연다', () => {
+  const room = classroom({ 간호: 'female', 돌봄: 'female' }, { age: 19 });
+  const [nurse, caregiver] = room.players;
+  for (const { life } of room.players) {
+    life.path.dreams.push({ age: 17, field: 'medical' });
+    Object.assign(life.stats, { learning: 40, bond: 28 });
+  }
+  year(room, { 간호: { education: 'study-nursing' }, 돌봄: { education: 'study-caregiving' } });
+  assert.equal(nurse.life.path.program.remaining, 3);
+  assert.equal(caregiver.life.path.caregivingAge, 20);
+  assert.equal(optionAt(room, '돌봄', 'work-caregiver').locked, '');
+  assert.match(optionAt(room, '돌봄', 'work-nurse').locked, /간호사 면허/);
+  while (nurse.life.age < 23) {
+    year(room, { 돌봄: { career: 'work-caregiver' } }, (view, id) => id === '간호' && view.scene.choices
+      .some(({ id }) => id === 'study-project') ? 'study-project' : undefined);
+  }
+  assert.equal(caregiver.life.career, 'caregiver');
+  assert.deepEqual(nurse.life.path.degree, { kind: 'nursing', field: 'medical', age: 23 });
+  const unlicensed = structuredClone(room);
+  pick(unlicensed, '간호', 'license', 'rest');
+  pick(unlicensed, '간호', 'education', 'rest');
+  assert.match(optionAt(unlicensed, '간호', 'work-nurse').locked, /간호사 면허/);
+  year(room, { 간호: { license: 'nurse-license', career: 'work-nurse' } });
+  assert.equal(nurse.life.career, 'nurse');
+  assert.equal(nurse.life.path.nursingLicenseAge, 23);
 });
 
 test('직업마다 학력과 능력치가 다르고 선택해야 고정 수입이 생긴다', () => {

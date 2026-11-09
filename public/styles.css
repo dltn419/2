@@ -275,7 +275,7 @@ input[name="code"] { font-family: var(--mono); text-transform: uppercase; letter
 
 .mini-row, .rank-row { width: 100%; display: flex; align-items: center; gap: 7px; text-align: left; background: none; border: 0; border-radius: 3px; padding: 5px 3px; min-height: 40px; }
 .mini-row:hover, .rank-row:hover { background: #f0f3e1; }
-.mini-row strong, .rank-row strong { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.rank-person { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .mini-row b, .rank-row b { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mini-row .avatar { width: 26px; height: 26px; }
 .mini-row strong { font-size: 13px; }
@@ -288,6 +288,7 @@ input[name="code"] { font-family: var(--mono); text-transform: uppercase; letter
 .filter { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; background: var(--tone); color: var(--tone-ink); border: 1px solid var(--tone-line); border-radius: 4px; padding: 5px 8px; font-size: 13px; font-weight: 750; }
 .filter[aria-pressed="true"] { border-color: var(--tone-ink); box-shadow: 0 2px var(--tone-ink); }
 .rank-row { padding: 6px; border-bottom: 1px solid #e4e8d6; }
+.rank-row .person-caption { font-size: 13px; word-break: keep-all; }
 .rank-generation { font-size: 11px; color: var(--muted); margin-right: 8px; white-space: nowrap; }
 
 dialog { width: min(100% - 32px, 500px); max-height: calc(100dvh - 32px); padding: 0; color: var(--ink); background: var(--paper); border: 2px solid var(--pine); border-radius: 6px; box-shadow: 5px 6px #15332353; overflow: auto; }

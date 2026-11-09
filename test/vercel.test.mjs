@@ -4,7 +4,7 @@ import pg from 'pg';
 import { makeGameApi } from '../server/game-api.mjs';
 import { postgresRooms } from '../server/postgres-rooms.mjs';
 
-test('PostgreSQL에 연결한 두 요청 처리기에서 20명이 방과 턴을 공유한다', { skip: !process.env.TEST_DATABASE_URL }, async (t) => {
+test('PostgreSQL에 연결한 두 요청 처리기에서 20명이 제각기 한 해씩 진행한다', { skip: !process.env.TEST_DATABASE_URL }, async (t) => {
   const pool = new pg.Pool({
     connectionString: process.env.TEST_DATABASE_URL,
     max: Number(process.env.TEST_DATABASE_POOL_SIZE || 8),
@@ -53,17 +53,25 @@ test('PostgreSQL에 연결한 두 요청 처리기에서 20명이 방과 턴을 
 
   const start = await request(teacher, `${room}/teacher`, { token, body: { action: 'start' } });
   assert.equal(start.status, 200);
+  assert.equal(start.data.turn, null);
+  const first = await request(students, `${room}/choice`, {
+    token: joined[0].data.session.token, body: { round: 1, scene: 'year', choice: 'rest' },
+  });
+  assert.equal(first.data.me.age, 1);
+  assert.equal(first.data.players[1].age, 0);
   const submissions = await Promise.all(joined.map(({ data }, index) => request(index % 2 ? teacher : students, `${room}/choice`, {
-    token: data.session.token, body: { round: 1, choice: 'rest' },
+    token: data.session.token, body: { round: index === 0 ? 2 : 1, scene: 'year', choice: 'rest' },
   })));
   assert.ok(submissions.every((result) => result.status === 200), JSON.stringify(submissions.map((result) => result.status)));
-  assert.equal(submissions.filter(({ data }) => data.turn.number === 2).length, 1);
+  assert.equal(submissions.filter(({ data }) => data.turn.number === 2).length, 19);
 
   const { data: { me } } = await request(students, room, { token: joined[0].data.session.token });
-  assert.equal(me.age, 1);
-  assert.equal(me.scene.title, '첫걸음');
-  assert.equal(me.life.history.length, 1);
+  assert.equal(me.age, 2);
+  assert.equal(me.scene.title, '말을 배우는 날');
+  assert.equal(me.life.history.length, 2);
   const saved = await request(students, room, { token });
   assert.equal(saved.data.rankings.age.length, 20);
+  assert.equal(saved.data.rankings.age[0].name, '테스트 1');
+  assert.equal(saved.data.rankings.age[0].age, 2);
   assert.equal((await request(teacher, room, { token, since: saved.data.revision })).status, 204);
 });

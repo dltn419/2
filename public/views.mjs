@@ -1,10 +1,11 @@
-import { AVATARS, STAGES, STATS } from './content.mjs';
+import { AVATARS, CAREERS, STAGES, STATS } from './content.mjs';
 import { CAPACITY, MODES, RANKS, stageAt } from './game.mjs';
 import { SEXES, lifeBadges, pathNotes, pathOf } from './life.mjs';
 import { avatar, changes, escapeHtml as h, icon, numeral, statGrid } from './ui.mjs';
 
 const rankInfo = { ...STATS, age: { label: '장수', mark: 'clock', color: 'mint', unit: '살' } };
 const stageNames = STAGES.map((stage) => `<li>${stage.label}</li>`).join('');
+const lifeCaption = (player) => `${player.age}살 · ${CAREERS[player.career]?.title ?? '직업 없음'}`;
 const button = (action, label, mark, type = 'secondary', extra = '') =>
   `<button type="button" class="button ${type}" data-action="${action}" ${extra}>${mark ? icon(mark) : ''}<span>${label}</span></button>`;
 
@@ -31,8 +32,8 @@ export function homeView(code, selected, saved) {
     <section class="home-hero">
       <div class="hero-copy">
         <div class="eyebrow">${icon('sprout')} <span>CLASSROOM LIFE SIM</span></div>
-        <h1>같은 해,<br>다른 <em>인생.</em></h1>
-        <p>태어나고, 배우고, 살아가며 한 권의 기록을 써요.<br class="wide-only"> 친구들과 같은 시간을 저마다의 선택으로 채워 보세요.</p>
+        <h1>같은 마을,<br>다른 <em>인생.</em></h1>
+        <p>태어나고, 배우고, 살아가며 한 권의 기록을 써요.<br class="wide-only"> 친구들과 한 마을에서 각자의 이야기를 만들어 보세요.</p>
         <div class="hero-actions">
           <a class="button primary" href="#join">${icon('down')} 학생 참가</a>
           ${button('practice', '혼자 체험', 'play')}
@@ -65,7 +66,7 @@ export function homeView(code, selected, saved) {
       <article class="panel entry-panel teacher-entry">
         <div class="entry-top"><span class="tile-icon amber">${icon('board')}</span><span class="eyebrow">02 / 교사</span></div>
         <h2>우리 반 방 만들기</h2>
-        <p class="subtle">최대 20명. 한 해의 선택 시간을 정하고 친구들을 초대하세요.</p>
+        <p class="subtle">최대 20명. 같은 마을에서 각자의 속도로 살아가요.</p>
         <div class="chalkboard" aria-hidden="true"><div>우리 반 시간표<span>01 — 100</span></div><div class="classroom">${classroom}</div></div>
         ${button('create', '교사 방 만들기', 'arrow', 'dark')}
         ${button('host-reopen', '코드로 교사 방 열기', 'lock', 'quiet')}
@@ -77,17 +78,19 @@ export function homeView(code, selected, saved) {
 
 export function settingsFields(settings, { creating = false, started = false, pinRequired = false } = {}) {
   const { maxAge, seconds, pace } = settings;
+  const personal = pace === 'personal';
   return `
     ${creating ? '<label>방 이름<input name="name" maxlength="30" value="우리 반 100년" required autocomplete="off"></label>' : ''}
     <div class="form-grid">
       <label>한 삶의 최대 나이<input name="maxAge" type="number" min="80" max="110" value="${maxAge}" required ${started ? 'disabled' : ''}></label>
-      <label>진행 방식<select name="pace">
+      ${personal ? '' : `<label>진행 방식<select name="pace">
         <option value="auto" ${pace === 'auto' ? 'selected' : ''}>자동 진행</option>
         <option value="manual" ${pace === 'manual' ? 'selected' : ''}>교사가 넘기기</option>
       </select></label>
-      <label>선택 시간 (초)<input name="seconds" type="number" min="0" max="180" value="${seconds}" required ${pace === 'manual' ? 'disabled' : ''}></label>
+      <label>선택 시간 (초)<input name="seconds" type="number" min="0" max="180" value="${seconds}" required ${pace === 'manual' ? 'disabled' : ''}></label>`}
     </div>
-    <p class="field-note">전원이 고르거나 시간이 끝나면 바로 다음 해가 열려요. 추가 선택이 있는 해는 12초 더 줘요. 0초로 두면 전원이 고를 때까지 기다려요.</p>
+    <p class="field-note">${personal ? '학생마다 고르는 즉시 자기 인생의 다음 해가 열려요.' :
+      '전원이 고르거나 시간이 끝나면 바로 다음 해가 열려요. 0초로 두면 전원이 고를 때까지 기다려요.'}</p>
     ${creating ? '<label>이 방의 교사 비밀번호<input name="roomPassword" type="password" required minlength="4" maxlength="32" autocomplete="new-password" placeholder="4~32자로 새로 정해요"></label><p class="field-note">다른 기기에서 이 방을 이어 열 때 써요. 학생은 참가 코드와 별명으로 들어와요.</p>' : ''}
     ${pinRequired ? '<label>서버 방 열기 암호<input name="pin" type="password" required autocomplete="current-password"></label>' : ''}
   `;
@@ -131,6 +134,8 @@ function roomHero(session, state) {
   const sub = teacher ? h(state.name) : state.phase === 'lobby' ? h(state.name) :
     me.mode === 'alive' ? lifeStage(me.life, stage) : MODES[me.mode];
   const heroTone = me?.mode === 'spirit' ? 'spirit-hero' : '';
+  const yearLabel = state.phase === 'lobby' ? '새 이야기' :
+    state.settings.pace === 'personal' ? me ? `${me.age}살의 마을` : '각자 진행' : `마을 ${state.year}년차`;
   return `<section class="room-hero ${teacher ? '' : 'player-hero'} ${heroTone}">
     <div class="room-hero-main">
       <div class="eyebrow"><i class="status-dot"></i> ${session.role === 'demo' ? '혼자 체험' : `ROOM ${state.code}`} <span class="sep">/</span> ${phaseLabel(state)}</div>
@@ -140,7 +145,7 @@ function roomHero(session, state) {
       ${teacher || state.phase === 'lobby' ? '' : `<div class="life-chips"><span>${me.generation}대</span><span>${me.age}살</span>${lifeBadges(me.life).map((badge) => `<span>${h(badge)}</span>`).join('')}</div>`}
     </div>
     <div class="room-hero-art"><img src="/art/village.svg" alt="" width="384" height="218">
-      <span class="village-year">${icon('sun')} ${state.phase === 'lobby' ? '새 이야기' : `마을 ${state.year}년차`}</span>
+      <span class="village-year">${icon('sun')} ${yearLabel}</span>
       ${teacher ? '' : villageCast(me)}
     </div>
   </section>`;
@@ -152,7 +157,8 @@ function roster(players, { teacher = false, lobby = false, meId } = {}) {
     <button type="button" class="person-main" data-action="profile" data-id="${player.id}" data-focus="profile-${player.id}">
       ${avatar(player.avatar, player.mode, player.sex)}
       <span><strong>${h(player.name)}${player.id === meId ? ' <small>나</small>' : ''}</strong>
-      <span class="person-caption">${lobby ? '대기실에 있어요' : `${player.generation}대 · ${player.age}살 · ${MODES[player.mode]}`}</span></span>
+      <span class="person-caption">${lobby ? '대기실에 있어요' : h(lifeCaption(player))}</span>
+      ${!lobby && player.mode !== 'alive' ? `<span class="person-caption">${MODES[player.mode]}</span>` : ''}</span>
     </button>
     ${teacher && !lobby ? `<span class="small-badge ${player.submitted ? 'mint' : 'paper'}">${player.submitted ? '제출' : '대기'}</span>` : ''}
     ${teacher && lobby ? `<button type="button" class="icon-button" aria-label="${h(player.name)} 내보내기" data-action="kick" data-id="${player.id}">${icon('close')}</button>` : ''}
@@ -160,11 +166,12 @@ function roster(players, { teacher = false, lobby = false, meId } = {}) {
 }
 
 function settingsSummary(settings) {
+  const personal = settings.pace === 'personal';
   return `<dl class="settings-summary">
-    <div><dt>턴마다</dt><dd>1년</dd></div>
+    <div><dt>일상 선택마다</dt><dd>1년</dd></div>
     <div><dt>최대 나이</dt><dd>${settings.maxAge}살</dd></div>
-    <div><dt>진행 방식</dt><dd>${settings.pace === 'auto' ? '자동 진행' : '교사가 넘기기'}</dd></div>
-    <div><dt>선택 시간</dt><dd>${settings.pace === 'auto' && settings.seconds ? `${settings.seconds}초` : '시간 제한 없음'}</dd></div>
+    <div><dt>진행 방식</dt><dd>${personal ? '각자 진행' : settings.pace === 'auto' ? '자동 진행' : '교사가 넘기기'}</dd></div>
+    ${personal ? '' : `<div><dt>선택 시간</dt><dd>${settings.pace === 'auto' && settings.seconds ? `${settings.seconds}초` : '시간 제한 없음'}</dd></div>`}
   </dl>`;
 }
 
@@ -201,9 +208,10 @@ function navigation(session, pane, state) {
 }
 
 function roundMeta(state) {
+  const personal = state.settings.pace === 'personal';
   return `<div class="section-heading round-meta">
-    <div class="eyebrow"><i class="status-dot"></i> ${state.me ? `${state.me.age}살` : `마을 ${state.turn.to}년차`}</div>
-    <span class="timer" data-clock>${icon('clock')} <b></b></span>
+    <div class="eyebrow"><i class="status-dot"></i> ${state.me ? `${state.me.age}살` : personal ? '각자 진행' : `마을 ${state.turn.to}년차`}</div>
+    ${personal ? '' : `<span class="timer" data-clock>${icon('clock')} <b></b></span>`}
   </div>`;
 }
 
@@ -252,6 +260,7 @@ function choiceCard(option, me, bonus) {
       <span class="choice-tag" aria-hidden="true">${icon(locked ? 'lock' : picked ? 'check' : option.opportunity ? 'spark' : 'arrow')}</span></span>
     <span class="choice-detail">${h(option.detail)}</span>
     ${effect ? `<span class="choice-bottom"><span class="effect-once">이번에 한 번</span>${effect}</span>` : ''}
+    ${option.career && option.opportunity ? '<span class="small-badge mint">내 꿈과 이어지는 일</span>' : ''}
     ${recurringView(option, bonus)}
     ${conditionView(option)}
   </button>`;
@@ -272,7 +281,8 @@ function miniRank(state, rank) {
   return `<section class="panel section-panel mini-rank">
     <div class="section-heading"><h2>우리 반 기록</h2><span class="small-badge ${data.color}">${data.label}</span></div>
     ${rows.slice(0, 3).map((row) => `<button type="button" class="mini-row" data-action="profile" data-id="${row.id}">
-      <span class="medal rank-${row.rank}">${row.rank}</span>${avatar(row.avatar, 'alive', row.sex)}<strong>${h(row.name)}</strong><b>${numeral(row.value)}</b>
+      <span class="medal rank-${row.rank}">${row.rank}</span>${avatar(row.avatar, row.mode, row.sex)}
+      <span class="rank-person"><strong>${h(row.name)}</strong><span class="person-caption">${h(lifeCaption(row))}</span></span><b>${numeral(row.value)}</b>
     </button>`).join('')}
     ${button('pane', '분야별 순위 보기', 'arrow', 'quiet', 'data-id="rank"')}
   </section>`;
@@ -280,10 +290,11 @@ function miniRank(state, rank) {
 
 function playerView(session, state, rank) {
   const { me, phase } = state;
+  const personal = state.settings.pace === 'personal';
   const progress = `${state.players.filter((player) => player.submitted).length}/${state.players.length}명 선택`;
   let body;
   if (phase === 'ended') {
-    body = `<div class="section-heading"><div class="eyebrow">${icon('flag')} 마지막 장</div><span class="small-badge mint">${state.year}년의 기록</span></div>
+    body = `<div class="section-heading"><div class="eyebrow">${icon('flag')} 마지막 장</div><span class="small-badge mint">${personal ? `${me.age}살의 기록` : `${state.year}년의 기록`}</span></div>
       <h2>우리 반 이야기를 마쳤어요</h2><p class="subtle">${h(state.endReason)}</p>${latestView(me.latest)}
       <div class="actions">${button('profile', '내 기록 보기', 'book', 'primary', `data-id="${me.id}"`)} ${button('pane', '최종 순위', 'trophy', 'secondary', 'data-id="rank"')}</div>`;
   } else if (state.paused) {
@@ -299,10 +310,10 @@ function playerView(session, state, rank) {
       <div class="choice-grid">${scene.choices.map((item) => choiceCard(item, me, scene.bonus)).join('')}</div>
       <div class="choice-footer"><span>${scene.waiting ? waiting : scene.bonus ? '고르면 같은 나이의 이야기가 이어져요.' :
         me.choice ? waiting : !scene.choices.length ? '친구들 메뉴에서 다른 이야기를 볼 수 있어요.' :
-          session.role === 'demo' ? '고르면 바로 다음 해로 가요.' : '하나를 눌러 골라요.'}</span>
-      ${me.mode !== 'alive' && !scene.waiting ? button('choose', me.choice === 'pass' ? '기다리기를 골랐어요' : '이번엔 기다리기', 'clock', 'quiet', 'data-id="pass"') : ''}</div>
+          me.mode === 'alive' && (personal || session.role === 'demo') ? '고르면 바로 한 살 자라요.' : '하나를 눌러 골라요.'}</span>
+      ${!personal && me.mode !== 'alive' && !scene.waiting ? button('choose', me.choice === 'pass' ? '기다리기를 골랐어요' : '이번엔 기다리기', 'clock', 'quiet', 'data-id="pass"') : ''}</div>
       ${yearlyView(scene)}
-      ${session.role === 'demo' ? '' : `<div class="submission-note"><span>${icon('users')} ${progress}</span></div>`}
+      ${personal || session.role === 'demo' ? '' : `<div class="submission-note"><span>${icon('users')} ${progress}</span></div>`}
       ${latestView(me.latest)}`;
   }
   const storyKey = `${state.turn.number}-${me.scene?.key ?? phase}-${Boolean(me.scene?.waiting)}`;
@@ -327,32 +338,34 @@ function playerView(session, state, rank) {
 
 function teacherView(state) {
   const { players, phase, paused } = state;
+  const personal = state.settings.pace === 'personal';
   const submitted = players.filter((player) => player.submitted).length;
   const ended = phase === 'ended';
   return `<div class="room-grid">
     <section class="panel section-panel">
       <div class="section-heading"><div class="eyebrow">${icon('users')} 실시간 참가 현황</div><span class="small-badge mint">${players.length} / ${CAPACITY}명</span></div>
-      <h2>${ended ? '우리 반 최종 기록' : '누가 선택을 마쳤나요?'}</h2>
-      ${phase === 'play' ? `<div class="progress-card"><span>선택 제출</span><strong>${submitted} / ${players.length}명</strong><span class="progress-bar"><i style="width:${submitted * 100 / players.length}%"></i></span></div>` : ''}
-      ${roster(players, { teacher: phase === 'play' })}
+      <h2>${ended ? '우리 반 최종 기록' : personal ? '학생들의 현재 인생' : '누가 선택을 마쳤나요?'}</h2>
+      ${phase === 'play' && !personal ? `<div class="progress-card"><span>선택 제출</span><strong>${submitted} / ${players.length}명</strong><span class="progress-bar"><i style="width:${submitted * 100 / players.length}%"></i></span></div>` : ''}
+      ${roster(players, { teacher: phase === 'play' && !personal })}
     </section>
     <aside class="stack">
       <section class="panel section-panel control-panel">
         ${roundMeta(state)}
         <h2>${ended ? '수업 마감' : '진행 제어'}</h2>
-        <p class="subtle">${ended ? h(state.endReason) : paused ? '타이머와 학생의 선택이 멈춰 있어요.' :
+        <p class="subtle">${ended ? h(state.endReason) : paused ? '학생의 선택을 잠시 멈췄어요.' : personal ? '학생마다 자기 속도로 한 해씩 진행해요.' :
           state.turn.auto ? '전원이 고르거나 시간이 끝나면 다음 해가 열려요.' : '학생들이 다 고르면 올해를 마감하세요.'}</p>
         ${ended ? button('pane', '최종 순위 보기', 'trophy', 'primary full', 'data-id="rank"') :
           `<div class="stack compact">
-            ${button(paused ? 'resume' : 'advance', paused ? '계속 진행' : '올해 마감', paused ? 'play' : 'arrow', 'primary full', 'data-focus="teacher-next"')}
+            ${paused ? button('resume', '계속 진행', 'play', 'primary full', 'data-focus="teacher-next"') :
+              personal ? '' : button('advance', '올해 마감', 'arrow', 'primary full', 'data-focus="teacher-next"')}
             ${paused ? '' : button('pause', '일시정지', 'pause', 'secondary full', 'data-focus="pause"')}
             ${button('finish', '전체 게임 마감', 'flag', 'quiet danger', 'data-focus="finish"')}
           </div>`}
       </section>
       <section class="panel section-panel">
-        <div class="section-heading"><h2>방 설정</h2>${ended ? '' : button('settings', '설정', 'settings', 'quiet')}</div>
+        <div class="section-heading"><h2>방 설정</h2>${ended || personal ? '' : button('settings', '설정', 'settings', 'quiet')}</div>
         ${settingsSummary(state.settings)}
-        ${ended ? '' : '<p class="field-note">바꾼 설정은 다음 해부터 적용돼요.</p>'}
+        ${ended || personal ? '' : '<p class="field-note">바꾼 설정은 다음 해부터 적용돼요.</p>'}
       </section>
     </aside>
   </div>`;
@@ -368,8 +381,9 @@ function rankView(state, rank) {
       return `<button type="button" class="filter ${item.color}" data-action="rank-filter" data-id="${key}" data-focus="rank-${key}" aria-pressed="${key === rank}">${icon(item.mark)} ${item.label}</button>`;
     }).join('')}</div>
     <div class="rank-list">${(state.rankings[rank] ?? []).map((row) => `<button type="button" class="rank-row" data-action="profile" data-id="${row.id}">
-      <span class="medal rank-${row.rank}">${row.rank}</span>${avatar(row.avatar, 'alive', row.sex)}
-      <strong>${h(row.name)}${row.id === state.me?.id ? ' <small>나</small>' : ''}</strong><span class="rank-generation">${row.generation}대 기록</span>
+      <span class="medal rank-${row.rank}">${row.rank}</span>${avatar(row.avatar, row.mode, row.sex)}
+      <span class="rank-person"><strong>${h(row.name)}${row.id === state.me?.id ? ' <small>나</small>' : ''}</strong>
+        <span class="person-caption">${h(lifeCaption(row))}</span></span><span class="rank-generation">${row.generation}대 기록</span>
       <b>${numeral(row.value)} <small>${data.unit ?? '점'}</small></b>
     </button>`).join('')}</div>
   </section>`;
@@ -407,7 +421,7 @@ export function profileView(profile, index) {
     ${notes.length ? `<h3>지나온 길</h3><div class="life-chips">${notes.map((note) => `<span>${h(note)}</span>`).join('')}</div>` : ''}
     <h3>인생 연대기</h3>
     ${entries.length ? `<ol class="timeline">${entries.map((entry) => `<li>
-      <span class="timeline-year" title="마을 ${entry.year}년차">${entry.decisionAge === undefined ? `${entry.year}년차` : `${entry.decisionAge}살`}${entry.type === 'bonus' ? '<small>추가 선택</small>' : ''}</span><div><strong>${h(entry.title)}</strong>
+      <span class="timeline-year">${entry.type === 'spirit' ? '영혼' : `${entry.decisionAge ?? entry.age}살`}${entry.type === 'bonus' ? '<small>추가 선택</small>' : ''}</span><div><strong>${h(entry.title)}</strong>
         ${entry.text ? `<p>${h(entry.text)}</p>` : ''}<div class="delta-list">${changes(entry.changes)}</div></div>
     </li>`).join('')}</ol>` : '<p class="subtle">첫 선택을 기다리고 있어요.</p>'}
   `;

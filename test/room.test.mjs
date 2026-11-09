@@ -62,7 +62,7 @@ async function fixture(t) {
 test('20명이 동시에 선택하면 한 턴만 마감하고 서버 재시작 뒤에도 이어진다', async (t) => {
   const app = await fixture(t);
   assert.equal((await app.request('/api/rooms', null, { name: '교실', pin: 'incorrect' })).status, 403);
-  const room = await app.room({ seconds: 10 });
+  const room = await app.room({ pace: 'auto', seconds: 10 });
   const joined = await Promise.all(Array.from({ length: 20 }, (_, index) => room.join(`학생 ${index + 1}`)));
   assert.ok(joined.every(({ status }) => status === 201));
   const players = joined.map(({ body }) => body);
@@ -119,6 +119,56 @@ test('20명이 동시에 선택하면 한 턴만 마감하고 서버 재시작 �
     body.me.age === 10 && body.me.scene.title === '우리 반 작은 전시'));
   const schoolYears = await Promise.all(players.map((player) => room.choose(player, schoolRound, 'rest', 'year')));
   assert.equal(schoolYears.filter(({ body }) => body.year === 11).length, 1);
+});
+
+test('새 멀티 방은 학생마다 곧장 한 살씩 자라고 중복 요청은 한 번만 반영한다', async (t) => {
+  const app = await fixture(t);
+  const room = await app.room({ seconds: 30 });
+  const fast = (await room.join('새싹')).body;
+  const slow = (await room.join('단풍')).body;
+  const started = await room.teacher('start');
+  assert.equal(started.settings.pace, 'personal');
+  assert.equal(started.settings.seconds, 0);
+  assert.equal(started.turn, null);
+  assert.equal((await app.request(room.root + '/teacher', room.host, { action: 'advance' })).status, 409);
+
+  const concurrent = await Promise.all([room.choose(fast, 1, 'rest', 'year'), room.choose(fast, 1, 'rest', 'year')]);
+  assert.deepEqual(concurrent.map(({ status }) => status).sort(), [200, 409]);
+  assert.equal(concurrent.find(({ status }) => status === 200).body.me.age, 1);
+  await app.restart();
+  app.elapse(60_000);
+  let state = await room.state(fast.session.token);
+  assert.equal(state.turn.deadline, null);
+  assert.equal(state.me.age, 1);
+
+  while (state.me.age < 10 || state.me.scene.key === 'illness') {
+    const { turn, me } = state;
+    const result = await room.choose(fast, turn.number, me.scene.fallback ?? 'rest', me.scene.key);
+    assert.equal(result.status, 200);
+    state = result.body;
+  }
+  assert.equal(state.me.scene.key, 'dream');
+  const dream = await room.choose(fast, state.turn.number, 'dream-sports', 'dream');
+  assert.equal(dream.status, 200);
+  assert.equal(dream.body.me.age, 10);
+  assert.equal(dream.body.turn.number, state.turn.number);
+  assert.equal(dream.body.me.scene.key, 'year');
+  const slower = await room.state(slow.session.token);
+  assert.equal(slower.me.age, 0);
+  assert.equal(slower.turn.number, 1);
+  assert.deepEqual(slower.rankings.age.map(({ name, age, career }) => ({ name, age, career })), [
+    { name: '새싹', age: 10, career: null },
+    { name: '단풍', age: 0, career: null },
+  ]);
+
+  await room.teacher('pause');
+  assert.equal((await room.choose(slow, 1, 'rest', 'year')).status, 409);
+  await room.teacher('resume');
+  const first = await room.choose(slow, 1, 'rest', 'year');
+  assert.equal(first.body.me.age, 1);
+  assert.equal(first.body.players.find(({ name }) => name === '새싹').age, 10);
+  assert.equal((await room.teacher('finish')).phase, 'ended');
+  assert.equal((await room.choose(slow, 2, 'rest', 'year')).status, 409);
 });
 
 test('교사는 방의 비밀번호로 다시 열고 학생은 별명으로 참가한다', async (t) => {
