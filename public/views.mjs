@@ -1,4 +1,4 @@
-import { AVATARS, CAREER_CREDENTIALS, CAREERS, STAGES, STATS } from './content.mjs';
+import { AVATARS, CAREER_CREDENTIALS, CAREER_PROMOTIONS, CAREERS, STAGES, STATS } from './content.mjs';
 import { CAPACITY, MODES, PASS, RANKS, stageAt } from './game.mjs';
 import { SEXES, careerGrowth, careerPay, chanceDiscount, lifeBadges, pathNotes, pathOf,
   performanceProfile, retirementAge, retirementLumpSum, retirementPayout, retirementTax } from './life.mjs';
@@ -24,6 +24,28 @@ export function topView(session, state) {
   </div>`;
 }
 
+
+function jobRequirementList(id, job, life) {
+  const need = Object.entries(job.need ?? {}).map(([stat, minimum]) => {
+    const threshold = life && !job.promotionFrom ? Math.max(1, minimum - chanceDiscount(life, id, stat)) : minimum;
+    return `${STATS[stat].label} ${threshold}${STATS[stat].unit ?? '점'}`;
+  });
+  return [
+    job.promotionFrom && `${CAREERS[job.promotionFrom].title} 경력 ${job.minYears}년 이상`,
+    id === 'coach' && '운동선수 경력 3년 이상',
+    CAREER_CREDENTIALS[job.education],
+    ...need,
+    job.requiresGraduate && '관련 대학원 수료',
+    job.latestStart && `${job.latestStart}살까지 지원`,
+    job.startup && `시작 비용 ${job.startup}코인`,
+  ].filter(Boolean);
+}
+
+function careerPromotionRoute(id) {
+  const next = Object.entries(CAREER_PROMOTIONS).filter(([, position]) => position.from === id);
+  return next.flatMap(([nextId]) => [nextId, ...careerPromotionRoute(nextId)]);
+}
+
 function jobGuide(life) {
   const path = life && pathOf(life);
   const current = path?.retired === null && !life.end && path.service?.status !== 'serving' ? careerPay(life) : null;
@@ -34,34 +56,74 @@ function jobGuide(life) {
     current.education && `대학원 +${current.education}`,
   ].filter(Boolean).join(' · ');
   const currentBonus = life?.career && performanceProfile(life.career);
+  const baseCareers = Object.entries(CAREERS).filter(([, job]) => !job.promotionFrom && !job.legacyPromotion);
   return `
     ${current ? `<section class="current-pay"><strong>${h(CAREERS[life.career].title)} · 연봉 ${current.total}코인</strong>
       <p class="field-note">${h(payParts)}${currentBonus ? ` · 성과 보너스 매년 0~${currentBonus.max}코인` : ''}</p></section>` : ''}
-    <label class="job-search-label">직업 찾기<input id="job-search" type="search" placeholder="직업 이름이나 조건" autocomplete="off"></label>
+    <label class="job-search-label">직업 찾기<input id="job-search" type="search" placeholder="직업명이나 승진 직급 검색" autocomplete="off"></label>
+    <p class="field-note job-guide-intro">기본 직업 ${baseCareers.length}개 · 직업을 누르면 설명과 승진 조건을 볼 수 있어요.</p>
     <p class="field-note" id="job-no-match" role="status" hidden>찾는 직업이 없어요.</p>
-    <ul class="job-guide-list">${Object.entries(CAREERS).filter(([, job]) => !job.legacyPromotion).map(([id, job]) => {
-      const requirements = [
-        CAREER_CREDENTIALS[job.education],
-        ...Object.entries(job.need ?? {}).map(([stat, minimum]) => {
-          const need = life ? Math.max(1, minimum - chanceDiscount(life, id, stat)) : minimum;
-          return `${STATS[stat].label} ${need}${STATS[stat].unit ?? '점'}`;
-        }),
-        job.latestStart && `${job.latestStart}살까지 지원`,
-        job.startup && `시작 비용 ${job.startup}코인`,
-        job.promotionFrom && `${CAREERS[job.promotionFrom].title} 경력 ${job.minYears}년 이상`,
-        job.requiresGraduate && '관련 대학원 수료',
-        `정년 ${retirementAge(id)}세`,
-      ].filter(Boolean);
+    <ul class="job-guide-list">${baseCareers.map(([id, job]) => {
       const growth = careerGrowth(id);
-      const growthLine = `${growth.label} · ${growth.steps.join('·')}년차 이후 +${growth.raise}코인씩`;
+      const growthLine = `${growth.steps.join('·')}년차 이후 +${growth.raise}코인씩`;
+      const requirements = jobRequirementList(id, job, life);
+      const requirementText = requirements.join(' · ') || '별도 조건 없음';
       const performance = performanceProfile(id);
+      const routeIds = careerPromotionRoute(id);
+      const route = id === 'athlete' ? ['coach', ...careerPromotionRoute('coach')] : routeIds;
+      let familyId = life?.career;
+      while (familyId && CAREERS[familyId]?.promotionFrom) familyId = CAREERS[familyId].promotionFrom;
+      const inFamily = familyId === id;
+      const routeHtml = route.length ? `<ol class="job-promotion-route">
+        <li class="job-promotion-step">
+          <div><strong>${h(job.title)}</strong><span>초기 연봉 ${job.wage}코인</span></div>
+          <p>시작 · ${h(requirementText)}</p>
+        </li>
+        ${route.map((positionId) => {
+          const position = CAREERS[positionId];
+          const info = jobRequirementList(positionId, position, null);
+          const conditions = positionId === 'coach'
+            ? ['운동선수 경력 3년 이상', ...Object.entries(position.need ?? {}).map(([stat, value]) => `${STATS[stat].label} ${value}${STATS[stat].unit ?? '점'}`)]
+            : info;
+          return `<li class="job-promotion-step">
+            <div><strong>${h(position.title)}</strong><span>기본 연봉 ${position.wage}코인</span></div>
+            <p>${positionId === 'coach' ? '전직' : '승진'} · ${h(conditions.join(' · ') || '별도 조건 없음')}</p>
+          </li>`;
+        }).join('')}
+      </ol>` : `<div class="job-no-promotion">
+        <strong>별도 승진 단계 없음</strong>
+        <p>${performance ? '경력을 쌓고 좋은 성과를 내면 추가 보너스를 받을 수 있어요.' : '현재 직업에서 경력과 능력치를 키우거나 다른 직업으로 이직할 수 있어요.'}</p>
+      </div>`;
       return `<li class="job-guide-entry">
-        <div class="job-guide-heading"><h3>${h(job.title)}</h3><span>기본 연봉 ${job.wage}코인</span></div>
-        <p>${h(job.detail)}</p>
-        ${performance ? `<p class="job-requirements"><b>성과 보너스</b> 매년 0~${performance.max}코인 · ${h(performance.description)}</p>` : ''}
-        <p class="job-requirements"><b>${job.promotionFrom ? '승진 경로' : '연봉 성장'}</b>
-          ${h(job.promotionFrom ? `${CAREERS[job.promotionFrom].title} → ${job.title} · ${growthLine}` : growthLine)}</p>
-        <p class="job-requirements"><b>조건</b> ${h(requirements.join(' · ') || '취업 기회가 오면 바로 지원')}</p>
+        <details class="job-guide-card">
+          <summary class="job-guide-trigger">
+            <span class="job-guide-heading">
+              <strong class="job-guide-title">${h(job.title)}</strong>
+              ${inFamily ? '<span class="job-current-indicator">현재 경력</span>' : ''}
+              <span class="job-guide-expand" aria-hidden="true">⌄</span>
+            </span>
+            <span class="job-guide-facts">
+              <span>초기 연봉 <b>${job.wage}코인</b></span>
+              <span class="job-growth-tag">${h(growth.label)}</span>
+            </span>
+            <span class="job-guide-summary-req"><b>필요 조건</b> ${h(requirementText)}</span>
+          </summary>
+          <div class="job-guide-detail">
+            <p class="job-guide-description">${h(job.detail)}</p>
+            <div class="job-guide-details-meta">
+              <span><b>연봉 성장</b> ${h(growthLine)}</span>
+              <span><b>정년</b> ${retirementAge(id)}세</span>
+              <span><b>체력 소모</b> ${job.fatigue ? `매년 -${job.fatigue}점` : '기본 소모 없음'}</span>
+            </div>
+            ${performance ? `<div class="job-performance-info"><strong>성과 수입: 매년 0~${performance.max}코인</strong>
+              <p><b>${h(performance.label)}</b> · ${h(performance.description)}</p></div>` : ''}
+            <section class="job-promotion-detail">
+              <h4>${route.length ? '승진·전직 경로와 필요 조건' : '성장 방식'}</h4>
+              ${routeHtml}
+            </section>
+            <p class="job-guide-footnote">표시된 조건은 게임용 기준이며, 실제 직업 자격이나 승진 규정과는 다를 수 있어요.</p>
+          </div>
+        </details>
       </li>`;
     }).join('')}</ul>`;
 }
