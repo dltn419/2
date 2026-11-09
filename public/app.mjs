@@ -480,6 +480,16 @@ document.addEventListener('click', (event) => {
       break;
     case 'practice': practiceSetup(); break;
     case 'pane': pane = id; render(); break;
+    case 'choice-back': {
+      // 선택을 확정하지 않고 목록만 닫습니다. 게임 기록과 진행 상태는 그대로입니다.
+      const section = target.closest('details[data-choice-section]');
+      if (section?.dataset.choiceSection !== id) break;
+      section.open = false;
+      const summary = section.querySelector('summary');
+      summary?.focus({ preventScroll: true });
+      summary?.scrollIntoView({ block: 'nearest' });
+      break;
+    }
     case 'rank-filter': rank = id; render(); break;
     case 'profile': void run(() => showProfile(id)); break;
     case 'generation': showGeneration(Number(index)); break;
