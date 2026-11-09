@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { addPlayer, newRoom, stateFor, teacherAction, GameError } from '../public/game.mjs';
 import { makeGameApi } from '../server/game-api.mjs';
+import { roomView } from '../public/views.mjs';
 
 function sampleRoom() {
   const room = newRoom({
@@ -56,6 +57,22 @@ test('마감한 교사방만 초기화하고 방 코드·교사 인증·설정�
   assert.equal(room.turn.number, 1);
   assert.equal(room.players[0].life.age, 0);
   assert.equal(room.year, 0);
+});
+
+test('교사방에 초기화 버튼은 마감 후에만 나타나고 초기화 후에는 사라진다', () => {
+  const room = sampleRoom();
+  const render = () => roomView({ role: 'host' }, stateFor(room, null, 1000), { pane: 'play', rank: 'money' });
+  assert.doesNotMatch(render(), /data-action="reset-room"/);
+  teacherAction(room, 'start', {}, 1100);
+  assert.doesNotMatch(render(), /data-action="reset-room"/);
+  teacherAction(room, 'finish', {}, 1200);
+  const finished = render();
+  assert.match(finished, /data-action="reset-room"/);
+  assert.match(finished, /방 초기화 · 새 게임 준비/);
+  assert.match(finished, /초기화하면 참가자와 인생 기록이 삭제돼요/);
+  teacherAction(room, 'reset', { confirmCode: room.code }, 1300);
+  assert.doesNotMatch(render(), /data-action="reset-room"/);
+  assert.match(render(), /대기실/);
 });
 
 function memoryStore() {
