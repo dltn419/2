@@ -4,7 +4,7 @@ import { STORIES } from '../public/content.mjs';
 import { addPlayer, newRoom, selectChoice, stateFor, teacherAction, updateRoomRules } from '../public/game.mjs';
 import { fallIll, illnessDeathRisk, illnessRisk, settleHealth } from '../public/health.mjs';
 import { avatar } from '../public/ui.mjs';
-import { roomView } from '../public/views.mjs';
+import { choiceFeedbackView, roomView } from '../public/views.mjs';
 
 function classroom(students, { age = 0, settings } = {}) {
   const room = newRoom({ code: 'ABC234', name: '한 해씩', seed: 'book-of-years', settings: { years: 7, pace: 'manual', ...settings } });
@@ -237,6 +237,50 @@ test('플레이 화면은 성별이 다른 도트 캐릭터와 마을, 선택지
   for (const region of ['play-sidebar', 'play-main', 'village-cast', 'stat-grid', 'choice-grid']) assert.ok(html.includes(region));
 });
 
+test('일상 선택은 실제 능력치 변화와 이름을 넣은 문장을 남긴다', () => {
+  const room = classroom({ 새싹: 'female' }, { settings: { pace: 'auto', seconds: 0 } });
+  const before = stateFor(room, '새싹');
+  assert.equal(choiceFeedbackView(before), '');
+  pick(room, '새싹', 'year', 'birth-voice');
+  const after = stateFor(room, '새싹');
+  assert.equal(after.me.life.stats.bond, before.me.life.stats.bond + 1);
+  assert.equal(after.me.age, 1);
+  const note = choiceFeedbackView(after);
+  assert.match(note, /새싹은<\/strong> 가족이 처음 이름을 불러 주자 작은 눈을 떴어요/);
+  assert.match(note, /관계 \+1/);
+  assert.doesNotMatch(note, /체력 [−+]/);
+  assert.match(roomView({ role: 'demo' }, after, { pane: 'play', rank: 'age' }), /data-stat="bond"/);
+});
+
+test('추가 선택에도 현재 나이에서 입학과 장래희망 이야기가 나타난다', () => {
+  const college = classroom({ 이수: 'female' }, { age: 19, settings: { pace: 'personal' } });
+  college.players[0].life.stats.learning = 24;
+  pick(college, '이수', 'education', 'study-university');
+  const after = stateFor(college, '이수');
+  assert.equal(after.me.age, 19);
+  assert.match(choiceFeedbackView(after), /이수는<\/strong> 설레는 마음으로 대학교의 첫 강의실에 들어갔어요/);
+  assert.match(choiceFeedbackView(after), /자금 −8/);
+
+  const school = classroom({ 이수: 'female' }, { age: 10, settings: { pace: 'personal' } });
+  const before = stateFor(school, '이수');
+  pick(school, '이수', 'dream', 'dream-sports');
+  const dreamed = stateFor(school, '이수');
+  assert.equal(dreamed.me.age, 10);
+  assert.deepEqual(dreamed.me.life.stats, before.me.life.stats);
+  assert.match(choiceFeedbackView(dreamed), /장래희망 칸에 ‘운동과 스포츠’라고/);
+  assert.doesNotMatch(choiceFeedbackView(dreamed), /class="delta /);
+});
+
+test('공유 진행에서 선택 문장은 바로 나오고 수치 변화는 한 해가 지나면 표시된다', () => {
+  const room = classroom({ 학생: 'female' });
+  pick(room, '학생', 'year', 'rest');
+  const pending = stateFor(room, '학생');
+  assert.match(choiceFeedbackView(pending), /따뜻한 품에서 스르르 잠들어요/);
+  assert.doesNotMatch(choiceFeedbackView(pending), /체력 \+2/);
+  teacherAction(room, 'advance', { round: room.turn.number, phase: 'play' }, 1_000);
+  assert.match(choiceFeedbackView(stateFor(room, '학생')), /체력 \+2/);
+});
+
 test('각자 진행에서 세대를 잇거나 영혼으로 선택해도 친구는 그대로이고 순위는 현재 인생을 보여 준다', () => {
   const room = classroom({ 새싹: 'female', 바람: 'female' }, { age: 79, settings: { pace: 'personal', maxAge: 80 } });
   room.players[0].life.career = 'crew';
@@ -254,6 +298,7 @@ test('각자 진행에서 세대를 잇거나 영혼으로 선택해도 친구�
   assert.equal(me(room, '바람').age, 80);
   assert.equal(me(room, '바람').visits.length, 1);
   assert.ok(me(room, '바람').latest.text);
+  assert.match(choiceFeedbackView(stateFor(room, '바람')), /오래 일하던 곳에 들러/);
   assert.throws(() => pick(room, '바람', 'year', 'workplace'), /이 선택을 할 수 없어요/);
 
   const state = stateFor(room, '새싹');

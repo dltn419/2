@@ -8,7 +8,7 @@ export const CAPACITY = 20;
 export const RULE_VERSION = 6;
 export const DEFAULTS = { years: 1, seconds: 0, maxAge: 100, pace: 'personal' };
 const EXTRA_SECONDS = 12;
-export const PASS = { id: 'pass', title: '이번에는 기다리기', effect: {} };
+export const PASS = { id: 'pass', title: '이번에는 기다리기', detail: '잠시 쉬며 친구들의 이야기를 지켜봐요.', effect: {} };
 export const MODES = { alive: '살아가는 중', fork: '다음 길 고르기', spirit: '영혼으로 관전' };
 export const RANKS = [...Object.keys(STATS), 'age'];
 const INITIAL_STATS = { health: 62, learning: 8, money: 12, joy: 48, art: 7, bond: 10 };
@@ -210,7 +210,10 @@ function applyDecision(life, age, option) {
 }
 
 function recordChoice(player, year, option, age, changes, text, type) {
-  const result = { year, age: player.life.age, decisionAge: age, title: option.title, changes, text, type };
+  const result = {
+    year, age: player.life.age, decisionAge: age, title: option.title,
+    line: option.narration ?? option.detail, changes, text, type,
+  };
   player.life.history.push(result);
   player.latest = result;
 }
@@ -262,6 +265,7 @@ function branch(player, year, option) {
     player.visits = [];
     player.latest = {
       year, age: player.life.age, title: option.title,
+      line: '앞 세대의 마음을 이어받아 새로운 첫날을 맞았어요.',
       text: `${player.life.generation}대의 첫날이에요. 앞 세대가 남긴 돈과 인연을 조금 이어받았어요.`, type: 'child',
     };
     player.life.history.push(player.latest);
@@ -269,6 +273,7 @@ function branch(player, year, option) {
     player.mode = 'spirit';
     player.latest = {
       year, age: life.age, title: option.title,
+      line: '영혼이 되어 불이 켜진 옛집 앞을 다시 걸었어요.',
       text: '저녁이 되자 살던 집에 불이 켜졌어요.', type: 'spirit',
     };
   }
@@ -279,7 +284,10 @@ function visit(room, player, turn, option) {
   const text = option.id === 'family-dream' ? familyDream(player.life)
     : scenes && scenes[hash(`${room.seed}:${player.id}:${turn.number}`) % scenes.length];
   if (!text) return;
-  const entry = { id: option.id, year: turn.to, age: player.life.age, title: option.title, text, type: 'spirit' };
+  const entry = {
+    id: option.id, year: turn.to, age: player.life.age, title: option.title,
+    line: option.narration ?? option.detail, text, type: 'spirit',
+  };
   player.visits.push(entry);
   player.latest = entry;
 }
@@ -324,6 +332,9 @@ function closeTurn(room, now) {
     if (player.mode === 'alive') changeLife(room, player, turn.to, option ?? IDLE, entry.after);
     else if (option && player.mode === 'fork') branch(player, turn.to, option);
     else if (option) visit(room, player, turn, option);
+    else if (player.choice === PASS.id) {
+      player.latest = { year: turn.to, age: player.life.age, title: PASS.title, line: PASS.detail, type: 'wait' };
+    }
   }
   room.year = turn.to;
   openTurn(room, now);
@@ -464,7 +475,7 @@ function summary(player) {
 function lifeView(life, history = life.history) {
   const { age, generation, career, stats, end } = life;
   const { healthBurden, ...path } = pathOf(life);
-  return { age, generation, career, stats, end, history, path };
+  return { age, generation, career, stats: { ...stats }, end, history, path };
 }
 
 function rankings(players) {

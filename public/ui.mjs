@@ -52,16 +52,17 @@ export const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (ch
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 })[char]);
 export const numeral = (number) => number.toLocaleString('ko-KR');
+export const deltaText = (delta) => `${delta > 0 ? '+' : '−'}${numeral(Math.abs(delta))}`;
 
 export function changes(effect = {}) {
   return Object.entries(effect).filter(([, change]) => change !== 0).map(([stat, change]) => {
     const { label, color } = STATS[stat];
-    return `<span class="delta ${color}${change < 0 ? ' minus' : ''}">${label} ${change > 0 ? '+' : '−'}${Math.abs(change)}</span>`;
+    return `<span class="delta ${color}${change < 0 ? ' minus' : ''}">${label} ${deltaText(change)}</span>`;
   }).join('');
 }
 
 export function statGrid(stats) {
-  return `<div class="stat-grid">${Object.entries(STATS).map(([key, item]) => `<div class="stat-tile ${item.color}">
+  return `<div class="stat-grid">${Object.entries(STATS).map(([key, item]) => `<div class="stat-tile ${item.color}" data-stat="${key}">
     <span class="stat-label">${icon(item.mark)} ${item.label}</span>
     <strong>${numeral(stats[key])} <small>${item.unit ?? '점'}</small></strong>
   </div>`).join('')}</div>`;

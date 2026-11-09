@@ -52,7 +52,7 @@ export function illnessDeathRisk(life) {
 }
 
 function care(id, title, detail, effect, steps, after, extra = {}) {
-  return pick(id, title, detail, 'heart', effect, { action: { kind: 'care', value: steps }, after, ...extra });
+  return pick(id, title, detail, 'heart', effect, { action: { kind: 'care', value: steps }, narration: after, after, ...extra });
 }
 
 export function illnessCare(path) {
@@ -65,7 +65,7 @@ export function illnessCare(path) {
         care('operation', '수술받기', '이번 병을 한 번에 치료해요.', { money: -40, health: 12 }, 4, '수술을 마치고 익숙한 목소리를 들었어요.'),
         care('clinic-care', '집중 치료받기', '병원에서 두 단계 회복해요. 올해 위험이 크게 줄어요.', { money: -22, health: 8 }, 2, '병실 창가에서 한 해의 계절이 바뀌는 걸 봤어요.'),
         ...(!path.illness.aidUsed ? [care('assisted-care', '도움을 받아 집중 치료하기', '가까운 사람들이 치료비와 돌봄을 보태요.',
-          { health: 7 }, 2, '혼자 감당하던 시간이 조금 가벼워졌어요.', { need: { bond: 46 } })] : []),
+          { health: 7 }, 2, '도와준 사람과 함께 병원에 들어서니 마음이 조금 놓였어요.', { need: { bond: 46 } })] : []),
         care('rest', '집에서 돌봄받기', '곁에서 돌봐 줘요. 큰 치료가 늦어져 위험이 쌓여요.', { health: 2 }, 0, '오래 기억하고 싶어서 창밖 풍경을 바라봤어요.'),
       ],
     };
@@ -77,9 +77,9 @@ export function illnessCare(path) {
       care('operation', '수술받기', '이번 병을 한 번에 치료해요.', { money: -40, health: 12 }, 3, '수술을 마쳤어요. 병실 창가에 오후 햇살이 들었어요.'),
       care('clinic-care', '병원에 다니며 치료하기', '두 단계 회복하고 올해 위험이 줄어요.', { money: -10, health: 6 }, 2, '다음 진료 날짜를 달력에 적었어요.'),
       ...(steps > 1 && !path.illness.aidUsed ? [care('assisted-care', '도움을 받아 병원 가기', '친한 사람의 도움으로 치료받아요. 두 단계 회복해요.',
-        { health: 5 }, 2, '곁에 와 준 사람이 있었어요.', { need: { bond: 34 } })] : []),
+        { health: 5 }, 2, '곁에 와 준 사람과 함께 진료를 받았어요.', { need: { bond: 34 } })] : []),
       care('rest', '집에서 돌봄받기', steps === 1 ? '한 단계 더 쉬면 회복해요.' : '한 단계 회복해요. 체력이 낮으면 올해 병이 심해질 수 있어요.',
-        { health: 3 }, 1, '누군가 따뜻한 밥을 두고 갔어요.'),
+        { health: 3 }, 1, '집에서 따뜻한 밥을 먹으며 천천히 몸을 돌봤어요.'),
     ] : [
       care('clinic-care', '병원에 다녀오기', '진료를 받고 몸을 돌봐요.', { money: -4, health: 5 }, 1, '진료를 받고 한결 편해졌어요.'),
       care('rest', '집에서 쉬기', '일찍 잠들고 천천히 기운을 내요.', { health: 2 }, 1, '푹 자고 나니 조금 편해졌어요.'),

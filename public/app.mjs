@@ -1,11 +1,12 @@
 import { addPlayer, DEFAULTS, newRoom, profileFor, selectChoice, stateFor, teacherAction, tick } from './game.mjs';
-import { escapeHtml as h, icon } from './ui.mjs';
-import { homeView, profileView, roomView, settingsFields, sexFields, topView } from './views.mjs';
+import { deltaText, escapeHtml as h, icon } from './ui.mjs';
+import { choiceFeedbackView, homeView, profileView, roomView, settingsFields, sexFields, topView } from './views.mjs';
 
 const top = document.querySelector('#top');
 const main = document.querySelector('#main');
 const dialog = document.querySelector('#dialog');
 const toast = document.querySelector('#toast');
+const feedback = document.querySelector('#choice-feedback');
 const storedSession = '100nyeon.session';
 const lastKey = (role) => `100nyeon.last.${role}`;
 
@@ -23,6 +24,7 @@ let offline = false;
 let clockOffset = 0;
 let headerKey;
 let toastTimer;
+let feedbackMarkup = '';
 
 function read(storage, key) {
   try {
@@ -86,15 +88,24 @@ function render() {
   const openedResult = main.querySelector('.latest[open]')?.dataset.result;
   const showYearly = main.querySelector('.year-effects[open]');
   const oldStory = main.querySelector('[data-story-key]');
+  const mainScroll = main.scrollTop;
   main.innerHTML = state ? roomView(session, state, { pane, rank, offline }) :
     homeView(invitedCode, selectedAvatar, { player: read(localStorage, lastKey('player')), host: read(localStorage, lastKey('host')) });
+  const nextFeedback = pane === 'play' ? choiceFeedbackView(state) : '';
+  if (nextFeedback !== feedbackMarkup) {
+    feedbackMarkup = nextFeedback;
+    feedback.innerHTML = nextFeedback;
+  }
   if (focused) main.querySelector(`[data-focus="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
   const nextResult = main.querySelector('details.latest');
   if (nextResult && nextResult.dataset.result === openedResult) nextResult.open = true;
   const nextYearly = main.querySelector('details.year-effects');
   if (nextYearly && showYearly) nextYearly.open = true;
   const newStory = main.querySelector('[data-story-key]');
-  if (oldStory && newStory?.dataset.storyKey === oldStory.dataset.storyKey) newStory.scrollTop = oldStory.scrollTop;
+  if (oldStory && newStory?.dataset.storyKey === oldStory.dataset.storyKey) {
+    newStory.scrollTop = oldStory.scrollTop;
+    main.scrollTop = mainScroll;
+  }
   updateClock();
 }
 
@@ -111,8 +122,28 @@ function updateClock() {
   }
 }
 
+function highlightStats(before, after) {
+  if (!before || !after || before.generation !== after.generation) return;
+  for (const tile of main.querySelectorAll('.play-stats [data-stat]')) {
+    const stat = tile.dataset.stat;
+    const delta = after.stats[stat] - before.stats[stat];
+    if (!delta) continue;
+    const badge = document.createElement('span');
+    badge.className = 'stat-pop';
+    badge.textContent = deltaText(delta);
+    badge.setAttribute('aria-hidden', 'true');
+    tile.dataset.change = delta > 0 ? 'gain' : 'loss';
+    tile.append(badge);
+    setTimeout(() => {
+      badge.remove();
+      delete tile.dataset.change;
+    }, 1250);
+  }
+}
+
 function accept(next, expected = session) {
   if (!next || expected !== session || (state && next.revision < state.revision)) return;
+  const beforeLife = state?.me?.life;
   const memory = next.me?.latest;
   const previous = state?.me?.latest;
   const newMemory = state && ['spirit', 'child'].includes(memory?.type) &&
@@ -124,9 +155,10 @@ function accept(next, expected = session) {
   state = next;
   offline = false;
   render();
+  highlightStats(beforeLife, next.me?.life);
   if (newChoice && pane === 'play' && !dialog.open && !next.paused) {
     const story = main.querySelector('.story-panel');
-    if (story?.getBoundingClientRect().top < 0) story.scrollIntoView({ block: 'start' });
+    if (story && story.getBoundingClientRect().top < main.getBoundingClientRect().top) story.scrollIntoView({ block: 'start' });
     if (played) story?.querySelector('h2')?.focus({ preventScroll: true });
   }
   if (newMemory) modal(memory.title, `<p class="memory-text">${h(memory.text)}</p>
@@ -144,6 +176,7 @@ function activate(nextSession, nextState) {
   }
   if (dialog.open) dialog.close();
   accept(nextState);
+  main.scrollTop = 0;
   window.scrollTo(0, 0);
   main.focus({ preventScroll: true });
 }

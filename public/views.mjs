@@ -1,5 +1,5 @@
 import { AVATARS, CAREERS, STAGES, STATS } from './content.mjs';
-import { CAPACITY, MODES, RANKS, stageAt } from './game.mjs';
+import { CAPACITY, MODES, PASS, RANKS, stageAt } from './game.mjs';
 import { SEXES, lifeBadges, pathNotes, pathOf } from './life.mjs';
 import { avatar, changes, escapeHtml as h, icon, numeral, statGrid } from './ui.mjs';
 
@@ -272,8 +272,30 @@ function latestView(latest) {
   const label = latest.type === 'bonus' ? '방금 고른 일' : '지난 선택';
   return `<details class="latest" data-result="${h(latest.year + '-' + latest.type + '-' + latest.title)}">
     <summary data-focus="latest"><span>${label}</span> <strong>${h(latest.title)}</strong></summary>
-    ${latest.text ? `<p>${h(latest.text)}</p>` : ''}<div class="delta-list">${changes(latest.changes)}</div>
+    ${latest.text || latest.line ? `<p>${h(latest.text || latest.line)}</p>` : ''}<div class="delta-list">${changes(latest.changes)}</div>
   </details>`;
+}
+
+export function choiceFeedbackView(state) {
+  const me = state?.me;
+  if (!me) return '';
+  const pending = me.choice && !me.scene?.waiting &&
+    (me.choice === PASS.id ? PASS : me.scene?.choices.find(({ id }) => id === me.choice));
+  const result = me.latest;
+  if (!pending && !result) return '';
+
+  const last = me.name.replace(/[^가-힣0-9A-Za-z]+$/u, '').at(-1) ?? '';
+  const syllable = last.charCodeAt(0);
+  const hasFinal = syllable >= 0xac00 && syllable <= 0xd7a3 ? (syllable - 0xac00) % 28 !== 0 : /[013678LMNR]/i.test(last);
+  const subject = me.name + (hasFinal ? '은' : '는');
+  const line = pending ? pending.narration ?? pending.detail : result.line ?? `‘${result.title}’ 선택을 했어요.`;
+  const key = pending ? `${state.turn.number}-pending-${pending.id}` : `${result.year}-${result.type}-${result.title}`;
+  const deltas = pending ? '' : changes(result.changes);
+  return `<div class="choice-feedback-note" data-choice-result="${h(key)}">
+    <span class="choice-feedback-icon">${icon('book')}</span>
+    <div><p><strong>${h(subject)}</strong> ${h(line)}</p>
+      ${deltas ? `<div class="delta-list">${deltas}</div>` : ''}</div>
+  </div>`;
 }
 
 function miniRank(state, rank) {
@@ -423,7 +445,7 @@ export function profileView(profile, index) {
     <h3>인생 연대기</h3>
     ${entries.length ? `<ol class="timeline">${entries.map((entry) => `<li>
       <span class="timeline-year">${entry.type === 'spirit' ? '영혼' : `${entry.decisionAge ?? entry.age}살`}${entry.type === 'bonus' ? '<small>추가 선택</small>' : ''}</span><div><strong>${h(entry.title)}</strong>
-        ${entry.text ? `<p>${h(entry.text)}</p>` : ''}<div class="delta-list">${changes(entry.changes)}</div></div>
+        ${entry.text || entry.line ? `<p>${h(entry.text || entry.line)}</p>` : ''}<div class="delta-list">${changes(entry.changes)}</div></div>
     </li>`).join('')}</ol>` : '<p class="subtle">첫 선택을 기다리고 있어요.</p>'}
   `;
 }

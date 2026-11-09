@@ -89,7 +89,8 @@ export function pick(id, title, detail, mark, effect, extra = {}) {
   return { id, title, detail, mark, effect, ...extra };
 }
 
-const rest = pick('rest', '쉬어 가기', '일을 줄이고 몸을 돌봐요.', 'leaf', { health: 4, joy: 1 });
+const rest = pick('rest', '쉬어 가기', '일을 줄이고 몸을 돌봐요.', 'leaf', { health: 4, joy: 1 },
+  { narration: '일을 잠시 내려놓고 느긋하게 하루를 보냈어요.' });
 export const IDLE = pick('idle', '평소대로 지내기', '익숙한 일상을 보냈어요.', 'leaf', { health: 1 });
 
 function story(title, detail, first, second) {
@@ -103,21 +104,26 @@ export const STORIES = [
       pick('course', '새 기술 배우기', '돈을 내고 배우고 싶던 수업을 들어요.', 'book', { learning: 6, money: -5 })),
     story('돈을 어디에 쓸까?', '모은 돈이 조금 생겼어요.',
       pick('save', '아르바이트로 저축하기', '나중에 쓸 돈을 조금 모아 둬요.', 'coin', { money: 3, health: -2 }),
-      pick('trip', '가까운 곳으로 여행 가기', '친구와 가고 싶던 곳에 가요.', 'sun', { money: -6, joy: 7, bond: 2 })),
+      pick('trip', '가까운 곳으로 여행 가기', '친구와 가고 싶던 곳에 가요.', 'sun', { money: -6, joy: 7, bond: 2 },
+        { narration: '친구와 기차에 올라 미뤄 둔 여행을 떠났어요.' })),
     story('새 이웃', '비어 있던 옆집에 사람이 이사 왔어요.',
-      pick('welcome', '저녁 나누기', '반찬을 조금 만들어 인사하러 가요.', 'link', { money: -3, bond: 5, joy: 3 }),
+      pick('welcome', '저녁 나누기', '반찬을 조금 만들어 인사하러 가요.', 'link', { money: -3, bond: 5, joy: 3 },
+        { narration: '따뜻한 반찬을 들고 새 이웃의 문을 두드렸어요.' }),
       pick('portfolio', '작품 모아 보기', '그동안 만든 것을 정리해요.', 'spark', { art: 6, learning: 2, health: -1 })),
     story('바쁜 일정', '하고 싶은 일과 해야 할 일이 겹쳐요.',
       pick('deadline', '짧은 일 맡기', '한동안 바쁘지만 일을 익히고 돈을 벌어요.', 'coin', { money: 4, learning: 2, health: -3 }),
-      pick('routine', '운동 습관 만들기', '매일 조금씩 움직여요.', 'heart', { health: 2, joy: 1, money: -2 }, { habit: 'exercise' })),
+      pick('routine', '운동 습관 만들기', '매일 조금씩 움직여요.', 'heart', { health: 2, joy: 1, money: -2 },
+        { habit: 'exercise', narration: '운동화 끈을 묶고 오늘도 마을을 한 바퀴 돌았어요.' })),
   ],
   [
     story('꽉 찬 달력', '이번 해에는 어디에 시간을 낼까요?',
-      pick('lead', '큰 일 맡기', '한동안 바쁘지만 돈을 더 벌어요.', 'coin', { money: 5, health: -3, joy: -1 }, { habit: 'overtime' }),
+      pick('lead', '큰 일 맡기', '한동안 바쁘지만 돈을 더 벌어요.', 'coin', { money: 5, health: -3, joy: -1 },
+        { habit: 'overtime', narration: '큰 일을 맡아 달력을 채우고 조금 더 저축했어요.' }),
       pick('together', '소중한 사람과 쉬기', '주말에 시간을 내서 만나요.', 'link', { bond: 5, joy: 4, money: -4 })),
     story('우리 동네', '이웃과 함께할 일이 생겼어요.',
       pick('teach', '배운 것 알려 주기', '이웃과 만나서 기술을 나눠요.', 'book', { learning: 2, bond: 3, health: -1 }, { habit: 'teaching' }),
-      pick('mural', '골목에 그림 그리기', '빈 벽에 우리 동네 이야기를 그려요.', 'spark', { art: 7, bond: 2, money: -4 })),
+      pick('mural', '골목에 그림 그리기', '빈 벽에 우리 동네 이야기를 그려요.', 'spark', { art: 7, bond: 2, money: -4 },
+        { narration: '텅 빈 골목 벽에 이웃들의 이야기를 하나씩 그렸어요.' })),
     story('새로운 기회', '계속해 온 일과 새로 해 보고 싶은 일이 있어요.',
       pick('relearn', '다른 일 배우기', '낯선 분야를 처음부터 배워요.', 'book', { learning: 4, money: -5, joy: 2 }, { habit: 'lessons' }),
       pick('steady', '익숙한 일로 돈 모으기', '쌓은 경험을 써서 조금 더 벌어요.', 'coin', { money: 4, health: -2, bond: 2 })),
@@ -127,10 +133,11 @@ export const STORIES = [
   ],
   [
     story('천천히 맞는 아침', '오늘은 무엇을 할까요?',
-      pick('garden', '텃밭 가꾸기', '키운 채소를 이웃과 나눠요.', 'heart', { health: 2, joy: 2, bond: 1 }, { habit: 'garden' }),
+      pick('garden', '텃밭 가꾸기', '키운 채소를 이웃과 나눠요.', 'heart', { health: 2, joy: 2, bond: 1 },
+        { habit: 'garden', narration: '텃밭에서 처음 딴 채소를 이웃에게 한 줌 건넸어요.' }),
       pick('craft', '손으로 물건 만들기', '오래 익힌 솜씨를 써요.', 'spark', { art: 6, money: 3, health: -2 })),
     story('동네 모임', '동네에 새 모임이 열려요.',
-      pick('mentor', '후배에게 경험 들려주기', '나도 처음엔 어려웠다고 말해요.', 'link', { bond: 5, learning: 2, joy: 2 }),
+      pick('mentor', '후배에게 경험 들려주기', '처음엔 누구나 어렵다고 말해요.', 'link', { bond: 5, learning: 2, joy: 2 }),
       pick('lecture', '새 수업 듣기', '배운 적 없는 걸 알아봐요.', 'book', { learning: 6, money: -4, joy: 2 })),
     story('오래된 지도', '서랍에서 전에 쓰던 지도가 나왔어요.',
       pick('rail', '기차 타고 옛 동네 가기', '기억에 남은 곳을 다시 가 봐요.', 'sun', { joy: 6, bond: 2, money: -7, health: -2 }),
@@ -148,7 +155,7 @@ export const STORIES = [
       pick('sort', '추억 정리하기', '오래 가진 물건에 이야기를 붙여요.', 'spark', { art: 5, learning: 2, joy: 2 })),
     story('창가의 햇빛', '해가 지기 전에 하고 싶은 일이 있어요.',
       pick('care', '몸을 돌보는 하루 보내기', '잘 먹고 편한 만큼 움직여요.', 'heart', { health: 6, money: -4, joy: 1 }),
-      pick('give', '아이들에게 책 선물하기', '내가 좋아한 책을 골라요.', 'book', { bond: 5, learning: 2, money: -5, joy: 2 })),
+      pick('give', '아이들에게 책 선물하기', '오래 좋아했던 책을 골라요.', 'book', { bond: 5, learning: 2, money: -5, joy: 2 })),
     story('작은 전시회', '동네에 내가 만든 것을 보여 줄 자리가 생겼어요.',
       pick('legacy', '내 작품 걸기', '누군가 보고 웃었으면 해요.', 'spark', { art: 6, joy: 3, health: -2 }),
       pick('listen', '이웃 이야기 듣기', '다른 사람은 어떤 삶을 살았는지 들어요.', 'link', { bond: 4, learning: 3, joy: 2 })),
@@ -173,7 +180,8 @@ export function spiritChoices(life, visits) {
   return [
     pick('funeral', '내 장례식장 방문하기', '찾아온 사람들의 마지막 인사를 들어요.', 'flower', {}),
     pick('family-dream', '가족의 꿈에 나오기', '꿈에 찾아가 안부를 물어요.', 'spark', {}),
-    ...(career ? [pick('workplace', '예전 직장 둘러보기', `${career.place}에 들러요.`, 'house', {})] : []),
+    ...(career ? [pick('workplace', '예전 직장 둘러보기', `${career.place}에 들러요.`, 'house', {},
+      { narration: '오래 일하던 곳에 들러 익숙한 목소리를 다시 들었어요.' })] : []),
     pick('neighborhood', '살던 동네 걷기', '익숙한 골목을 다시 걸어요.', 'leaf', {}),
   ].filter((option) => !visits.some((visit) => visit.id === option.id));
 }
