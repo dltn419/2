@@ -5,12 +5,12 @@ import { addPlayer, newRoom, selectChoice, stateFor, teacherAction, updateRoomRu
 import { bonusScene, careerPay, newPath, performanceBonus, performanceProfile, yearlySources } from '../public/life.mjs';
 import { gameMenuView, roomView } from '../public/views.mjs';
 
-const STATS = { money: 100, health: 75, learning: 70, bond: 75, art: 75, joy: 65 };
+const BASE_STATS = { money: 100, health: 75, learning: 70, bond: 75, art: 75, joy: 65 };
 function life(career, age = 38, years = 10) {
   const path = newPath('female');
   path.romanceSeed = 153876;
   path.workYears[career] = years;
-  return { age, career, stats: { ...STATS }, path, history: [] };
+  return { age, career, stats: { ...BASE_STATS }, path, history: [] };
 }
 const performanceCareers = ['farmer', 'studio', 'sales', 'creator', 'shop', 'athlete'];
 
