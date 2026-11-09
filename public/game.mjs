@@ -531,6 +531,18 @@ export function teacherAction(room, action, body, now) {
       room.turn.remaining = null;
     }
     room.endReason = '교사가 우리 반의 인생 기록을 마감했어요.';
+  } else if (action === 'reset' && room.phase === 'ended') {
+    if (body.confirmCode !== room.code) {
+      throw new GameError('초기화하려면 방 코드를 정확히 입력해 주세요.', 400);
+    }
+    // 방 코드, 교사 인증 정보, 이름과 진행 설정은 유지하고 게임 기록만 비웁니다.
+    // 기존 학생 접속 토큰은 새 대기실에서 더 이상 유효하지 않습니다.
+    room.players = [];
+    room.phase = 'lobby';
+    room.year = 0;
+    room.turn = null;
+    room.paused = false;
+    room.endReason = null;
   } else {
     throw new GameError('지금은 할 수 없는 작업이에요.');
   }

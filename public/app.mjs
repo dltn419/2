@@ -325,6 +325,22 @@ function confirmation(title, text, action, id = '') {
     <button type="button" class="button dark" data-action="${action}" data-id="${h(id)}">${h(title)}</button></div>`);
 }
 
+function resetRoomConfirmation() {
+  if (session?.role !== 'host' || state?.phase !== 'ended') return;
+  modal('방 초기화', `<p class="subtle">이 방의 <strong>모든 참가자, 인생 기록, 선택 내역, 순위</strong>가 삭제돼요. 되돌릴 수 없어요.</p>
+    <p class="field-note">방 코드, 교사 비밀번호, 이름과 진행 설정은 유지돼요. 학생들은 다시 참가해야 해요.</p>
+    <form id="reset-room-form">
+      <label>확인을 위해 방 코드 <strong>${h(state.code)}</strong> 입력
+        <input name="confirmCode" type="text" required minlength="6" maxlength="6" pattern="[A-Za-z0-9]{6}"
+          placeholder="${h(state.code)}" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      </label>
+      <div class="actions">
+        <button type="button" class="button secondary" data-action="close">취소</button>
+        <button type="submit" class="button dark">기록 삭제하고 초기화</button>
+      </div>
+    </form>`);
+}
+
 function gameMenu(page) {
   modal(state && state.phase !== 'lobby' ? '게임 메뉴' : '게임 안내', gameMenuView(page, state?.me?.life), 'game-menu-dialog');
   dialog.scrollTop = 0;
@@ -468,6 +484,7 @@ document.addEventListener('click', (event) => {
     case 'resume': void run(() => teacher(action)); break;
     case 'kick': confirmation('참가자 내보내기', '이 별명으로 접속한 참가자를 대기실에서 내보낼까요?', 'confirm-kick', id); break;
     case 'finish': confirmation('전체 게임 마감', '지금까지의 인생과 순위를 우리 반의 최종 기록으로 남길까요?', 'confirm-finish'); break;
+    case 'reset-room': resetRoomConfirmation(); break;
     case 'confirm-kick':
     case 'confirm-finish': void run(async () => {
       await teacher(action.slice(8), { playerId: id });
@@ -495,9 +512,20 @@ document.addEventListener('input', (event) => {
 
 document.addEventListener('submit', (event) => {
   const form = event.target;
-  if (!['join-form', 'settings-form', 'practice-form', 'host-form', 'successor-form'].includes(form.id)) return;
+  if (!['join-form', 'settings-form', 'practice-form', 'host-form', 'successor-form', 'reset-room-form'].includes(form.id)) return;
   event.preventDefault();
   void run(async () => {
+    if (form.id === 'reset-room-form') {
+      const confirmCode = form.elements.confirmCode.value.trim().toUpperCase();
+      if (confirmCode !== state?.code) {
+        throw Object.assign(new Error('화면에 표시된 방 코드를 정확히 입력해 주세요.'), { status: 400 });
+      }
+      await teacher('reset', { confirmCode });
+      dialog.close();
+      pane = 'play';
+      message('방을 초기화했어요. 같은 코드로 새 참가자를 받을 수 있어요.');
+      return;
+    }
     if (form.id === 'practice-form') {
       startPractice(form.elements.sex.value);
       return;
