@@ -538,7 +538,7 @@ function relationships(life) {
       option('marry', '결혼하기', '결혼식과 새 살림에 20코인을 써요. 결혼 후 맞벌이 가계를 꾸려요.', 'heart',
         { bond: 6, joy: 6, money: -20 }, 'marry', true,
         `${loved}와 함께 살아갈 약속을 했어요.`, {
-          conditions: [{ label: '애정 65점 이상', met: (path.romance?.affection ?? 55) >= 65 }],
+          conditions: [{ label: '애정 65점 이상', met: (path.romance?.affection ?? 70) >= 65 }],
           affection: 5, narration: `${loved}와 결혼식을 열었어요.`,
         }),
       pick('keep-dating', '지금처럼 만나기', '서로를 더 알아가요.', 'heart', { bond: 4, joy: 3 },
@@ -918,7 +918,7 @@ export function updateLifePath(life) {
 
 export function upgradeLifePath(life, seed = 0) {
   const path = life.path ??= newPath();
-  path.romanceSeed ??= seed;
+  if (!path.romanceSeed) path.romanceSeed = seed;
   path.savings ??= null;
   if ((path.partner !== null && path.partner !== undefined || path.married !== null && path.married !== undefined) && !path.romance) {
     const at = Number.isInteger(path.partner) ? path.partner : path.married;
