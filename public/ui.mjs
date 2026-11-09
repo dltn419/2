@@ -58,12 +58,16 @@ export function changes(effect = {}) {
   return Object.entries(STATS).filter(([stat]) => effect[stat]).map(([stat, { label, color }]) => {
     const change = effect[stat];
     return `<span class="delta ${color}${change < 0 ? ' minus' : ''}">${label} ${deltaText(change)}</span>`;
-  }).join('');
+  }).join('') + (effect.affection ? `<span class="delta rose${effect.affection < 0 ? ' minus' : ''}">애정 ${deltaText(effect.affection)}</span>` : '');
 }
 
-export function statGrid(stats) {
+export function statGrid(stats, romance = null) {
   return `<div class="stat-grid">${Object.entries(STATS).map(([key, item]) => `<div class="stat-tile ${item.color}" data-stat="${key}">
     <span class="stat-label">${icon(item.mark)} ${item.label}</span>
     <strong>${numeral(stats[key])} <small>${item.unit ?? '점'}</small></strong>
-  </div>`).join('')}</div>`;
+  </div>`).join('')}
+  ${romance ? `<div class="stat-tile rose affection-tile" data-stat="affection">
+    <span class="stat-label">${icon('heart')} 애정</span>
+    <strong>${numeral(romance.affection ?? 55)} <small>/ 100</small></strong>
+  </div>` : ''}</div>`;
 }
