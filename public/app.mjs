@@ -118,7 +118,7 @@ function render() {
   const openTeacherSettings = Boolean(main.querySelector('.teacher-settings[open]'));
   const oldStory = main.querySelector('[data-story-key]');
   const openGoals = new Set(Array.from(oldStory?.querySelectorAll('[data-career-goal][open]') ?? [],
-    (card) => card.dataset.careerGoal);
+    (card) => card.dataset.careerGoal));
   const oldStoryKey = oldStory?.dataset.storyKey;
   const openSections = new Set(Array.from(oldStory?.querySelectorAll('[data-choice-section][open]') ?? [],
     (section) => section.dataset.choiceSection));
