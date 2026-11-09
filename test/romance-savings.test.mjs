@@ -19,8 +19,12 @@ function choose(room, id) {
   selectChoice(room, 'main', { round: view(room).turn.number, scene: scene.key, choice: id }, 1_000);
 }
 function annual(room) {
-  const scene = view(room).me.scene;
-  assert.equal(scene.key, 'year', `unexpected bonus ${scene.key}`);
+  let scene = view(room).me.scene;
+  while (scene.bonus) {
+    choose(room, scene.fallback ?? scene.choices.find((item) => !item.locked).id);
+    scene = view(room).me.scene;
+  }
+  assert.equal(scene.key, 'year');
   const choice = scene.choices.find((item) => item.id === 'rest' && !item.locked) ??
     scene.choices.find((item) => !item.locked);
   choose(room, choice.id);
