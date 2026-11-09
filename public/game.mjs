@@ -1,11 +1,14 @@
 import {
   AVATARS, IDLE, LIFE_EVENTS, OPPORTUNITIES, SPIRIT_SCENES, STAGES, STATS, STORIES, pick, spiritChoices,
 } from './content.mjs';
-import { SEXES, advancePath, annualScene, applyPath, bonusScene, chanceDiscount, familyDream, farewell, newPath, pathOf, updateLifePath, yearlySources } from './life.mjs';
+import {
+  SEXES, advancePath, annualScene, applyPath, bonusScene, careerPay, chanceDiscount, creditWorkYear,
+  familyDream, farewell, newPath, pathOf, restoreWorkYears, updateLifePath, yearlySources,
+} from './life.mjs';
 import { fallIll, illnessDeathRisk, settleHealth } from './health.mjs';
 
 export const CAPACITY = 20;
-export const RULE_VERSION = 6;
+export const RULE_VERSION = 7;
 export const DEFAULTS = { years: 1, seconds: 0, maxAge: 100, pace: 'personal' };
 const EXTRA_SECONDS = 12;
 export const PASS = { id: 'pass', title: '이번에는 기다리기', detail: '잠시 쉬며 친구들의 이야기를 지켜봐요.', effect: {} };
@@ -209,11 +212,12 @@ function applyDecision(life, age, option) {
   return applyPath(life, age, option);
 }
 
-function recordChoice(player, year, option, age, changes, text, type) {
+function recordChoice(player, year, option, age, changes, text, type, raise) {
   const result = {
     year, age: player.life.age, decisionAge: age, title: option.title,
     line: option.narration ?? option.detail, changes, text, type,
   };
+  if (raise) result.raise = raise;
   player.life.history.push(result);
   player.latest = result;
 }
@@ -237,8 +241,11 @@ function changeLife(room, player, year, option, after) {
   const randomKey = `${room.seed}:${player.id}:${life.generation}:${age}`;
   const chance = hash(`${randomKey}:event`);
   const event = !option.action && age >= 7 && chance % 7 === 0 ? LIFE_EVENTS[(chance >>> 8) % LIFE_EVENTS.length] : null;
-  const effects = sumEffects(option.effect, event?.effect ?? {}, ...yearlySources(life).map((source) => source.effect));
+  const sources = yearlySources(life);
+  const salary = sources.find(({ id }) => id === `job-${life.career}`)?.effect.money ?? 0;
+  const effects = sumEffects(option.effect, event?.effect ?? {}, ...sources.map((source) => source.effect));
   const changes = applyEffects(life, effects);
+  if (salary) creditWorkYear(life);
   const decision = applyDecision(life, age, option);
   const diedFromIllness = hash(`${randomKey}:illness-ending`) % 100 < illnessDeathRisk(life);
   settleHealth(life);
@@ -253,7 +260,9 @@ function changeLife(room, player, year, option, after) {
   } else {
     memories.push(fallIll(life, life.path, hash(`${randomKey}:illness`) % 100, hash(`${randomKey}:severity`) % 100));
   }
-  recordChoice(player, year, option, age, changes, memories.filter(Boolean).join(' '), 'life');
+  const nextSalary = salary && !life.end && life.path.retired === null ? careerPay(life).total : 0;
+  const raise = nextSalary > salary ? { from: salary, to: nextSalary } : undefined;
+  recordChoice(player, year, option, age, changes, memories.filter(Boolean).join(' '), 'life', raise);
 }
 
 function branch(player, year, option) {
@@ -341,11 +350,17 @@ function closeTurn(room, now) {
 }
 
 export function updateRoomRules(room, now) {
-  if (room.rules === RULE_VERSION) return false;
   const previous = room.rules ?? 1;
+  if (previous >= RULE_VERSION) return false;
   room.rules = RULE_VERSION;
+  for (const player of room.players) {
+    for (const life of [...player.archives, player.life]) {
+      if (previous < 3) updateLifePath(life);
+      restoreWorkYears(life);
+    }
+  }
   if (previous >= 3) {
-    if (room.phase === 'play') {
+    if (previous < 6 && room.phase === 'play') {
       for (const player of room.players) {
         if (!player.choice || player.choice === PASS.id || player.afterlifeDone) continue;
         // Keep an annual choice already submitted when a new extra scene is added.
@@ -364,7 +379,6 @@ export function updateRoomRules(room, now) {
   }
   room.settings.years = 1;
   for (const player of room.players) {
-    for (const life of [...player.archives, player.life]) updateLifePath(life);
     player.bonuses = [];
   }
   if (room.phase === 'play' || room.phase === 'review') openTurn(room, now);

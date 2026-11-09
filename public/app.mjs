@@ -1,6 +1,6 @@
 import { addPlayer, DEFAULTS, newRoom, profileFor, selectChoice, stateFor, teacherAction, tick } from './game.mjs';
 import { deltaText, escapeHtml as h, icon } from './ui.mjs';
-import { choiceFeedbackView, homeView, profileView, roomView, settingsFields, sexFields, topView } from './views.mjs';
+import { choiceFeedbackView, gameMenuView, homeView, profileView, roomView, settingsFields, sexFields, topView } from './views.mjs';
 
 const top = document.querySelector('#top');
 const main = document.querySelector('#main');
@@ -79,7 +79,7 @@ async function api(path, { body, token } = {}) {
 }
 
 function render() {
-  const key = state ? session.role : 'home';
+  const key = state ? `${session.role}-${state.phase === 'lobby' ? 'lobby' : 'game'}` : 'home';
   if (key !== headerKey) {
     top.innerHTML = topView(session, state);
     headerKey = key;
@@ -87,6 +87,7 @@ function render() {
   const focused = document.activeElement?.dataset.focus;
   const openedResult = main.querySelector('.latest[open]')?.dataset.result;
   const showYearly = main.querySelector('.year-effects[open]');
+  const showLocked = main.querySelector('.career-locked[open]');
   const oldStory = main.querySelector('[data-story-key]');
   const mainScroll = main.scrollTop;
   main.innerHTML = state ? roomView(session, state, { pane, rank, offline }) :
@@ -103,6 +104,8 @@ function render() {
   if (nextYearly && showYearly) nextYearly.open = true;
   const newStory = main.querySelector('[data-story-key]');
   if (oldStory && newStory?.dataset.storyKey === oldStory.dataset.storyKey) {
+    const nextLocked = newStory.querySelector('.career-locked');
+    if (showLocked && nextLocked) nextLocked.open = true;
     newStory.scrollTop = oldStory.scrollTop;
     main.scrollTop = mainScroll;
   }
@@ -283,16 +286,10 @@ function confirmation(title, text, action, id = '') {
     <button type="button" class="button dark" data-action="${action}" data-id="${h(id)}">${h(title)}</button></div>`);
 }
 
-function help() {
-  modal('100년 게임 안내', `<ol class="help-list">
-    <li><b>캐릭터를 골라요.</b><p>선생님에게 받은 6자리 코드로 들어가요. 한 방에 20명까지 함께해요.</p></li>
-    <li><b>내 속도로 한 해씩 살아가요.</b><p>각자 진행하는 방에서는 일상 선택을 누르면 바로 한 살 자라요. 장래희망, 진학, 치료는 같은 나이에 더 고르는 선택이에요.</p></li>
-    <li><b>직업마다 지원 조건이 있어요.</b><p>어떤 일은 학교를 마쳐야 하고, 어떤 일은 관계나 준비할 돈이 필요해요. 카드에서 조건과 한 해에 버는 돈을 봐요.</p></li>
-    <li><b>몇 해 동안 이어지는 선택도 있어요.</b><p>카드에서 한 번만 바뀌는 수치와 매년 바뀌는 수치를 봐요. 올해 자동 변화를 누르면 월급, 집세처럼 이유별로 볼 수 있어요.</p></li>
-    <li><b>몸이 약할 때는 치료 방법을 골라요.</b><p>큰 병과 낮은 체력이 겹치면 삶을 마칠 수 있어요. 병원 치료나 주변의 도움이 회복을 앞당겨요.</p></li>
-    <li><b>나이가 들면 다음 이야기를 골라요.</b><p>한 삶을 마치면 다음 세대로 이어 살거나 영혼이 되어 가족의 꿈과 살던 곳에 들러요.</p></li>
-    <li><b>친구들과 이야기를 나눠요.</b><p>친구들 메뉴에서 기록을 읽어요. 순위에서는 자금, 행복, 오래 산 나이 등을 볼 수 있어요.</p></li>
-  </ol>`);
+function gameMenu(page) {
+  modal(state && state.phase !== 'lobby' ? '게임 메뉴' : '게임 안내', gameMenuView(page, state?.me?.life), 'game-menu-dialog');
+  dialog.scrollTop = 0;
+  dialog.querySelector('.menu-tabs [aria-pressed="true"]')?.focus({ preventScroll: true });
 }
 
 function share() {
@@ -402,7 +399,7 @@ document.addEventListener('click', (event) => {
   const { action, id, index } = target.dataset;
   switch (action) {
     case 'home': home(); break;
-    case 'help': help(); break;
+    case 'help': gameMenu(id); break;
     case 'close': dialog.close(); break;
     case 'share': share(); break;
     case 'copy': void run(copyLink); break;
@@ -444,6 +441,17 @@ document.addEventListener('change', (event) => {
   if (event.target.matches('#settings-form [name="pace"]')) {
     event.target.form.elements.seconds.disabled = event.target.value === 'manual';
   }
+});
+
+document.addEventListener('input', (event) => {
+  if (event.target.id !== 'job-search') return;
+  const search = event.target.value.trim().toLowerCase();
+  let found = false;
+  for (const job of dialog.querySelectorAll('.job-guide-entry')) {
+    job.hidden = !job.textContent.toLowerCase().includes(search);
+    if (!job.hidden) found = true;
+  }
+  dialog.querySelector('#job-no-match').hidden = found;
 });
 
 document.addEventListener('submit', (event) => {

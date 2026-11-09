@@ -1,6 +1,6 @@
-import { AVATARS, CAREERS, STAGES, STATS } from './content.mjs';
+import { AVATARS, CAREER_CREDENTIALS, CAREERS, STAGES, STATS } from './content.mjs';
 import { CAPACITY, MODES, PASS, RANKS, stageAt } from './game.mjs';
-import { SEXES, lifeBadges, pathNotes, pathOf } from './life.mjs';
+import { EXPERIENCE_STEPS, SEXES, careerPay, chanceDiscount, lifeBadges, pathNotes, pathOf } from './life.mjs';
 import { avatar, changes, escapeHtml as h, icon, numeral, statGrid } from './ui.mjs';
 
 const rankInfo = { ...STATS, age: { label: '장수', mark: 'clock', color: 'mint', unit: '살' } };
@@ -11,15 +11,64 @@ const button = (action, label, mark, type = 'secondary', extra = '') =>
 
 export function topView(session, state) {
   const teacher = session?.role === 'host';
+  const playing = state && state.phase !== 'lobby';
   const tag = session?.role === 'demo' ? '혼자 체험' : teacher ? '교사 진행실' : '교실 인생 게임';
   return `<div class="shell topbar">
     <button class="brand" type="button" data-action="home" aria-label="100년 홈"><img src="/art/icon.svg" alt="" width="36" height="36"><span>100년<small>우리들의 인생 기록장</small></span></button>
     <div class="top-actions">
       <span class="top-tag"><i></i>${tag}</span>
       ${session && session.role !== 'demo' && state ? button('share', teacher ? '초대 QR' : '초대 링크', teacher ? 'qr' : 'link', 'quiet') : ''}
-      ${button('help', '게임 안내', 'book', 'quiet')}
+      ${button('help', playing ? '메뉴' : '게임 안내', playing ? 'settings' : 'book', 'quiet')}
     </div>
   </div>`;
+}
+
+function jobGuide(life) {
+  const path = life && pathOf(life);
+  const current = path?.retired === null && !life.end && path.service?.status !== 'serving' ? careerPay(life) : null;
+  const monthly = (annual) => numeral(Number((annual / 12).toFixed(2)));
+  const payParts = current && [
+    `경력 ${current.years}년`, `기본 ${current.base}`,
+    current.experience && `경력 +${current.experience}`, current.skill && `${STATS[current.stat].label} +${current.skill}`,
+    current.education && `대학원 +${current.education}`,
+  ].filter(Boolean).join(' · ');
+  return `
+    ${current ? `<section class="current-pay"><strong>${h(CAREERS[life.career].title)} · 연 ${current.total}코인</strong>
+      <span>월 약 ${monthly(current.total)}코인</span><p class="field-note">${h(payParts)}</p></section>` : ''}
+    <p class="field-note">월급은 연봉을 12개월로 나눈 값이에요. 게임에서는 해마다 수입을 받아요.</p>
+    <label class="job-search-label">직업 찾기<input id="job-search" type="search" placeholder="직업 이름이나 조건" autocomplete="off"></label>
+    <p class="field-note" id="job-no-match" role="status" hidden>찾는 직업이 없어요.</p>
+    <ul class="job-guide-list">${Object.entries(CAREERS).map(([id, job]) => {
+      const requirements = [
+        CAREER_CREDENTIALS[job.education],
+        ...Object.entries(job.need ?? {}).map(([stat, minimum]) => {
+          const need = life ? Math.max(1, minimum - chanceDiscount(life, id, stat)) : minimum;
+          return `${STATS[stat].label} ${need}${STATS[stat].unit ?? '점'}`;
+        }),
+        job.latestStart && `${job.latestStart}살까지 지원`,
+        job.startup && `시작 비용 ${job.startup}코인`,
+      ].filter(Boolean);
+      return `<li class="job-guide-entry">
+        <div class="job-guide-heading"><h3>${h(job.title)}</h3><span>월 약 ${monthly(job.wage)}코인 <small>기본 연 ${job.wage}코인</small></span></div>
+        <p>${h(job.detail)}</p>
+        <p class="job-requirements"><b>조건</b> ${h(requirements.join(' · ') || '취업 기회가 오면 바로 지원')}</p>
+      </li>`;
+    }).join('')}</ul>`;
+}
+
+export function gameMenuView(page, life) {
+  const jobs = page === 'jobs';
+  return `<nav class="tabs menu-tabs" aria-label="게임 메뉴">
+    ${button('help', '플레이 팁', 'book', 'quiet', `data-id="tips" aria-pressed="${!jobs}"`)}
+    ${button('help', '직업 안내', 'settings', 'quiet', `data-id="jobs" aria-pressed="${jobs}"`)}
+  </nav>
+  ${jobs ? jobGuide(life) : `<ul class="help-list">
+    <li><b>한 해 보내기</b><p>일상 선택 한 번에 한 살 자라요. 장래희망, 진학, 치료는 같은 나이에 고르는 추가 선택이에요.</p></li>
+    <li><b>하고 싶은 일 준비하기</b><p>19살부터 취업할 기회가 와요. 꿈이나 전공이 직업과 맞으면 일부 조건이 낮아져요.</p></li>
+    <li><b>연봉 올리기</b><p>같은 직업에서 ${EXPERIENCE_STEPS.map((years) => `${years}년`).join('·')} 일할 때마다 연봉이 1코인 올라요. 직무에 맞는 능력치와 관련 대학원 수료도 수입에 반영돼요.</p></li>
+    <li><b>돈과 체력 챙기기</b><p>‘올해 변화’를 펼치면 수입, 집세, 돌봄을 확인할 수 있어요. 체력이 낮을수록 병에 걸리기 쉬워요.</p></li>
+    <li><b>인생을 마친 뒤</b><p>다음 세대로 이어 살거나 영혼이 되어 기억이 남은 곳에 들를 수 있어요.</p></li>
+  </ul>`}`;
 }
 
 export function sexFields() {
@@ -32,7 +81,7 @@ export function homeView(code, selected, saved) {
   return `<div class="shell home">
     <section class="home-hero">
       <div class="hero-copy">
-        <div class="eyebrow">${icon('sprout')} <span>CLASSROOM LIFE SIM</span></div>
+        <div class="eyebrow">${icon('sprout')} <span>교실 인생 게임</span></div>
         <h1>같은 마을,<br>다른 <em>인생.</em></h1>
         <p>태어나고, 배우고, 살아가며 한 권의 기록을 써요.<br class="wide-only"> 친구들과 한 마을에서 각자의 이야기를 만들어 보세요.</p>
         <div class="hero-actions">
@@ -41,15 +90,15 @@ export function homeView(code, selected, saved) {
         </div>
       </div>
       <figure class="world-card">
-        <div class="world-top"><span><i></i> 100년 마을</span><span>MAP 01</span></div>
+        <div class="world-top"><span><i></i> 100년 마을</span></div>
         <img src="/art/village.svg" alt="오렌지색 지붕의 집과 친구들이 있는 햇살 밝은 도트 마을" width="384" height="218" fetchpriority="high">
-        <figcaption><span>${icon('sun')} 오늘도 맑음</span><span>이야기가 시작되는 곳</span></figcaption>
+        <figcaption><span>${icon('sun')} 오늘도 맑음</span></figcaption>
       </figure>
     </section>
     <div class="chapter-road"><span>인생의 여정</span><ol>${stageNames}<li>그다음 이야기</li></ol></div>
     <section class="entry-grid" aria-label="게임 시작">
       <article id="join" class="panel entry-panel">
-        <div class="entry-top"><span class="tile-icon mint">${icon('users')}</span><span class="eyebrow">01 / 학생</span></div>
+        <div class="entry-top"><span class="tile-icon mint">${icon('users')}</span><span class="eyebrow">학생</span></div>
         <h2>친구들과 시작하기</h2>
         <p class="subtle">${code ? '초대받은 방의 코드가 들어 있어요. 별명을 골라 참가하세요.' : '선생님에게 받은 6자리 코드로 같은 방에 들어가요.'}</p>
         <form id="join-form">
@@ -65,7 +114,7 @@ export function homeView(code, selected, saved) {
         ${saved.player ? button('resume-player', '지난 인생 이어 하기', 'book', 'quiet') : ''}
       </article>
       <article class="panel entry-panel teacher-entry">
-        <div class="entry-top"><span class="tile-icon amber">${icon('board')}</span><span class="eyebrow">02 / 교사</span></div>
+        <div class="entry-top"><span class="tile-icon amber">${icon('board')}</span><span class="eyebrow">교사</span></div>
         <h2>우리 반 방 만들기</h2>
         <p class="subtle">최대 20명. 같은 마을에서 각자의 속도로 살아가요.</p>
         <div class="chalkboard" aria-hidden="true"><div>우리 반 시간표<span>01 — 100</span></div><div class="classroom">${classroom}</div></div>
@@ -139,7 +188,7 @@ function roomHero(session, state) {
     state.settings.pace === 'personal' ? me ? `${me.age}살의 마을` : '각자 진행' : `마을 ${state.year}년차`;
   return `<section class="room-hero ${teacher ? '' : 'player-hero'} ${heroTone}">
     <div class="room-hero-main">
-      <div class="eyebrow"><i class="status-dot"></i> ${session.role === 'demo' ? '혼자 체험' : `ROOM ${state.code}`} <span class="sep">/</span> ${phaseLabel(state)}</div>
+      <div class="eyebrow"><i class="status-dot"></i> ${session.role === 'demo' ? '혼자 체험' : `방 ${state.code}`} <span class="sep">/</span> ${phaseLabel(state)}</div>
       <div class="room-title">${teacher ? `<span class="tile-icon mint">${icon('board')}</span>` : ''}
         <div><h1>${title}</h1><p>${sub}</p></div>
       </div>
@@ -236,17 +285,15 @@ function recurringView(option, bonus) {
 function yearlyView(scene) {
   if (!scene.yearly?.length) return '';
   return `<details class="year-effects">
-    <summary data-focus="year-effects"><strong>올해 자동 변화</strong><span class="delta-list">${changes(scene.base) || '<span>합계 변화 없음</span>'}</span></summary>
+    <summary data-focus="year-effects"><strong>올해 변화</strong><span class="delta-list">${changes(scene.base) || '<span>합계 변화 없음</span>'}</span></summary>
     <div class="year-effect-rows">${scene.yearly.map(sourceLine).join('')}</div>
   </details>`;
 }
 
 function conditionView(option) {
-  if (!option.conditions) return option.locked ? `<span class="requirement">${h(option.locked)}</span>` : '';
-  if (!option.conditions.length) return '<span class="choice-conditions"><b>지원 조건</b> 바로 시작할 수 있어요</span>';
-  return `<span class="choice-conditions"><b>${option.career ? '지원 조건' : '선택 조건'}</b>
-    ${option.conditions.map(({ label, met }) => `<span class="requirement${met ? ' met' : ''}">
-      ${h(label)} · ${met ? '충족' : '필요'}</span>`).join('')}</span>`;
+  if (!option.locked) return '';
+  const missing = option.conditions?.filter(({ met }) => !met).map(({ label }) => label);
+  return `<span class="requirement">${h(missing?.length ? `${missing.join(' · ')} 필요` : option.locked)}</span>`;
 }
 
 function choiceCard(option, me, bonus) {
@@ -260,19 +307,17 @@ function choiceCard(option, me, bonus) {
       <strong>${h(option.title)}</strong>
       <span class="choice-tag" aria-hidden="true">${icon(locked ? 'lock' : picked ? 'check' : option.opportunity ? 'spark' : 'arrow')}</span></span>
     <span class="choice-detail">${h(option.detail)}</span>
-    ${effect ? `<span class="choice-bottom"><span class="effect-once">이번에 한 번</span>${effect}</span>` : ''}
-    ${option.career && option.opportunity ? '<span class="small-badge mint">내 꿈과 이어지는 일</span>' : ''}
+    ${effect ? `<span class="choice-bottom">${option.recurring ? '<span class="effect-once">한 번</span>' : ''}${effect}</span>` : ''}
+    ${option.career && option.opportunity ? '<small class="choice-dream">꿈과 이어져요</small>' : ''}
     ${recurringView(option, bonus)}
     ${conditionView(option)}
   </button>`;
 }
 
 function latestView(latest) {
-  if (!latest) return '';
-  const label = latest.type === 'bonus' ? '방금 고른 일' : '지난 선택';
+  if (!latest?.text || latest.text === latest.line) return '';
   return `<details class="latest" data-result="${h(latest.year + '-' + latest.type + '-' + latest.title)}">
-    <summary data-focus="latest"><span>${label}</span> <strong>${h(latest.title)}</strong></summary>
-    ${latest.text || latest.line ? `<p>${h(latest.text || latest.line)}</p>` : ''}<div class="delta-list">${changes(latest.changes)}</div>
+    <summary data-focus="latest">이야기 더 보기</summary><p>${h(latest.text)}</p>
   </details>`;
 }
 
@@ -291,10 +336,12 @@ export function choiceFeedbackView(state) {
   const line = pending ? pending.narration ?? pending.detail : result.line ?? `‘${result.title}’ 선택을 했어요.`;
   const key = pending ? `${state.turn.number}-pending-${pending.id}` : `${result.year}-${result.type}-${result.title}`;
   const deltas = pending ? '' : changes(result.changes);
+  const raise = !pending && result.raise;
   return `<div class="choice-feedback-note" data-choice-result="${h(key)}">
     <span class="choice-feedback-icon">${icon('book')}</span>
     <div><p><strong>${h(subject)}</strong> ${h(line)}</p>
-      ${deltas ? `<div class="delta-list">${deltas}</div>` : ''}</div>
+      ${deltas || raise ? `<div class="delta-list">${deltas}
+        ${raise ? `<span class="delta amber">다음 해 연봉 ${raise.from} → ${raise.to}코인</span>` : ''}</div>` : ''}</div>
   </div>`;
 }
 
@@ -325,16 +372,20 @@ function playerView(session, state, rank) {
   } else {
     const { scene } = me;
     const waiting = state.turn.auto ? '골랐어요. 친구들을 기다려요.' : '골랐어요. 선생님이 마감하면 다음 해로 가요.';
+    const lockedJobs = scene.key === 'career' ? scene.choices.filter(({ locked }) => locked) : [];
+    const choices = lockedJobs.length ? scene.choices.filter(({ locked }) => !locked) : scene.choices;
+    const hint = scene.waiting || me.choice ? waiting : !choices.length ? '친구들 메뉴에서 다른 이야기를 볼 수 있어요.' : '';
+    const canPass = !personal && me.mode !== 'alive' && !scene.waiting;
     body = `${roundMeta(state)}
-      ${scene.bonus ? '<p class="extra-label">추가 선택 <span>지금 나이 그대로</span></p>' : ''}
+      ${scene.bonus ? '<p class="extra-label">추가 선택 · 나이 그대로</p>' : ''}
       <h2 tabindex="-1">${h(scene.title)}</h2><p class="subtle scene-detail">${h(scene.detail)}</p>
       ${scene.healthWarning ? `<p class="health-warning">${icon('heart')} 큰 병을 치료 중이에요. 올해는 체력을 아껴요.</p>` : ''}
       ${me.mode === 'fork' && me.life.end ? `<p class="fork-note">${icon('book')} ${h(me.life.end.note)}</p>` : ''}
-      <div class="choice-grid">${scene.choices.map((item) => choiceCard(item, me, scene.bonus)).join('')}</div>
-      <div class="choice-footer"><span>${scene.waiting ? waiting : scene.bonus ? '고르면 같은 나이의 이야기가 이어져요.' :
-        me.choice ? waiting : !scene.choices.length ? '친구들 메뉴에서 다른 이야기를 볼 수 있어요.' :
-          me.mode === 'alive' && (personal || session.role === 'demo') ? '고르면 바로 한 살 자라요.' : '하나를 눌러 골라요.'}</span>
-      ${!personal && me.mode !== 'alive' && !scene.waiting ? button('choose', me.choice === 'pass' ? '기다리기를 골랐어요' : '이번엔 기다리기', 'clock', 'quiet', 'data-id="pass"') : ''}</div>
+      <div class="choice-grid">${choices.map((item) => choiceCard(item, me, scene.bonus)).join('')}</div>
+      ${lockedJobs.length ? `<details class="career-locked"><summary data-focus="career-locked">조건이 필요한 직업 ${lockedJobs.length}개</summary>
+        <div class="choice-grid">${lockedJobs.map((item) => choiceCard(item, me, scene.bonus)).join('')}</div></details>` : ''}
+      ${hint || canPass ? `<div class="choice-footer">${hint ? `<span>${hint}</span>` : ''}
+        ${canPass ? button('choose', me.choice === 'pass' ? '기다리기를 골랐어요' : '이번엔 기다리기', 'clock', 'quiet', 'data-id="pass"') : ''}</div>` : ''}
       ${yearlyView(scene)}
       ${personal || session.role === 'demo' ? '' : `<div class="submission-note"><span>${icon('users')} ${progress}</span></div>`}
       ${latestView(me.latest)}`;

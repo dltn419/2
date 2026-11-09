@@ -1,4 +1,4 @@
-import { CAREERS, HABITS, pick } from './content.mjs';
+import { CAREER_CREDENTIALS, CAREERS, HABITS, pick } from './content.mjs';
 import { finishCare, illnessCare } from './health.mjs';
 
 export const SEXES = { male: '남자', female: '여자' };
@@ -24,6 +24,8 @@ export const DREAMS = {
 
 const SERVICE_LIMIT = 28;
 const COMMUNITY_HEALTH = 40;
+export const EXPERIENCE_STEPS = [3, 8, 15];
+const CAREER_BY_TITLE = new Map(Object.entries(CAREERS).map(([id, job]) => [job.title, id]));
 
 const PROGRAMS = {
   college: { label: '전문대', years: 2 },
@@ -43,7 +45,7 @@ const LICENSES = {
 
 export function newPath(sex = null) {
   return { sex, dreams: [], school: null, diploma: false, program: null, degree: null, training: false,
-    service: null, partner: null, married: null, children: [], retired: null, home: null, illness: null, recoveredAt: null, habit: null };
+    service: null, partner: null, married: null, children: [], retired: null, workYears: {}, home: null, illness: null, recoveredAt: null, habit: null };
 }
 
 const EMPTY_PATH = newPath();
@@ -52,6 +54,7 @@ const mostRecentDream = (path) => path.dreams.at(-1)?.field ?? 'explore';
 const fieldLabel = (field) => DREAMS[field]?.label ?? DREAMS.explore.label;
 const isStem = (field) => field === 'science' || field === 'tech';
 const degreesOf = (path) => [...(path.previousDegrees ?? []), ...(path.degree ? [path.degree] : [])];
+const undergraduate = (degrees) => degrees.findLast(({ kind }) => kind !== 'college' && kind !== 'graduate');
 const jobFields = (job) => [job?.field, ...(job?.related ?? [])].filter(Boolean);
 const scene = (title, detail, choices, after = '') => ({ title, detail, choices, after });
 const rest = (title = '쉬어 가기', detail = '잠시 숨을 고르고 쉬어요.', effect = { health: 3, joy: 1 }) => pick('rest', title, detail, 'leaf', effect);
@@ -252,8 +255,12 @@ function examChoice() {
 function universityChoice(kind, life, engineering = false) {
   const path = pathOf(life);
   const dream = mostRecentDream(path);
-  const field = { medicine: 'medical', nursing: 'medical', teaching: 'education', caregiving: 'people' }[kind]
+  let field = { medicine: 'medical', nursing: 'medical', teaching: 'education', caregiving: 'people' }[kind]
     ?? (engineering ? 'tech' : dream);
+  if (kind === 'graduate') {
+    const major = undergraduate(degreesOf(path))?.field;
+    field = major && major !== 'explore' ? major : CAREERS[life.career]?.field ?? dream;
+  }
   const data = PROGRAMS[kind];
   const title = { university: engineering ? '이공계 대학 가기' : '4년제 대학 가기', nursing: '간호학과 가기',
     training: '일할 기술 배우기', caregiving: '돌봄 교육과 시험 준비하기' }[kind] ?? `${data.label} 가기`;
@@ -316,16 +323,16 @@ function careerPlan(life, path) {
   const degrees = degreesOf(path);
   const bachelor = degrees.some(({ kind }) => kind !== 'college');
   const credentials = {
-    school: { label: '고등학교 졸업 또는 검정고시', met: finishedSchool(path) },
-    skill: { label: '직업계고·직업훈련·전문대 이상 중 하나', met: path.school === 'vocational' || path.training || degrees.length > 0 },
-    bachelor: { label: '4년제 대학 졸업 이상', met: bachelor },
-    stem: { label: '과학·기술 계열 4년제 대학 졸업 이상', met: degrees.some(({ kind, field }) => kind !== 'college' && isStem(field)) },
-    biology: { label: '생명과학 또는 과학 계열 4년제 졸업', met: degrees.some(({ kind, field }) => kind !== 'college' && ['biology', 'science'].includes(field)) },
-    teaching: { label: '교육대 졸업', met: degrees.some(({ kind }) => kind === 'teaching') },
-    doctor: { label: '의대 졸업과 의사 면허', met: Number.isInteger(path.licenseAge) },
-    nursing: { label: '간호학과 졸업과 간호사 면허', met: Number.isInteger(path.nursingLicenseAge) },
-    caregiving: { label: '돌봄 교육과 자격 시험', met: Number.isInteger(path.caregivingAge) },
-    sports: { label: '운동부나 운동팀 훈련 2회 이상', met: (path.sportYears ?? 0) >= 2 },
+    school: finishedSchool(path),
+    skill: path.school === 'vocational' || path.training || degrees.length > 0,
+    bachelor,
+    stem: degrees.some(({ kind, field }) => kind !== 'college' && isStem(field)),
+    biology: degrees.some(({ kind, field }) => kind !== 'college' && ['biology', 'science'].includes(field)),
+    teaching: degrees.some(({ kind }) => kind === 'teaching'),
+    doctor: Number.isInteger(path.licenseAge),
+    nursing: Number.isInteger(path.nursingLicenseAge),
+    caregiving: Number.isInteger(path.caregivingAge),
+    sports: (path.sportYears ?? 0) >= 2,
   };
   const schoolField = { science: 'science', gifted: 'science', vocational: 'tech', arts: 'art' }[path.school];
   const interests = [schoolField, ...path.dreams.map(({ field }) => field), ...degrees.map(({ field }) => field)];
@@ -336,7 +343,7 @@ function careerPlan(life, path) {
   for (const [career, job] of Object.entries(CAREERS)) {
     if (career === life.career || life.age > (job.latestStart ?? Infinity)) continue;
     const fields = jobFields(job);
-    const credential = credentials[job.education];
+    const credential = job.education && { label: CAREER_CREDENTIALS[job.education], met: credentials[job.education] };
     const explored = interests.some((field) => fields.includes(field)) || (career === 'athlete' && path.sportYears > 0);
     const readyWithoutDegree = !credential && Object.entries(job.need ?? {}).every(([stat, minimum]) => life.stats[stat] >= minimum);
     if (job.specialty && !credential?.met && !explored && !readyWithoutDegree) continue;
@@ -376,7 +383,7 @@ function educationPlan(life, path) {
     (['people', 'education'].includes(dream) || (life.stats.learning >= 42 && life.stats.bond >= 20))) {
     options.push(universityChoice('teaching', life));
   }
-  if (completed('university') && !completed('graduate')) options.push(universityChoice('graduate', life));
+  if (undergraduate(degrees) && !completed('graduate')) options.push(universityChoice('graduate', life));
   if (!path.training) options.push(universityChoice('training', life));
   if (!Number.isInteger(path.caregivingAge) && (['people', 'medical'].includes(dream) || life.stats.bond >= 28)) {
     options.push(universityChoice('caregiving', life));
@@ -686,6 +693,44 @@ export function advancePath(life) {
   return `${PROGRAMS[kind].label}을 마쳤어요. 처음 메던 가방이 많이 해졌어요.`;
 }
 
+export function careerPay(life) {
+  const job = CAREERS[life?.career];
+  if (!job) return null;
+  const path = pathOf(life);
+  const years = path.workYears?.[life.career] ?? 0;
+  const experience = EXPERIENCE_STEPS.filter((step) => years >= step).length;
+  const stat = job.payStat ?? 'learning';
+  const skillBase = Math.max(job.need?.[stat] ?? 0, stat === 'health' ? 60 : 30);
+  const skill = Math.max(0, Math.min(2, Math.floor((life.stats[stat] - skillBase) / 20)));
+  const fields = jobFields(job);
+  const education = degreesOf(path).some(({ kind, field }) => kind === 'graduate' && fields.includes(field)) ? 2 : 0;
+  return { base: job.wage, years, experience, stat, skill, education, total: job.wage + experience + skill + education };
+}
+
+export function creditWorkYear(life) {
+  const { workYears = {} } = life.path;
+  life.path.workYears = { ...workYears, [life.career]: (workYears[life.career] ?? 0) + 1 };
+}
+
+export function restoreWorkYears(life) {
+  const path = life.path ??= newPath();
+  if (path.workYears) return;
+  const workYears = {};
+  let career = null;
+  let serviceUntil = 0;
+  for (const entry of life.history ?? []) {
+    if (entry.type === 'bonus') {
+      career = CAREER_BY_TITLE.get(entry.title) ?? career;
+      if (entry.title === '올해 입영하기' || entry.title === '마을에서 복무하기') serviceUntil = entry.decisionAge + 2;
+    }
+    if (entry.type === 'life' && career && entry.decisionAge >= serviceUntil &&
+      (path.retired === null || entry.decisionAge <= path.retired)) {
+      workYears[career] = (workYears[career] ?? 0) + 1;
+    }
+  }
+  path.workYears = workYears;
+}
+
 export function yearlySources(life) {
   const { age } = life;
   const path = pathOf(life);
@@ -697,8 +742,9 @@ export function yearlySources(life) {
   } else if (path.retired !== null) {
     sources.push({ id: 'pension', label: '은퇴 뒤 받는 돈', effect: { money: 1 } });
   } else if (career) {
-    sources.push({ id: `job-${life.career}`, label: `${career.title} 수입${career.fatigue ? '과 피로' : ''}`, term: '일하는 동안',
-      effect: { money: career.wage, ...(career.fatigue ? { health: -career.fatigue } : {}) } });
+    const pay = careerPay(life);
+    sources.push({ id: `job-${life.career}`, label: `${career.title} 수입${career.fatigue ? '과 피로' : ''}`, term: `경력 ${pay.years}년`,
+      effect: { money: pay.total, ...(career.fatigue ? { health: -career.fatigue } : {}) } });
   }
   if (!serving && path.program) {
     const { kind, remaining } = path.program;
