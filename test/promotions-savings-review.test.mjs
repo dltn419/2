@@ -65,14 +65,15 @@ test('교사 승진은 첫 화면에 표시하고 정확한 능력치와 경력�
   assert.equal(careerPay(life).transfer, 16);
   assert.ok(careerPay(life).total > salary);
   assert.equal(life.path.savingsReview.at, 43);
-  life.age = 50;
-  life.path.workYears.vicePrincipal = 7;
-  clearEducation(room);
-  const principal = state(room).me.scene.choices.find(({ id }) => id === 'work-principal');
+  // 다음 승진 시점은 새로 열린 50세 연차로 검증합니다.
+  const next = setup('vicePrincipal', 50, 7);
+  next.life.path.workYears.teacher = 16;
+  clearEducation(next.room);
+  const principal = state(next.room).me.scene.choices.find(({ id }) => id === 'work-principal');
   assert.ok(principal && !principal.locked);
-  choose(room, 'work-principal');
-  assert.equal(life.career, 'principal');
-  assert.equal(careerPay(life).transfer, 23);
+  choose(next.room, 'work-principal');
+  assert.equal(next.life.career, 'principal');
+  assert.equal(careerPay(next.life).transfer, 23);
 });
 
 test('승진 경력이 부족하면 표시되더라도 선택할 수 없다', () => {
