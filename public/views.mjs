@@ -163,7 +163,8 @@ function villageCast(me) {
     `<span class="village-person ${role}">${image}<span class="village-person-label">${h(label)}</span></span>`;
   const family = [member('나', avatar(me.avatar, me.mode, path.sex), 'village-self')];
   const spouse = path.sex === 'female' ? 'male' : 'female';
-  if (path.married !== null) family.push(member('배우자', avatar((me.avatar + 3) % AVATARS.length, 'alive', spouse), 'village-spouse'));
+  if (path.married !== null) family.push(member(path.romance?.name ?? '배우자',
+    avatar((me.avatar + 3) % AVATARS.length, 'alive', spouse), 'village-spouse'));
   for (const [index, born] of path.children.entries()) {
     const age = Math.max(0, me.age - born);
     const label = `${index === 0 ? '첫째' : '둘째'} · ${age}살`;
@@ -298,7 +299,7 @@ function choiceCard(option, me, bonus) {
   const locked = Boolean(option.locked);
   const picked = me.choice === option.id;
   const tone = ({ heart: 'rose', book: 'blue', coin: 'amber', sun: 'lime', spark: 'plum', ghost: 'plum', flower: 'plum', house: 'amber' })[option.mark] ?? 'mint';
-  const effect = changes(option.effect);
+  const effect = changes({ ...option.effect, ...(option.affection ? { affection: option.affection } : {}) });
   return `<button type="button" class="choice${picked ? ' picked' : ''}${locked ? ' locked' : ''}" data-action="${option.id === 'successor' ? 'successor' : 'choose'}" data-id="${option.id}" data-focus="choice-${option.id}"
     aria-pressed="${picked}" ${locked ? 'disabled' : ''}>
     <span class="choice-top"><span class="tile-icon ${tone}">${icon(option.mark)}</span>
@@ -365,6 +366,28 @@ function miniRank(state, rank) {
   </section>`;
 }
 
+function relationshipDetails(life) {
+  const path = pathOf(life);
+  const person = path.romance;
+  if (!person) return '';
+  const mood = person.affection >= 85 ? '아주 다정함' : person.affection >= 65 ? '다정함' :
+    person.affection >= 40 ? '평범함' : person.affection >= 21 ? '서먹함' : '소원함';
+  const age = Math.max(19, life.age + (person.ageOffset ?? 0));
+  return `<p class="life-extra">${icon('heart')} <strong>${path.married !== null ? '배우자' : '연인'} · ${h(person.name)}</strong>
+    <span>${age}세 · ${h(CAREERS[person.career]?.title ?? '회사원')} · ${mood}</span></p>`;
+}
+
+function retirementDetails(life) {
+  const path = pathOf(life);
+  const account = path.savings;
+  if (!account?.annual) return '';
+  const payout = Math.floor((account.balance ?? 0) / 10);
+  const remaining = (account.balance ?? 0) % 10;
+  return `<p class="life-extra">${icon('coin')} <strong>노후 저축 · ${numeral(account.balance)}코인</strong>
+    <span>${path.retired === null ? `매년 ${account.annual}코인씩 적립` :
+      `매년 ${payout}코인씩 10년 수령 · 세금 ${remaining}코인`}</span></p>`;
+}
+
 function playerView(session, state, rank) {
   const { me, phase } = state;
   const personal = state.settings.pace === 'personal';
@@ -407,7 +430,9 @@ function playerView(session, state, rank) {
       <aside class="stack play-stats">
         <section class="panel section-panel">
           <div class="section-heading"><h2>${me.mode === 'alive' ? '내 능력치' : '남긴 능력치'}</h2><span class="small-badge paper">${me.generation}대</span></div>
-          ${statGrid(me.life.stats)}
+          ${statGrid(me.life.stats, pathOf(me.life).romance)}
+          ${relationshipDetails(me.life)}
+          ${retirementDetails(me.life)}
           ${button('profile', '인생 기록장', 'book', 'quiet', `data-id="${me.id}"`)}
         </section>
         ${miniRank(state, rank)}
@@ -501,7 +526,9 @@ export function profileView(profile, index) {
     ${profile.lives.length > 1 ? `<div class="rank-filters" aria-label="세대 고르기">${profile.lives.map((record, recordIndex) =>
       `<button type="button" class="filter mint" data-action="generation" data-index="${recordIndex}" aria-pressed="${index === recordIndex}">${record.generation}대</button>`).join('')}</div>` : ''}
     ${life.end ? `<p class="fork-note">${icon('flag')} ${h(life.end.note)}</p>` : ''}
-    ${statGrid(life.stats)}
+    ${statGrid(life.stats, pathOf(life).romance)}
+    ${relationshipDetails(life)}
+    ${retirementDetails(life)}
     ${notes.length ? `<h3>지나온 길</h3><div class="life-chips">${notes.map((note) => `<span>${h(note)}</span>`).join('')}</div>` : ''}
     <h3>인생 연대기</h3>
     ${entries.length ? `<ol class="timeline">${entries.map((entry) => `<li>
