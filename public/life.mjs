@@ -22,6 +22,18 @@ export const DREAMS = {
   explore: { label: '아직 모르겠어요', title: '더 알아본 뒤에 정해요.', mark: 'leaf' },
 };
 
+// 장래희망은 관심 분야만 넓게 기록하고, 대학 전공과 직업 자격은 별도로 결정합니다.
+// 이전 버전의 세부 장래희망(DREAMS)은 기존 기록을 위해 그대로 유지합니다.
+export const DREAM_OPTIONS = {
+  stem: { label: '과학·기술·자연', title: '연구, 기술, 생명과 자연이 궁금해요.', mark: 'book',
+    fields: ['science', 'biology', 'tech', 'medical', 'farm'] },
+  society: { label: '사람·사회·경제', title: '사람을 돕거나 사회와 경제를 움직이고 싶어요.', mark: 'link',
+    fields: ['people', 'medical', 'education', 'office', 'public', 'sales', 'business'] },
+  creative: { label: '예술·체육·창작', title: '예술, 방송, 운동, 요리로 나를 표현하고 싶어요.', mark: 'spark',
+    fields: ['art', 'media', 'sports', 'food'] },
+  explore: { label: '아직 모르겠어요', title: '다양한 일을 알아보고 나중에 정해요.', mark: 'leaf', fields: [] },
+};
+
 const SERVICE_LIMIT = 28;
 const COMMUNITY_HEALTH = 40;
 export const EXPERIENCE_STEPS = [3, 8, 15];
@@ -51,8 +63,11 @@ export function newPath(sex = null) {
 const EMPTY_PATH = newPath();
 export const pathOf = (life) => life.path ?? EMPTY_PATH;
 const mostRecentDream = (path) => path.dreams.at(-1)?.field ?? 'explore';
-const fieldLabel = (field) => DREAMS[field]?.label ?? DREAMS.explore.label;
-const isStem = (field) => field === 'science' || field === 'tech';
+const dreamFields = (field) => DREAM_OPTIONS[field]?.fields ?? [field];
+const dreamIncludes = (dream, field) => dreamFields(dream).includes(field);
+const studyFieldFor = (dream) => ({ stem: 'science', society: 'people', creative: 'art' })[dream] ?? dream;
+const fieldLabel = (field) => DREAM_OPTIONS[field]?.label ?? DREAMS[field]?.label ?? DREAMS.explore.label;
+const isStem = (field) => ['science', 'tech', 'stem'].includes(field);
 const degreesOf = (path) => [...(path.previousDegrees ?? []), ...(path.degree ? [path.degree] : [])];
 const undergraduate = (degrees) => degrees.findLast(({ kind }) => kind !== 'college' && kind !== 'graduate');
 const jobFields = (job) => [job?.field, ...(job?.related ?? [])].filter(Boolean);
@@ -213,7 +228,7 @@ function dreamSurvey(life) {
   const old = mostRecentDream(path);
   const detail = old === 'explore' ? '어떤 일이 궁금해요? 나중에 전공과 일자리를 고를 때 기억해요.'
     : `지난번에는 ‘${fieldLabel(old)}’를 골랐어요. 지금은 어때요?`;
-  return scene(`${label} 장래희망`, detail, Object.entries(DREAMS).map(([field, dream]) =>
+  return scene(`${label} 장래희망`, detail, Object.entries(DREAM_OPTIONS).map(([field, dream]) =>
     option(field === 'explore' ? 'rest' : `dream-${field}`, dream.label, dream.title, dream.mark, {}, 'dream', field,
       field === 'explore' ? '천천히 찾아보기로 했어요.' : '오늘 고른 꿈을 기록장에 적었어요.',
       { narration: field === 'explore' ? '어떤 일이 마음에 드는지 조금 더 알아보기로 했어요.'
@@ -222,7 +237,7 @@ function dreamSurvey(life) {
 
 function highSchool(life) {
   const dream = mostRecentDream(pathOf(life));
-  const scienceInterest = isStem(dream) || ['medical', 'biology'].includes(dream);
+  const scienceInterest = isStem(dream) || ['medical', 'biology'].some((field) => dreamIncludes(dream, field));
   return scene('고등학교 고르기', '어디에서 무엇을 배우고 싶어요?', [
     option('high-general', '일반고 가기', '여러 과목을 배우고 진로를 찾아요.', 'book', {}, 'school', 'general',
       '새 교복을 입고 거울 앞에 한참 서 있었어요.', { narration: '새 교복을 입고 일반고의 첫 수업을 맞았어요.' }),
@@ -238,7 +253,7 @@ function highSchool(life) {
       '처음으로 내 손으로 기계를 움직였어요.', { narration: '직업계고 실습실에서 처음 장갑을 끼고 공구를 잡았어요.' }),
     option('high-arts', '예술고 가기', '그림이나 음악을 깊이 배워요.', 'spark', {}, 'school', 'arts',
       '좋아하던 일을 학교에서도 하게 됐어요.', {
-        need: { art: dream === 'art' ? 23 : 28 }, conditions: [], narration: '예술고에 들어가 첫 작품을 준비하기 시작했어요.',
+        need: { art: dreamIncludes(dream, 'art') ? 23 : 28 }, conditions: [], narration: '예술고에 들어가 첫 작품을 준비하기 시작했어요.',
       }),
     option('rest', '학교 밖에서 배우기', '나만의 길을 찾아봐요. 나중에 검정고시도 볼 수 있어요.', 'leaf', {}, 'school', 'outside',
       '친구들과 다른 곳에서 새 학년을 맞았어요.', { narration: '학교 밖에서 배우고 싶은 일을 하나씩 찾아보기로 했어요.' }),
@@ -256,10 +271,10 @@ function universityChoice(kind, life, engineering = false) {
   const path = pathOf(life);
   const dream = mostRecentDream(path);
   let field = { medicine: 'medical', nursing: 'medical', teaching: 'education', caregiving: 'people' }[kind]
-    ?? (engineering ? 'tech' : dream);
+    ?? (engineering ? 'tech' : studyFieldFor(dream));
   if (kind === 'graduate') {
     const major = undergraduate(degreesOf(path))?.field;
-    field = major && major !== 'explore' ? major : CAREERS[life.career]?.field ?? dream;
+    field = major && major !== 'explore' ? major : CAREERS[life.career]?.field ?? studyFieldFor(dream);
   }
   const data = PROGRAMS[kind];
   const title = { university: engineering ? '이공계 대학 가기' : '4년제 대학 가기', nursing: '간호학과 가기',
@@ -267,9 +282,9 @@ function universityChoice(kind, life, engineering = false) {
   const scienceSchool = path.school === 'gifted' ? 6 : path.school === 'science' ? 3 : 0;
   const need = {
     university: { learning: engineering ? 33 - scienceSchool : field === 'explore' ? 22 : 19 },
-    medicine: { learning: 63 - scienceSchool - (dream === 'medical' ? 4 : 0) },
-    nursing: { learning: dream === 'medical' ? 33 : 38, bond: 20 },
-    teaching: { learning: dream === 'education' ? 42 : 47, bond: 22 },
+    medicine: { learning: 63 - scienceSchool - (dreamIncludes(dream, 'medical') ? 4 : 0) },
+    nursing: { learning: dreamIncludes(dream, 'medical') ? 33 : 38, bond: 20 },
+    teaching: { learning: dreamIncludes(dream, 'education') ? 42 : 47, bond: 22 },
   }[kind];
   const scholarship = kind === 'medicine' && life.stats.learning >= need.learning + 5;
   const familySupported = data.familyCopay !== undefined;
@@ -337,7 +352,7 @@ function careerPlan(life, path) {
     sports: (path.sportYears ?? 0) >= 2,
   };
   const schoolField = { science: 'science', gifted: 'science', vocational: 'tech', arts: 'art' }[path.school];
-  const interests = [schoolField, ...path.dreams.map(({ field }) => field), ...degrees.map(({ field }) => field)];
+  const interests = [schoolField, ...path.dreams.flatMap(({ field }) => dreamFields(field)), ...degrees.map(({ field }) => field)];
   const current = CAREERS[life.career];
   const choices = [rest(current ? '지금 일 계속하기' : '이번에는 건너뛰기',
     current ? `지금의 직업인 ${current.title} 일을 이어가요.` : '나중에 일자리를 다시 살펴볼 수 있어요.', {})];
@@ -349,7 +364,7 @@ function careerPlan(life, path) {
     const explored = interests.some((field) => fields.includes(field)) || (career === 'athlete' && path.sportYears > 0);
     const readyWithoutDegree = !credential && Object.entries(job.need ?? {}).every(([stat, minimum]) => life.stats[stat] >= minimum);
     if (job.specialty && !credential?.met && !explored && !readyWithoutDegree) continue;
-    const followsDream = fields.includes(dream);
+    const followsDream = fields.some((field) => dreamIncludes(dream, field));
     choices.push(pick(`work-${career}`, job.title, job.detail, job.mark, job.startup ? { money: -job.startup } : {}, {
       career, need: job.need, opportunity: Boolean(followsDream),
       conditions: credential ? [credential] : [],
@@ -374,20 +389,20 @@ function educationPlan(life, path) {
     if (!isStem(dream)) options.push(universityChoice('university', life, true));
   } else if (!eligible) options.push(examChoice());
   if (eligible && life.age <= 38 && !completed('medicine') &&
-    (dream === 'medical' || path.school === 'science' || path.school === 'gifted' || life.stats.learning >= 50)) {
+    (dreamIncludes(dream, 'medical') || path.school === 'science' || path.school === 'gifted' || life.stats.learning >= 50)) {
     options.push(universityChoice('medicine', life));
   }
   if (eligible && life.age <= 50 && !completed('nursing') &&
-    (['medical', 'people'].includes(dream) || (life.stats.learning >= 38 && life.stats.bond >= 20))) {
+    (['medical', 'people'].some((field) => dreamIncludes(dream, field)) || (life.stats.learning >= 38 && life.stats.bond >= 20))) {
     options.push(universityChoice('nursing', life));
   }
   if (eligible && life.age <= 38 && !completed('teaching') &&
-    (['people', 'education'].includes(dream) || (life.stats.learning >= 42 && life.stats.bond >= 20))) {
+    (['people', 'education'].some((field) => dreamIncludes(dream, field)) || (life.stats.learning >= 42 && life.stats.bond >= 20))) {
     options.push(universityChoice('teaching', life));
   }
   if (undergraduate(degrees) && !completed('graduate')) options.push(universityChoice('graduate', life));
   if (!path.training) options.push(universityChoice('training', life));
-  if (!Number.isInteger(path.caregivingAge) && (['people', 'medical'].includes(dream) || life.stats.bond >= 28)) {
+  if (!Number.isInteger(path.caregivingAge) && (['people', 'medical'].some((field) => dreamIncludes(dream, field)) || life.stats.bond >= 28)) {
     options.push(universityChoice('caregiving', life));
   }
   if (!options.length) return null;
@@ -789,7 +804,9 @@ export function chanceDiscount(life, career, stat) {
   const path = pathOf(life);
   const fields = jobFields(CAREERS[career]);
   if (!fields.length || stat === 'health') return 0;
-  return (path.dreams.some(({ field }) => fields.includes(field)) ? 5 : 0)
+  const dreamBoost = Math.max(0, ...path.dreams.map(({ field }) =>
+    dreamFields(field).some((interest) => fields.includes(interest)) ? (DREAM_OPTIONS[field] ? 3 : 5) : 0));
+  return dreamBoost
     + (degreesOf(path).some(({ field }) => fields.includes(field)) ? 6 : 0)
     + (career === 'tech' && (path.training || path.school === 'vocational') ? 7 : 0);
 }
