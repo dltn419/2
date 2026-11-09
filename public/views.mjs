@@ -286,7 +286,7 @@ function roster(players, { teacher = false, lobby = false, kickable = false, meI
       ${!lobby && player.mode !== 'alive' ? `<span class="person-caption">${MODES[player.mode]}</span>` : ''}</span>
     </button>
     ${teacher && !lobby ? `<span class="small-badge ${player.submitted ? 'mint' : 'paper'}">${player.submitted ? '제출' : '대기'}</span>` : ''}
-    ${kickable ? `<button type="button" class="icon-button" aria-label="${h(player.name)} 퇴장시키기" data-action="kick" data-id="${player.id}">${icon('close')}</button>` : ''}
+    ${kickable ? `<button type="button" class="person-kick" aria-label="${h(player.name)} 퇴장시키기" data-action="kick" data-id="${player.id}">퇴장</button>` : ''}
   </article>`).join('')}</div>`;
 }
 
