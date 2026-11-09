@@ -483,8 +483,11 @@ function careerPlan(life, path) {
         : `${job.title} 일을 시작했어요. 첫날은 누구나 떨려요.`,
     }));
   }
-  return scene(current ? '승진하거나 다른 직업을 찾을까요?' : '어떤 일을 할까요?',
-    current ? '승진·전직 기회를 먼저 살펴보고, 다른 직업은 아래에서 펼쳐 볼 수 있어요.'
+  const performance = current && performanceProfile(life.career);
+  return scene(current ? (performance ? '올해도 이 일을 계속할까요?' : '승진하거나 다른 직업을 찾을까요?') : '어떤 일을 할까요?',
+    current ? (performance
+      ? `직급 승진보다는 해마다 ${performance.label}이 달라지는 일이에요. 실력과 경력을 키워 보너스를 늘리고, 원한다면 다른 직업으로 옮길 수 있어요.`
+      : '승진·전직 기회를 먼저 살펴보고, 다른 직업은 아래에서 펼쳐 볼 수 있어요.')
       : '지원 조건과 해마다 버는 돈을 보고 골라요. 꿈이나 전공과 맞으면 지원하기 쉬워요.', choices);
 }
 
