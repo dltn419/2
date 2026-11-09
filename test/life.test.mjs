@@ -464,7 +464,7 @@ test('이전 방의 근무 기록에서 직업별 경력을 복원한다', () =>
   assert.equal(updateRoomRules(room, 2_001), false);
 });
 
-test('게임 메뉴에는 팁과 모든 직업의 조건 및 월 환산 수입이 있다', () => {
+test('게임 메뉴에는 팁과 모든 직업의 조건 및 연봉이 있다', () => {
   const room = classroom({ 학생: 'female' }, { age: 20 });
   const { life } = room.players[0];
   life.career = 'crew';
@@ -473,8 +473,9 @@ test('게임 메뉴에는 팁과 모든 직업의 조건 및 월 환산 수입�
   assert.match(gameMenuView('tips', life), /3년·8년·15년/);
   const guide = gameMenuView('jobs', life);
   assert.equal([...guide.matchAll(/class="job-guide-entry"/g)].length, Object.keys(CAREERS).length);
-  assert.match(guide, /매장 직원 · 연 3코인/);
-  assert.match(guide, /월 약 0\.92코인 <small>기본 연 11코인/);
+  assert.match(guide, /매장 직원 · 연봉 3코인/);
+  assert.match(guide, /기본 연봉 11코인/);
+  assert.doesNotMatch(guide, /월급|월 약|12개월/);
   assert.match(guide, /의대 졸업과 의사 면허/);
   assert.match(guide, /30살까지 지원/);
 });
@@ -549,7 +550,7 @@ test('운동 효과는 선택한 해 다음부터 3년간 한 번씩 쌓인다',
   assert.ok(!me(room, '운동').scene.yearly.some(({ id }) => id === 'habit-exercise'));
 });
 
-test('월급과 월세를 따로 표시하고 집을 사면 다음 해 월세가 끝난다', () => {
+test('연봉과 월세를 따로 표시하고 집을 사면 다음 해 월세가 끝난다', () => {
   const room = classroom({ 학생: 'female' }, { age: 19 });
   const { life } = room.players[0];
   life.stats.learning = 25;

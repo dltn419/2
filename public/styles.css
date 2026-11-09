@@ -339,13 +339,12 @@ dialog::backdrop { background: #233e34a0; }
 .help-list li, .job-guide-entry { padding: 9px 1px; border-bottom: 1px solid var(--line); }
 .help-list li:last-child, .job-guide-entry:last-child { border-bottom: 0; }
 .help-list p, .job-guide-entry p { margin-top: 3px; color: var(--muted); font-size: 14px; }
-.current-pay { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 9px; padding: 8px 10px; margin-bottom: 10px; background: var(--soft); border: 1px solid var(--line); border-radius: 4px; }
-.current-pay span, .job-guide-heading span { color: var(--pine); font-size: 13px; font-weight: 750; }
-.current-pay p { flex-basis: 100%; }
+.current-pay { padding: 8px 10px; margin-bottom: 10px; background: var(--soft); border: 1px solid var(--line); border-radius: 4px; }
+.current-pay p { margin-top: 3px; }
+.job-guide-heading span { color: var(--pine); font-size: 13px; font-weight: 750; }
 .job-search-label { display: grid; gap: 3px; margin: 9px 0 5px; }
 .job-guide-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 3px 9px; }
 .job-guide-heading h3 { font-size: 16px; }
-.job-guide-heading small { color: var(--muted); font-size: 11px; font-weight: 600; }
 .job-guide-entry .job-requirements { font-size: 13px; }
 .profile-dialog { width: min(100% - 32px, 635px); }
 .profile-title { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }

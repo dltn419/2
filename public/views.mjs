@@ -26,16 +26,14 @@ export function topView(session, state) {
 function jobGuide(life) {
   const path = life && pathOf(life);
   const current = path?.retired === null && !life.end && path.service?.status !== 'serving' ? careerPay(life) : null;
-  const monthly = (annual) => numeral(Number((annual / 12).toFixed(2)));
   const payParts = current && [
     `경력 ${current.years}년`, `기본 ${current.base}`,
     current.experience && `경력 +${current.experience}`, current.skill && `${STATS[current.stat].label} +${current.skill}`,
     current.education && `대학원 +${current.education}`,
   ].filter(Boolean).join(' · ');
   return `
-    ${current ? `<section class="current-pay"><strong>${h(CAREERS[life.career].title)} · 연 ${current.total}코인</strong>
-      <span>월 약 ${monthly(current.total)}코인</span><p class="field-note">${h(payParts)}</p></section>` : ''}
-    <p class="field-note">월급은 연봉을 12개월로 나눈 값이에요. 게임에서는 해마다 수입을 받아요.</p>
+    ${current ? `<section class="current-pay"><strong>${h(CAREERS[life.career].title)} · 연봉 ${current.total}코인</strong>
+      <p class="field-note">${h(payParts)}</p></section>` : ''}
     <label class="job-search-label">직업 찾기<input id="job-search" type="search" placeholder="직업 이름이나 조건" autocomplete="off"></label>
     <p class="field-note" id="job-no-match" role="status" hidden>찾는 직업이 없어요.</p>
     <ul class="job-guide-list">${Object.entries(CAREERS).map(([id, job]) => {
@@ -49,7 +47,7 @@ function jobGuide(life) {
         job.startup && `시작 비용 ${job.startup}코인`,
       ].filter(Boolean);
       return `<li class="job-guide-entry">
-        <div class="job-guide-heading"><h3>${h(job.title)}</h3><span>월 약 ${monthly(job.wage)}코인 <small>기본 연 ${job.wage}코인</small></span></div>
+        <div class="job-guide-heading"><h3>${h(job.title)}</h3><span>기본 연봉 ${job.wage}코인</span></div>
         <p>${h(job.detail)}</p>
         <p class="job-requirements"><b>조건</b> ${h(requirements.join(' · ') || '취업 기회가 오면 바로 지원')}</p>
       </li>`;
