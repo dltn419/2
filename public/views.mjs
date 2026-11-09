@@ -307,7 +307,7 @@ function lobbyView(session, state) {
   return `<div class="room-grid">
     <section class="panel section-panel">
       <div class="section-heading"><div class="eyebrow">${icon('users')} 대기실</div><span class="small-badge mint">${state.players.length} / ${CAPACITY}명</span></div>
-      <h2>${teacher ? '참가자 명단' : '함께 시작할 친구들'}</h2>
+      <h2>${teacher ? '참가자' : '함께할 친구들'}</h2>
       <p class="subtle">${teacher ? '학생이 모이면 게임을 시작하세요.' : '선생님이 시작하면 첫 번째 인생 선택이 열려요.'}</p>
       ${roster(state.players, { teacher, kickable: teacher, lobby: true, meId: state.me?.id })}
     </section>
@@ -318,7 +318,7 @@ function lobbyView(session, state) {
         ${teacher ? button('share', '초대 QR 크게 보기', 'qr') : button('share', '초대 링크 열기', 'copy')}
       </section>
       <section class="panel section-panel">
-        <div class="section-heading"><h2>방 설정</h2>${teacher ? button('settings', '설정', 'settings', 'quiet') : ''}</div>
+        <div class="section-heading"><h2>방 설정</h2>${teacher ? button('settings', '변경', 'settings', 'quiet') : ''}</div>
         ${settingsSummary(state.settings)}
         ${teacher ? button('start', '게임 시작', 'play', 'primary full', state.players.length ? 'data-focus="start"' : 'disabled') : ''}
       </section>
@@ -561,7 +561,7 @@ function playerView(session, state, rank) {
       ${roomHero(session, state)}
       <aside class="stack play-stats">
         <section class="panel section-panel">
-          <div class="section-heading"><h2>${me.mode === 'alive' ? '내 능력치' : '남긴 능력치'}</h2><span class="small-badge paper">${me.generation}대</span></div>
+          <div class="section-heading"><h2>${me.mode === 'alive' ? '능력치' : '마지막 능력치'}</h2></div>
           ${statGrid(me.life.stats, pathOf(me.life).romance)}
           ${relationshipDetails(me.life)}
           ${retirementDetails(me.life)}
@@ -584,8 +584,8 @@ function teacherView(state) {
   const ended = phase === 'ended';
   return `<div class="room-grid">
     <section class="panel section-panel">
-      <div class="section-heading"><div class="eyebrow">${icon('users')} 실시간 참가 현황</div><span class="small-badge mint">${players.length} / ${CAPACITY}명</span></div>
-      <h2>${ended ? '우리 반 최종 기록' : personal ? '학생들의 현재 인생' : '누가 선택을 마쳤나요?'}</h2>
+      <div class="section-heading teacher-roster-heading"><h2>${ended ? '우리 반 최종 기록' : personal ? '학생 현황' : '선택 현황'}</h2>
+        <span class="roster-total">${players.length} / ${CAPACITY}명</span></div>
       ${ended ? '' : '<p class="field-note roster-hint">진행 중에도 QR이나 참가 코드로 입장 가능 · 새 학생은 0살부터 시작</p>'}
       ${phase === 'play' && !personal ? `<div class="progress-card"><span>선택 제출</span><strong>${submitted} / ${players.length}명</strong><span class="progress-bar"><i style="width:${(players.length ? submitted * 100 / players.length : 0)}%"></i></span></div>` : ''}
       ${roster(players, { teacher: phase === 'play' && !personal, kickable: phase === 'play' })}
@@ -679,7 +679,7 @@ export function profileView(profile, index) {
             ${changes(entry.changes) ? `<span class="delta-list">${changes(entry.changes)}</span>` : ''}
           </span>
         </summary>
-        ${entry.text || entry.line ? `<p class="timeline-description">${h(entry.text || entry.line)}</p>` : '<p class="timeline-description">이해의 선택이 기록되었어요.</p>'}
+        ${entry.text || entry.line ? `<p class="timeline-description">${h(entry.text || entry.line)}</p>` : '<p class="timeline-description">이때의 선택을 기록했어요.</p>'}
       </details>
     </li>`).join('')}</ol>` : '<p class="subtle">첫 선택을 기다리고 있어요.</p>'}
   `;
