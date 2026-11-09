@@ -103,7 +103,7 @@ test('인생 연대기는 연도·제목·수치를 먼저 보여주고 이야�
   assert.match(html, /학교에서 친구와 놀기/);
   assert.match(html, /친구와 보낸 봄날을 기록했어요/);
   assert.match(html, /도서관에서 새로운 책을 발견했어요/);
-  assert.match(html, /기쁨 \+3/);
+  assert.match(html, /행복 \+3/);
   assert.doesNotMatch(html, /<details class="timeline-entry" open/);
 });
 
