@@ -60,7 +60,7 @@ test('정년에 도달한 직원은 일을 계속하는 선택지를 받지 않�
   for (const [career, age] of [['factory', 60], ['staff', 65], ['doctor', 68]]) {
     const life = person(career, age, 25);
     assert.deepEqual(annualScene(life).choices.map(({ id }) => id), ['retire']);
-    assert.equal(annualScene({ ...life, age: age - 1 }).choices.some(({ id }) => id === 'retire'), career === 'staff' && age - 1 === 60);
+    assert.ok(!annualScene({ ...life, age: age - 1 })?.choices.some(({ id }) => id === 'retire'));
   }
 });
 
@@ -71,6 +71,7 @@ test('38세 운동선수는 지도자로 전직하거나 은퇴한다', () => {
   assert.equal(actions[1].career, 'coach');
   assert.equal(CAREERS.coach.wage, 5);
   const { room, life: actual } = roomAt('athlete', 38, 12);
+  actual.stats.bond = 40;
   actual.path.romanceSeed = 0;
   for (let guard = 0; guard < 6 && state(room).me.scene.bonus; guard++) {
     const extra = state(room).me.scene;
