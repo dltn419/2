@@ -336,7 +336,7 @@ test('각자 진행에서 세대를 잇거나 영혼으로 선택해도 친구�
   assert.match(html, /0살 · 직업 없음/);
   assert.match(html, /80살 · 간호사/);
   const teacher = roomView({ role: 'host' }, stateFor(room, null), { pane: 'play', rank: 'age' });
-  assert.match(teacher, /학생들의 현재 인생/);
+  assert.match(teacher, /학생 현황/);
   assert.doesNotMatch(teacher, /data-action="advance"|data-clock/);
 });
 
@@ -510,7 +510,7 @@ test('게임 메뉴에는 팁과 모든 직업의 조건 및 연봉이 있다', 
   life.career = 'crew';
   life.path.workYears.crew = 3;
   assert.match(topView({ role: 'player' }, stateFor(room, '학생')), /<span>메뉴<\/span>/);
-  assert.match(gameMenuView('tips', life), /직업마다 경력 상승 속도가 달라요/);
+  assert.match(gameMenuView('tips', life), /직업과 승진/);
   const guide = gameMenuView('jobs', life);
   assert.equal([...guide.matchAll(/class="job-guide-entry"/g)].length,
     Object.values(CAREERS).filter((job) => !job.promotionFrom && !job.legacyPromotion).length);
