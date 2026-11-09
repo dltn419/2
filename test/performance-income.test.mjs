@@ -117,7 +117,7 @@ test('성과 수입은 정규 연봉과 별도 지급되고 실제 1년 진행�
     /농작물 수확 보너스/);
   const option = scene.choices.find(({ id }) => id === 'rest');
   assert.ok(option);
-  selectChoice(room, 'hero', { round: room.turn.number, scene: 'year', choice: 'rest' }, 1000);
+  selectChoice(room, 'hero', { round: stateFor(room, 'hero').turn.number, scene: 'year', choice: 'rest' }, 1000);
   assert.equal(player.life.stats.money - before, careerPay({ ...player.life, age: 39,
     path: { ...player.life.path, workYears: { farmer: 10 } } }).total + payout);
 });
