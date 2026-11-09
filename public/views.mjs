@@ -425,10 +425,14 @@ function choiceCard(option, me, bonus) {
 
 function choiceSection(key, title, options, me, bonus, note = '') {
   if (!options.length) return '';
+  const back = `<button type="button" class="choice-back" data-action="choice-back"
+    data-id="${key}" aria-label="${h(title)} 목록 닫고 이전 선택지로 돌아가기">← 이전 선택지로</button>`;
   return `<details class="choice-section" data-choice-section="${key}">
     <summary data-focus="section-${key}">${h(title)} <span>${options.length}개</span></summary>
+    <div class="choice-section-navigation">${back}</div>
     ${note ? `<p class="field-note">${h(note)}</p>` : ''}
     <div class="choice-grid">${options.map((item) => choiceCard(item, me, bonus)).join('')}</div>
+    ${options.length > 5 ? `<div class="choice-section-navigation bottom">${back}</div>` : ''}
   </details>`;
 }
 
