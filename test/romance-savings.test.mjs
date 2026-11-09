@@ -65,6 +65,7 @@ test('결혼은 애정·비용 조건을 확인하고 배우자 수입과 생활
   choose(room, 'keep-dating');
   assert.equal(life.path.married, null);
   life.age = 32;
+  life.path.illness = null; // 연애 시나리오 검증 중 무작위 질병 이벤트는 분리
   choose(room, 'date-trip');
   const marry = view(room).me.scene.choices.find((item) => item.id === 'marry');
   assert.ok(!marry.locked);
