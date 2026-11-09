@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomInt, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
+import { renderSVG } from 'uqr';
 import { addPlayer, GameError, RULE_VERSION, newRoom, profileFor, selectChoice, stateFor, teacherAction, tick, updateRoomRules } from '../public/game.mjs';
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -19,6 +20,25 @@ function roomPassword(value) {
 
 function json(status, body) {
   return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
+}
+
+function inviteQr(request) {
+  const url = new URL(request.url);
+  const code = url.searchParams.get('room') ?? '';
+  if (!ROOM_CODE.test(code)) throw new GameError('6자리 참가 코드를 확인해 주세요.', 400);
+
+  const origin = url.searchParams.get('origin');
+  if (!URL.canParse(origin)) throw new GameError('초대 주소를 확인해 주세요.', 400);
+  const invite = new URL(origin);
+  if (!['http:', 'https:'].includes(invite.protocol) || invite.origin !== origin ||
+    ![url.host, request.headers.get('host')].includes(invite.host)) {
+    throw new GameError('이 사이트의 초대 주소를 확인해 주세요.', 400);
+  }
+  invite.searchParams.set('room', code);
+  return new Response(renderSVG(invite.href, { border: 4, ecc: 'M' }), { headers: {
+    'content-type': 'image/svg+xml; charset=utf-8',
+    'cache-control': 'public, max-age=3600',
+  } });
 }
 
 async function readJson(request) {
@@ -76,6 +96,7 @@ export function makeGameApi({ store, hostPin = '', requireRoomPassword = false, 
     try {
       const { method } = request;
       if (method === 'GET' && pathname === '/api/meta') return json(200, { hostPinRequired: Boolean(hostPin) });
+      if (method === 'GET' && pathname === '/api/invite.svg') return inviteQr(request);
       if (!store) throw new GameError('게임 서버에 방 저장소를 연결해 주세요.', 503);
       if (method === 'GET' && pathname === '/api/health') {
         await store.check?.();

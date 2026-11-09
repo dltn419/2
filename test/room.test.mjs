@@ -3,6 +3,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { renderSVG } from 'uqr';
+import { roomView, topView } from '../public/views.mjs';
 import { makeServer } from '../server.mjs';
 
 async function fixture(t) {
@@ -56,8 +58,29 @@ async function fixture(t) {
     };
   }
 
-  return { request, room, elapse: (ms) => { now += ms; }, restart: async () => { await stop(); await start(); } };
+  return { request, room, get origin() { return origin; },
+    elapse: (ms) => { now += ms; }, restart: async () => { await stop(); await start(); } };
 }
+
+test('교사 초대 QR은 현재 사이트와 그 방의 참가 코드를 담는다', async (t) => {
+  const app = await fixture(t);
+  const room = await app.room();
+  const state = await room.state();
+  const teacher = { role: 'host' };
+  assert.match(topView(teacher, state), /초대 QR/);
+  assert.match(roomView(teacher, state, { pane: 'play' }), /초대 QR 크게 보기/);
+  const params = new URLSearchParams({ room: state.code, origin: app.origin });
+  const response = await fetch(`${app.origin}/api/invite.svg?${params}`);
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type'), /^image\/svg\+xml/);
+  assert.equal(await response.text(), renderSVG(`${app.origin}/?room=${state.code}`, { border: 4, ecc: 'M' }));
+
+  params.set('origin', 'https://other.example');
+  assert.equal((await app.request(`/api/invite.svg?${params}`)).status, 400);
+  params.set('origin', app.origin);
+  params.set('room', 'invalid');
+  assert.equal((await app.request(`/api/invite.svg?${params}`)).status, 400);
+});
 
 test('20명이 동시에 선택하면 한 턴만 마감하고 서버 재시작 뒤에도 이어진다', async (t) => {
   const app = await fixture(t);

@@ -15,6 +15,7 @@ const PATHS = {
   users: 'M2 3h4v4H2zm8 0h4v4h-4zM1 9h6v1h1v4H0v-4h1zm8 0h6v1h1v4H9z',
   clock: 'M5 1h6v1h2v2h1v2h1v4h-1v2h-1v2h-2v1H5v-1H3v-2H2v-2H1V6h1V4h1V2h2zm0 2v1H4v2H3v4h1v2h1v1h6v-1h1v-2h1V6h-1V4h-1V3zm2 1h2v4h3v2H7z',
   copy: 'M2 1h8v3h4v11H5v-3H2zm2 2v7h1V4h3V3zm3 3v7h5V6z',
+  qr: 'M1 1h6v6H1zm1 1v4h4V2zm1 1h2v2H3zm6-2h6v6H9zm1 1v4h4V2zm1 1h2v2h-2zM1 9h6v6H1zm1 1v4h4v-4zm1 1h2v2H3zm6-2h2v2H9zm4 0h2v4h-2zm-2 2h2v2h-2zm-2 2h2v2H9zm4 0h2v2h-2z',
   check: 'M12 3h3v3h-2v2h-2v2H9v2H7v2H5v-2H3v-2H1V7h3v2h2v2h1V9h2V7h2V5h1z',
   lock: 'M5 1h6v1h1v1h1v4h1v8H2V7h1V3h1V2h1zm1 2v1H5v3h6V4h-1V3zm1 6v3h2V9z',
   flag: 'M2 1h2v1h10v7H4v6H2zm2 3v3h8V4z',

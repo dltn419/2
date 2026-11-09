@@ -10,12 +10,13 @@ const button = (action, label, mark, type = 'secondary', extra = '') =>
   `<button type="button" class="button ${type}" data-action="${action}" ${extra}>${mark ? icon(mark) : ''}<span>${label}</span></button>`;
 
 export function topView(session, state) {
-  const tag = session?.role === 'demo' ? '혼자 체험' : session?.role === 'host' ? '교사 진행실' : '교실 인생 게임';
+  const teacher = session?.role === 'host';
+  const tag = session?.role === 'demo' ? '혼자 체험' : teacher ? '교사 진행실' : '교실 인생 게임';
   return `<div class="shell topbar">
     <button class="brand" type="button" data-action="home" aria-label="100년 홈"><img src="/art/icon.svg" alt="" width="36" height="36"><span>100년<small>우리들의 인생 기록장</small></span></button>
     <div class="top-actions">
       <span class="top-tag"><i></i>${tag}</span>
-      ${session && session.role !== 'demo' && state ? button('share', '초대 링크', 'link', 'quiet') : ''}
+      ${session && session.role !== 'demo' && state ? button('share', teacher ? '초대 QR' : '초대 링크', teacher ? 'qr' : 'link', 'quiet') : ''}
       ${button('help', '게임 안내', 'book', 'quiet')}
     </div>
   </div>`;
@@ -188,7 +189,7 @@ function lobbyView(session, state) {
       <section class="panel section-panel code-panel">
         <div class="eyebrow">${icon('link')} 참가 코드</div>
         <strong class="room-code">${state.code}</strong>
-        ${button('share', '초대 링크 열기', 'copy')}
+        ${teacher ? button('share', '초대 QR 크게 보기', 'qr') : button('share', '초대 링크 열기', 'copy')}
       </section>
       <section class="panel section-panel">
         <div class="section-heading"><h2>방 설정</h2>${teacher ? button('settings', '설정', 'settings', 'quiet') : ''}</div>

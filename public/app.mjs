@@ -265,7 +265,12 @@ function help() {
 function share() {
   const url = new URL('/', location.href);
   url.searchParams.set('room', state.code);
-  modal('우리 반 초대장', `<div class="code-preview"><div class="eyebrow">6자리 참가 코드</div><strong class="room-code">${state.code}</strong></div>
+  const qrUrl = '/api/invite.svg?' + new URLSearchParams({ room: state.code, origin: url.origin });
+  modal('우리 반 초대장', `${session.role === 'host' ? `<figure class="invite-qr">
+      <img src="${h(qrUrl)}" width="320" height="320" alt="우리 반 참가 QR 코드">
+      <figcaption>휴대폰 카메라로 찍으면 참가 화면이 열려요.</figcaption>
+    </figure>` : ''}
+    <div class="code-preview"><div class="eyebrow">6자리 참가 코드</div><strong class="room-code">${state.code}</strong></div>
     <label>참가 링크<input id="invite-link" type="text" readonly value="${h(url.href)}"></label>
     <button type="button" class="button primary full" data-action="copy">${icon('copy')} 링크 복사</button>`);
 }

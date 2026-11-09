@@ -302,6 +302,9 @@ dialog::backdrop { background: #233e34a0; }
 .dialog-message { padding: 8px 10px; margin: 0 0 8px; font-size: 13px; background: #fbece0; border: 1px solid #eac9b6; border-radius: 4px; color: #854535; }
 .code-preview { background: #f5f2d9; border: 1px solid #e0dfbc; border-radius: 4px; padding: 8px 12px; margin-bottom: 9px; }
 .code-preview .room-code { margin: 0; }
+.invite-qr { display: grid; justify-items: center; gap: 7px; margin-bottom: 12px; text-align: center; }
+.invite-qr img { width: min(100%, 320px, 52dvh); height: auto; background: #fff; border: 1px solid var(--line); }
+.invite-qr figcaption { color: var(--muted); font-size: 14px; word-break: keep-all; }
 .help-list { padding-left: 20px; margin: 6px 0 4px; }
 .help-list li { margin-bottom: 10px; }
 .help-list p { color: var(--muted); font-size: 13px; }
