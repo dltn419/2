@@ -161,9 +161,11 @@ export function makeGameApi({ store, hostPin = '', requireRoomPassword = false, 
         await throttle(address, 'join', now, 120);
         const token = key();
         const result = requireRoom(await store.edit(code, now, (room) => {
-          const player = addPlayer(room, { id: randomBytes(8).toString('hex'), key: keyHash(token), name: body.name, avatar: body.avatar, sex: body.sex });
           const joinedAt = clock();
-          updateRoomRules(room, joinedAt);
+          // 만료된 공통 턴은 신규 학생을 넣기 전에 마무리합니다.
+          // 신규 학생은 현재 턴에 0살부터 들어오고 기존 학생의 진행은 유지됩니다.
+          applyDeadline(room, joinedAt);
+          const player = addPlayer(room, { id: randomBytes(8).toString('hex'), key: keyHash(token), name: body.name, avatar: body.avatar, sex: body.sex });
           markChanged(room, joinedAt);
           return { session: { code, token, role: 'player', name: player.name }, state: stateFor(room, player.id, joinedAt) };
         }));
