@@ -286,6 +286,13 @@ body:has(.playing-room) .footer { display: none; }
 .latest p, .timeline p { margin: 3px 0 5px; color: var(--muted); }
 .fork-note { display: flex; align-items: center; gap: 7px; background: #f4edf6; border-color: #e6d7ec; }
 .stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 9px 0; }
+.affection-tile { grid-column: 1 / -1; }
+.life-extra { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; margin: 7px 0; padding: 6px 8px;
+  border: 1px solid #d8d9c7; border-radius: 4px; background: #fbfaf1; font-size: 12px; line-height: 1.5; }
+.life-extra .pixel-icon { flex: none; width: 13px; height: 13px; }
+.life-extra strong { font-weight: 800; }
+.life-extra span { color: var(--muted); }
+
 .stat-tile { position: relative; padding: 6px 8px; background: var(--tone); border: 1px solid var(--tone-line); border-radius: 4px; min-width: 0; }
 .stat-label { display: flex; align-items: center; gap: 5px; color: var(--tone-ink); font-size: 11px; font-weight: 800; }
 .stat-tile strong { display: block; font-size: 20px; line-height: 1.35; font-variant-numeric: tabular-nums; }
