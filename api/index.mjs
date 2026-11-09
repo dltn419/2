@@ -16,7 +16,7 @@ if (pool) {
   pool.on('error', (error) => console.error('100nyeon idle database connection failed', error.code ?? error.name));
   attachDatabasePool(pool);
 }
-const api = makeGameApi({ store: pool && postgresRooms(pool), hostPin: process.env.HOST_PIN, requirePin: true });
+const api = makeGameApi({ store: pool && postgresRooms(pool), requireRoomPassword: true });
 
 export default {
   fetch(request) {

@@ -10,9 +10,9 @@ test('PostgreSQL에 연결한 두 요청 처리기에서 20명이 방과 턴을 
     max: Number(process.env.TEST_DATABASE_POOL_SIZE || 8),
   });
   t.after(() => pool.end());
-  const pin = 'local-integration-only';
-  const teacher = makeGameApi({ store: postgresRooms(pool), hostPin: pin, requirePin: true });
-  const students = makeGameApi({ store: postgresRooms(pool), hostPin: pin, requirePin: true });
+  const roomPassword = 'local-integration-only';
+  const teacher = makeGameApi({ store: postgresRooms(pool), requireRoomPassword: true });
+  const students = makeGameApi({ store: postgresRooms(pool), requireRoomPassword: true });
 
   async function request(instance, path, { body, token, since } = {}) {
     const url = new URL(`https://game.example/api/${path}`);
@@ -28,18 +28,28 @@ test('PostgreSQL에 연결한 두 요청 처리기에서 20명이 방과 턴을 
 
   const health = await request(teacher, 'health');
   assert.deepEqual(health, { status: 200, data: { status: 'ok' } });
+  assert.equal((await request(teacher, 'rooms', { body: { name: '교실' } })).status, 400);
   const created = await request(teacher, 'rooms', { body: {
-    name: 'Vercel 테스트 방', pin, settings: { years: 5, seconds: 0 },
+    name: 'Vercel 테스트 방', roomPassword, settings: { years: 5, seconds: 0 },
   } });
   assert.equal(created.status, 201, JSON.stringify(created.data));
-  const { code, token } = created.data.session;
+  const { code } = created.data.session;
   const room = `rooms/${code}`;
   const joined = await Promise.all(Array.from({ length: 20 }, (_, index) => request(index % 2 ? teacher : students, `${room}/join`, {
     body: { name: `테스트 ${index + 1}`, avatar: index % 6, sex: index % 2 ? 'female' : 'male' },
   })));
   assert.ok(joined.every((result) => result.status === 201), JSON.stringify(joined.map((result) => result.status)));
+  assert.ok(joined.every(({ data }, index) => data.state.me.name === `테스트 ${index + 1}`));
   const extra = await request(students, `${room}/join`, { body: { name: '추가 참가자', avatar: 0 } });
   assert.equal(extra.status, 409);
+  assert.equal((await request(students, `${room}/host`, { body: { roomPassword: 'wrong password' } })).status, 403);
+  const reopened = await request(students, `${room}/host`, { body: { roomPassword } });
+  assert.equal(reopened.status, 200);
+  const { token } = reopened.data.session;
+  assert.equal((await request(teacher, room, { token: created.data.session.token })).status, 401);
+  assert.equal((await request(students, `${room}/teacher`, {
+    token: joined[0].data.session.token, body: { action: 'start' },
+  })).status, 403);
 
   const start = await request(teacher, `${room}/teacher`, { token, body: { action: 'start' } });
   assert.equal(start.status, 200);

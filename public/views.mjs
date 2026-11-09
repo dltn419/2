@@ -22,7 +22,7 @@ export function topView(session, state) {
 
 export function sexFields() {
   return `<fieldset class="sex-picker"><legend>캐릭터 성별</legend><div>${Object.entries(SEXES).map(([sex, label]) =>
-    `<label><input type="radio" name="sex" value="${sex}" required> ${label}</label>`).join('')}</div></fieldset>`;
+    `<label><input type="radio" name="sex" value="${sex}" required> ${avatar(0, 'alive', sex)} ${label}</label>`).join('')}</div></fieldset>`;
 }
 
 export function homeView(code, selected, saved) {
@@ -68,6 +68,7 @@ export function homeView(code, selected, saved) {
         <p class="subtle">최대 20명. 한 해의 선택 시간을 정하고 친구들을 초대하세요.</p>
         <div class="chalkboard" aria-hidden="true"><div>우리 반 시간표<span>01 — 100</span></div><div class="classroom">${classroom}</div></div>
         ${button('create', '교사 방 만들기', 'arrow', 'dark')}
+        ${button('host-reopen', '코드로 교사 방 열기', 'lock', 'quiet')}
         ${saved.host ? button('resume-host', '지난 진행실 열기', 'clock', 'quiet') : ''}
       </article>
     </section>
@@ -87,7 +88,8 @@ export function settingsFields(settings, { creating = false, started = false, pi
       <label>선택 시간 (초)<input name="seconds" type="number" min="0" max="180" value="${seconds}" required ${pace === 'manual' ? 'disabled' : ''}></label>
     </div>
     <p class="field-note">전원이 고르거나 시간이 끝나면 바로 다음 해가 열려요. 추가 선택이 있는 해는 12초 더 줘요. 0초로 두면 전원이 고를 때까지 기다려요.</p>
-    ${pinRequired ? '<label>교사용 비밀번호<input name="pin" type="password" required autocomplete="current-password"></label>' : ''}
+    ${creating ? '<label>이 방의 교사 비밀번호<input name="roomPassword" type="password" required minlength="4" maxlength="32" autocomplete="new-password" placeholder="4~32자로 새로 정해요"></label><p class="field-note">다른 기기에서 이 방을 이어 열 때 써요. 학생은 참가 코드와 별명으로 들어와요.</p>' : ''}
+    ${pinRequired ? '<label>서버 방 열기 암호<input name="pin" type="password" required autocomplete="current-password"></label>' : ''}
   `;
 }
 
@@ -108,13 +110,15 @@ function villageCast(me) {
   const path = pathOf(me.life);
   const member = (label, image, role) =>
     `<span class="village-person ${role}">${image}<span class="village-person-label">${h(label)}</span></span>`;
-  const family = [member('나', avatar(me.avatar, me.mode), 'village-self')];
-  if (path.married !== null) family.push(member('배우자', avatar((me.avatar + 3) % AVATARS.length), 'village-spouse'));
+  const family = [member('나', avatar(me.avatar, me.mode, path.sex), 'village-self')];
+  const spouse = path.sex === 'female' ? 'male' : 'female';
+  if (path.married !== null) family.push(member('배우자', avatar((me.avatar + 3) % AVATARS.length, 'alive', spouse), 'village-spouse'));
   for (const [index, born] of path.children.entries()) {
     const age = Math.max(0, me.age - born);
     const label = `${index === 0 ? '첫째' : '둘째'} · ${age}살`;
     const role = age < 7 ? 'village-young' : age < 19 ? 'village-child' : 'village-grown';
-    family.push(member(label, avatar((me.avatar + 1 + 3 * index) % AVATARS.length), role));
+    const sex = (born + index + me.avatar) % 2 ? 'female' : 'male';
+    family.push(member(label, avatar((me.avatar + 1 + 3 * index) % AVATARS.length, 'alive', sex), role));
   }
   return `<div class="village-cast" role="group" aria-label="${family.length > 1 ? '마을의 나와 가족' : '마을의 내 캐릭터'}">${family.join('')}</div>`;
 }
@@ -146,7 +150,7 @@ function roster(players, { teacher = false, lobby = false, meId } = {}) {
   if (!players.length) return `<div class="empty">${icon('users')}<strong>아직 참가자가 없어요</strong><span>참가 코드나 초대 링크를 친구들에게 알려 주세요.</span></div>`;
   return `<div class="roster">${players.map((player) => `<article class="person">
     <button type="button" class="person-main" data-action="profile" data-id="${player.id}" data-focus="profile-${player.id}">
-      ${avatar(player.avatar, player.mode)}
+      ${avatar(player.avatar, player.mode, player.sex)}
       <span><strong>${h(player.name)}${player.id === meId ? ' <small>나</small>' : ''}</strong>
       <span class="person-caption">${lobby ? '대기실에 있어요' : `${player.generation}대 · ${player.age}살 · ${MODES[player.mode]}`}</span></span>
     </button>
@@ -228,12 +232,20 @@ function yearlyView(scene) {
   </details>`;
 }
 
+function conditionView(option) {
+  if (!option.conditions) return option.locked ? `<span class="requirement">${h(option.locked)}</span>` : '';
+  if (!option.conditions.length) return '<span class="choice-conditions"><b>지원 조건</b> 바로 시작할 수 있어요</span>';
+  return `<span class="choice-conditions"><b>${option.career ? '지원 조건' : '선택 조건'}</b>
+    ${option.conditions.map(({ label, met }) => `<span class="requirement${met ? ' met' : ''}">
+      ${h(label)} · ${met ? '충족' : '필요'}</span>`).join('')}</span>`;
+}
+
 function choiceCard(option, me, bonus) {
   const locked = Boolean(option.locked);
   const picked = me.choice === option.id;
   const tone = ({ heart: 'rose', book: 'blue', coin: 'amber', sun: 'lime', spark: 'plum', ghost: 'plum', flower: 'plum', house: 'amber' })[option.mark] ?? 'mint';
   const effect = changes(option.effect);
-  return `<button type="button" class="choice${picked ? ' picked' : ''}${locked ? ' locked' : ''}" data-action="choose" data-id="${option.id}" data-focus="choice-${option.id}"
+  return `<button type="button" class="choice${picked ? ' picked' : ''}${locked ? ' locked' : ''}" data-action="${option.id === 'successor' ? 'successor' : 'choose'}" data-id="${option.id}" data-focus="choice-${option.id}"
     aria-pressed="${picked}" ${locked ? 'disabled' : ''}>
     <span class="choice-top"><span class="tile-icon ${tone}">${icon(option.mark)}</span>
       <strong>${h(option.title)}</strong>
@@ -241,7 +253,7 @@ function choiceCard(option, me, bonus) {
     <span class="choice-detail">${h(option.detail)}</span>
     ${effect ? `<span class="choice-bottom"><span class="effect-once">이번에 한 번</span>${effect}</span>` : ''}
     ${recurringView(option, bonus)}
-    ${locked ? `<span class="requirement">${h(option.locked)}</span>` : ''}
+    ${conditionView(option)}
   </button>`;
 }
 
@@ -260,7 +272,7 @@ function miniRank(state, rank) {
   return `<section class="panel section-panel mini-rank">
     <div class="section-heading"><h2>우리 반 기록</h2><span class="small-badge ${data.color}">${data.label}</span></div>
     ${rows.slice(0, 3).map((row) => `<button type="button" class="mini-row" data-action="profile" data-id="${row.id}">
-      <span class="medal rank-${row.rank}">${row.rank}</span>${avatar(row.avatar)}<strong>${h(row.name)}</strong><b>${numeral(row.value)}</b>
+      <span class="medal rank-${row.rank}">${row.rank}</span>${avatar(row.avatar, 'alive', row.sex)}<strong>${h(row.name)}</strong><b>${numeral(row.value)}</b>
     </button>`).join('')}
     ${button('pane', '분야별 순위 보기', 'arrow', 'quiet', 'data-id="rank"')}
   </section>`;
@@ -282,25 +294,34 @@ function playerView(session, state, rank) {
     body = `${roundMeta(state)}
       ${scene.bonus ? '<p class="extra-label">추가 선택 <span>지금 나이 그대로</span></p>' : ''}
       <h2 tabindex="-1">${h(scene.title)}</h2><p class="subtle scene-detail">${h(scene.detail)}</p>
+      ${scene.healthWarning ? `<p class="health-warning">${icon('heart')} 큰 병을 치료 중이에요. 올해는 체력을 아껴요.</p>` : ''}
       ${me.mode === 'fork' && me.life.end ? `<p class="fork-note">${icon('book')} ${h(me.life.end.note)}</p>` : ''}
       <div class="choice-grid">${scene.choices.map((item) => choiceCard(item, me, scene.bonus)).join('')}</div>
-      <div class="choice-footer"><span>${scene.bonus ? '고르면 같은 나이의 이야기가 이어져요.' :
-        me.choice ? waiting : session.role === 'demo' ? '고르면 바로 다음 해로 가요.' : '하나를 눌러 골라요.'}</span>
-        ${me.mode !== 'alive' ? button('choose', me.choice === 'pass' ? '기다리기를 골랐어요' : '이번엔 기다리기', 'clock', 'quiet', 'data-id="pass"') : ''}</div>
+      <div class="choice-footer"><span>${scene.waiting ? waiting : scene.bonus ? '고르면 같은 나이의 이야기가 이어져요.' :
+        me.choice ? waiting : !scene.choices.length ? '친구들 메뉴에서 다른 이야기를 볼 수 있어요.' :
+          session.role === 'demo' ? '고르면 바로 다음 해로 가요.' : '하나를 눌러 골라요.'}</span>
+      ${me.mode !== 'alive' && !scene.waiting ? button('choose', me.choice === 'pass' ? '기다리기를 골랐어요' : '이번엔 기다리기', 'clock', 'quiet', 'data-id="pass"') : ''}</div>
       ${yearlyView(scene)}
       ${session.role === 'demo' ? '' : `<div class="submission-note"><span>${icon('users')} ${progress}</span></div>`}
       ${latestView(me.latest)}`;
   }
-  return `<div class="room-grid">
-    <section class="panel section-panel story-panel">${body}</section>
-    <aside class="stack">
-      <section class="panel section-panel">
-        <div class="section-heading"><h2>${me.mode === 'alive' ? '내 능력치' : '남긴 능력치'}</h2><span class="small-badge paper">${me.generation}대</span></div>
-        ${statGrid(me.life.stats)}
-        ${button('profile', '인생 기록장', 'book', 'quiet', `data-id="${me.id}"`)}
-      </section>
-      ${miniRank(state, rank)}
-    </aside>
+  const storyKey = `${state.turn.number}-${me.scene?.key ?? phase}-${Boolean(me.scene?.waiting)}`;
+  return `<div class="play-grid">
+    <div class="play-sidebar">
+      ${roomHero(session, state)}
+      <aside class="stack play-stats">
+        <section class="panel section-panel">
+          <div class="section-heading"><h2>${me.mode === 'alive' ? '내 능력치' : '남긴 능력치'}</h2><span class="small-badge paper">${me.generation}대</span></div>
+          ${statGrid(me.life.stats)}
+          ${button('profile', '인생 기록장', 'book', 'quiet', `data-id="${me.id}"`)}
+        </section>
+        ${miniRank(state, rank)}
+      </aside>
+    </div>
+    <div class="play-main">
+      <div class="play-navigation">${navigation(session, 'play', state)}<p class="landscape-hint">화면을 가로로 돌리면 마을과 능력치를 같이 볼 수 있어요.</p></div>
+      <section class="panel section-panel story-panel" data-story-key="${h(storyKey)}">${body}</section>
+    </div>
   </div>`;
 }
 
@@ -347,7 +368,7 @@ function rankView(state, rank) {
       return `<button type="button" class="filter ${item.color}" data-action="rank-filter" data-id="${key}" data-focus="rank-${key}" aria-pressed="${key === rank}">${icon(item.mark)} ${item.label}</button>`;
     }).join('')}</div>
     <div class="rank-list">${(state.rankings[rank] ?? []).map((row) => `<button type="button" class="rank-row" data-action="profile" data-id="${row.id}">
-      <span class="medal rank-${row.rank}">${row.rank}</span>${avatar(row.avatar)}
+      <span class="medal rank-${row.rank}">${row.rank}</span>${avatar(row.avatar, 'alive', row.sex)}
       <strong>${h(row.name)}${row.id === state.me?.id ? ' <small>나</small>' : ''}</strong><span class="rank-generation">${row.generation}대 기록</span>
       <b>${numeral(row.value)} <small>${data.unit ?? '점'}</small></b>
     </button>`).join('')}</div>
@@ -356,14 +377,18 @@ function rankView(state, rank) {
 
 export function roomView(session, state, { pane, rank, offline }) {
   const teacher = session.role === 'host';
+  const notice = offline ? '<div class="notice" role="status">연결을 다시 확인하고 있어요. 연결되면 방의 진행 상황을 불러와요.</div>' : '';
+  if (!teacher && state.phase !== 'lobby' && pane === 'play') {
+    return `<div class="shell room playing-room">${notice}${playerView(session, state, rank)}</div>`;
+  }
   return `<div class="shell room">
-    ${offline ? '<div class="notice" role="status">연결을 다시 확인하고 있어요. 연결되면 방의 진행 상황을 불러와요.</div>' : ''}
+    ${notice}
     ${roomHero(session, state)}
     ${state.phase === 'lobby' ? lobbyView(session, state) : `${navigation(session, pane, state)}
       ${pane === 'rank' ? rankView(state, rank) : pane === 'friends' ? `<section class="panel section-panel sheet">
         <div class="eyebrow">${icon('users')} 마을 사람들</div>
         <h2>친구들의 인생 기록</h2><p class="subtle">한 사람을 고르면 어떤 선택을 하며 살아왔는지 볼 수 있어요.</p>
-        ${roster(state.players, { meId: state.me?.id })}</section>` : teacher ? teacherView(state) : playerView(session, state, rank)}`}
+        ${roster(state.players, { meId: state.me?.id })}</section>` : teacherView(state)}`}
   </div>`;
 }
 
@@ -374,7 +399,7 @@ export function profileView(profile, index) {
   const visits = index === profile.lives.length - 1 ? profile.visits : [];
   const entries = [...life.history, ...visits].reverse().sort((left, right) => right.year - left.year);
   return `
-    <div class="profile-title">${avatar(profile.avatar, profile.mode)}<div><strong>${h(profile.name)}</strong><span>${[life.generation + '대', life.age + '살', ...badges].map(h).join(' · ')}</span></div></div>
+    <div class="profile-title">${avatar(profile.avatar, profile.mode, pathOf(life).sex)}<div><strong>${h(profile.name)}</strong><span>${[life.generation + '대', life.age + '살', ...badges].map(h).join(' · ')}</span></div></div>
     ${profile.lives.length > 1 ? `<div class="rank-filters" aria-label="세대 고르기">${profile.lives.map((record, recordIndex) =>
       `<button type="button" class="filter mint" data-action="generation" data-index="${recordIndex}" aria-pressed="${index === recordIndex}">${record.generation}대</button>`).join('')}</div>` : ''}
     ${life.end ? `<p class="fork-note">${icon('flag')} ${h(life.end.note)}</p>` : ''}

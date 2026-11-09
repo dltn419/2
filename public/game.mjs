@@ -2,10 +2,10 @@ import {
   AVATARS, IDLE, LIFE_EVENTS, OPPORTUNITIES, SPIRIT_SCENES, STAGES, STATS, STORIES, pick, spiritChoices,
 } from './content.mjs';
 import { SEXES, advancePath, annualScene, applyPath, bonusScene, chanceDiscount, familyDream, farewell, newPath, pathOf, updateLifePath, yearlySources } from './life.mjs';
-import { fallIll } from './health.mjs';
+import { fallIll, illnessDeathRisk, settleHealth } from './health.mjs';
 
 export const CAPACITY = 20;
-export const RULE_VERSION = 4;
+export const RULE_VERSION = 5;
 export const DEFAULTS = { years: 1, seconds: 30, maxAge: 100, pace: 'auto' };
 const EXTRA_SECONDS = 12;
 export const PASS = { id: 'pass', title: '이번에는 기다리기', effect: {} };
@@ -115,23 +115,22 @@ function sumEffects(...effects) {
 
 function choicesFor(room, player) {
   const { mode, life } = player;
+  if (player.afterlifeDone) return { key: 'year', waiting: true, title: '선택을 마쳤어요', detail: '다음 해에 이야기가 이어져요.', choices: [] };
   if (mode === 'fork') {
     const next = pathOf(life).children.length ? '자녀로 이어 살기' : '다음 세대로 이어 살기';
-    const successors = Object.entries(SEXES).map(([sex, label]) => pick(`child-${sex}`, `${next} · ${label}`,
-      '다음 세대의 19살부터 시작해요.', 'sprout', {}, { successor: sex }));
     return { key: 'year', title: '다음 이야기를 골라요', detail: '한 삶의 기록이 남았어요. 이제 어디로 갈까요?',
       choices: [
-        ...successors,
-        pick('spirit', '영혼으로 둘러보기', '살던 곳에 들르고 친구들을 지켜봐요.', 'ghost', {}),
-        pick('family-dream', '가족의 꿈에 나오기', '꿈에서 만나 못다 한 인사를 해요.', 'spark', {}),
+        pick('successor', next, '캐릭터를 골라 다음 세대의 19살부터 시작해요.', 'sprout', {}),
+        pick('spirit', '영혼으로 머물기', '가족의 꿈과 기억에 남은 곳에 들러요.', 'ghost', {}),
       ] };
   }
   if (mode === 'spirit') {
+    const choices = spiritChoices(life, player.visits);
     return {
       key: 'year',
       title: '다시 걷는 마을',
-      detail: '기억이 남은 곳에 들러요.',
-      choices: spiritChoices(life, player.visits),
+      detail: choices.length ? '기억이 남은 곳에 한 번씩 들러요.' : '가고 싶던 곳에 모두 들렀어요. 친구들의 이야기를 지켜봐요.',
+      choices,
     };
   }
 
@@ -141,7 +140,7 @@ function choicesFor(room, player) {
   const base = sumEffects(...yearly.map((source) => source.effect));
   let before = extra ? yearly : null;
   return {
-    ...entry, bonus: Boolean(extra), base, yearly,
+    ...entry, bonus: Boolean(extra), base, yearly, healthWarning: !extra && illnessDeathRisk(life) > 0,
     choices: entry.choices.map((option) => {
       const need = Object.fromEntries(Object.entries(option.need ?? {}).map(([stat, minimum]) =>
         [stat, Math.max(1, minimum - chanceDiscount(life, option.career, stat))]));
@@ -151,14 +150,28 @@ function choicesFor(room, player) {
           need[stat] = Math.max(need[stat] ?? 1, 1 - delta - yearlyLoss);
         }
       }
-      const locked = option.locked || Object.entries(need).filter(([stat, minimum]) => life.stats[stat] < minimum)
-        .map(([stat, minimum]) => `${STATS[stat].label} ${minimum}${STATS[stat].unit ?? '점'} 필요`).join(' · ');
-      const changesYearly = option.habit || option.career || (option.employment && !life.career) || YEARLY_ACTIONS.has(option.action?.kind);
-      if (!changesYearly) return { ...option, locked };
+      const conditions = [...(option.conditions ?? []), ...Object.entries(need).map(([stat, minimum]) => ({
+        label: `${STATS[stat].label} ${minimum}${STATS[stat].unit ?? '점'}`,
+        met: life.stats[stat] >= minimum,
+      }))];
+      const locked = [option.locked, ...conditions.filter((condition) => !condition.met).map((condition) => `${condition.label} 필요`)]
+        .filter(Boolean).join(' · ');
+      const card = { ...option, locked, ...(option.conditions ? { conditions } : {}) };
+      const changesYearly = option.habit || option.career || YEARLY_ACTIONS.has(option.action?.kind);
+      if (!changesYearly) return card;
       before ??= projectedSources(life, null, false);
-      return { ...option, locked, recurring: choiceSources(life, option, Boolean(extra), before) };
+      return { ...card, recurring: choiceSources(life, option, Boolean(extra), before) };
     }),
   };
+}
+
+function findChoice(entry, choice) {
+  const sex = /^child-(male|female)$/.exec(choice)?.[1];
+  if (sex) {
+    const next = entry.choices.find((option) => option.id === 'successor');
+    return next && { ...next, successor: sex };
+  }
+  return entry.choices.find((option) => option.id === choice && choice !== 'successor');
 }
 
 function everydayScene(room, life) {
@@ -166,10 +179,10 @@ function everydayScene(room, life) {
   const deck = STORIES[stage];
   const offset = hash(`${room.seed}:${stage}`);
   const entry = deck[(life.age + offset) % deck.length];
-  const retired = pathOf(life).retired !== null;
-  const available = OPPORTUNITIES[stage].filter((option) => !option.career || (!retired && option.career !== life.career));
+  const available = OPPORTUNITIES[stage];
+  if (!available.length) return entry;
   const offer = available[(life.age + hash(`${room.seed}:offer:${stage}`)) % available.length];
-  return { ...entry, choices: offer ? [...entry.choices, { ...offer, opportunity: true }] : entry.choices };
+  return { ...entry, choices: [...entry.choices, { ...offer, opportunity: true }] };
 }
 
 function applyEffects(life, effects) {
@@ -183,10 +196,9 @@ function applyEffects(life, effects) {
 }
 
 function applyDecision(life, age, option) {
-  const career = option.career ?? (option.employment && !life.career ? 'staff' : null);
-  if (career) {
+  if (option.career) {
     if (!life.career) life.path.firstJobAge = age;
-    life.career = career;
+    life.career = option.career;
   }
   return applyPath(life, age, option);
 }
@@ -206,7 +218,7 @@ function addBonus(room, player, entry, option) {
 }
 
 function oldAgeEnding(age, maxAge, roll) {
-  const start = Math.max(80, maxAge - 12);
+  const start = Math.max(80, maxAge - 18);
   return age >= maxAge || (age >= start && roll < 3 + (age - start) * 2);
 }
 
@@ -219,11 +231,14 @@ function changeLife(room, player, option, after) {
   const effects = sumEffects(option.effect, event?.effect ?? {}, ...yearlySources(life).map((source) => source.effect));
   const changes = applyEffects(life, effects);
   const decision = applyDecision(life, age, option);
+  const diedFromIllness = hash(`${randomKey}:illness-ending`) % 100 < illnessDeathRisk(life);
+  settleHealth(life);
   life.age += 1;
   const memories = [decision, after, event?.text, advancePath(life)];
-  if (oldAgeEnding(life.age, room.settings.maxAge, hash(`${randomKey}:ending`) % 100)) {
-    const note = `${life.age}살에 삶의 마지막 장을 덮었어요. ${farewell(life)}`;
-    life.end = { year: room.turn.to, reason: 'age', note };
+  if (diedFromIllness || oldAgeEnding(life.age, room.settings.maxAge, hash(`${randomKey}:ending`) % 100)) {
+    const ending = diedFromIllness ? '큰 병으로 삶을 마쳤어요.' : '삶의 마지막 장을 덮었어요.';
+    const note = `${life.age}살에 ${ending} ${farewell(life)}`;
+    life.end = { year: room.turn.to, reason: diedFromIllness ? 'illness' : 'age', note };
     player.mode = 'fork';
     memories.push(note);
   } else {
@@ -244,12 +259,8 @@ function branch(room, player, option) {
       text: `${player.life.generation}대의 첫날이에요. 앞 세대가 남긴 돈과 인연을 조금 이어받았어요.`, type: 'child',
     };
     player.life.history.push(player.latest);
-  } else if (option.id === 'spirit' || option.id === 'family-dream') {
+  } else if (option.id === 'spirit') {
     player.mode = 'spirit';
-    if (option.id === 'family-dream') {
-      visit(room, player, option);
-      return;
-    }
     player.latest = {
       year: room.turn.to, age: life.age, title: option.title,
       text: '저녁이 되자 살던 집에 불이 켜졌어요.', type: 'spirit',
@@ -272,6 +283,7 @@ function openTurn(room, now) {
   for (const player of room.players) {
     player.choice = null;
     player.bonuses = [];
+    delete player.afterlifeDone;
   }
   const extra = seconds && room.players.some((player) => player.mode === 'alive' && bonusScene(player.life, player.bonuses));
   const duration = pace === 'auto' && seconds ? (seconds + (extra ? EXTRA_SECONDS : 0)) * 1000 : null;
@@ -286,13 +298,15 @@ function openTurn(room, now) {
 
 function closeTurn(room, now) {
   for (const player of room.players) {
+    if (player.afterlifeDone) continue;
     player.latest = null;
     let entry = choicesFor(room, player);
     while (entry.bonus) {
       addBonus(room, player, entry, entry.choices.find((item) => item.id === entry.fallback));
       entry = choicesFor(room, player);
     }
-    const option = entry.choices.find((item) => item.id === player.choice && !item.locked);
+    const selected = findChoice(entry, player.choice);
+    const option = selected?.locked ? null : selected;
     if (player.mode === 'alive') changeLife(room, player, option ?? IDLE, entry.after);
     else if (option && player.mode === 'fork') branch(room, player, option);
     else if (option) visit(room, player, option);
@@ -308,8 +322,16 @@ export function updateRoomRules(room, now) {
   if (previous >= 3) {
     if (room.phase === 'play') {
       for (const player of room.players) {
-        if (player.choice && player.choice !== PASS.id &&
-          !choicesFor(room, player).choices.some((choice) => choice.id === player.choice && !choice.locked)) player.choice = null;
+        if (!player.choice || player.choice === PASS.id) continue;
+        // A choice already submitted for the year does not go through a new job scene.
+        const skipCareer = !player.bonuses.includes('career');
+        if (skipCareer) player.bonuses.push('career');
+        const entry = choicesFor(room, player);
+        const selected = findChoice(entry, player.choice);
+        if (entry.bonus || !selected || selected.locked) {
+          player.choice = null;
+          if (skipCareer) player.bonuses.pop();
+        }
       }
     }
     return true;
@@ -328,19 +350,28 @@ export function selectChoice(room, playerId, { round, scene, choice }, now) {
   if (room.paused) throw new GameError('선생님이 게임을 잠시 멈췄어요.');
   const player = room.players.find((item) => item.id === playerId);
   if (!player) throw new GameError('다시 방에 참가해 주세요.', 403);
+  if (player.afterlifeDone) {
+    if (player.choice === choice) return false;
+    throw new GameError('이번 해의 선택을 마쳤어요.');
+  }
 
   const entry = choicesFor(room, player);
   if (scene !== entry.key && (scene !== undefined || entry.bonus || player.bonuses.length)) {
     throw new GameError('새 선택이 열렸어요. 화면을 다시 확인해 주세요.');
   }
   const option = choice === PASS.id && player.mode !== 'alive'
-    ? PASS : entry.choices.find((item) => item.id === choice);
+    ? PASS : findChoice(entry, choice);
   if (!option || option.locked) throw new GameError('지금은 이 선택을 할 수 없어요.');
   if (entry.bonus) {
     addBonus(room, player, entry, option);
     return true;
   }
   if (player.choice === choice) return false;
+  if (choice !== PASS.id && player.mode !== 'alive') {
+    if (player.mode === 'fork') branch(room, player, option);
+    else visit(room, player, option);
+    player.afterlifeDone = true;
+  }
   player.choice = choice;
   if (room.turn.auto && room.players.every((item) => item.choice)) closeTurn(room, now);
   return true;
@@ -388,14 +419,15 @@ export function teacherAction(room, action, body, now) {
 function summary(player) {
   const { id, name, avatar, mode, life, choice, latest } = player;
   return {
-    id, name, avatar, mode, age: life.age, generation: life.generation, career: life.career,
+    id, name, avatar, mode, age: life.age, generation: life.generation, career: life.career, sex: pathOf(life).sex,
     submitted: Boolean(choice), latest: latest?.title ?? null,
   };
 }
 
 function lifeView(life, history = life.history) {
   const { age, generation, career, stats, end } = life;
-  return { age, generation, career, stats, end, history, path: pathOf(life) };
+  const { healthBurden, ...path } = pathOf(life);
+  return { age, generation, career, stats, end, history, path };
 }
 
 function rankings(players) {
@@ -404,7 +436,7 @@ function rankings(players) {
       let best = { value: -1, generation: 1 };
       for (const life of [...player.archives, player.life]) {
         const value = stat === 'age' ? life.age : life.stats[stat];
-        if (value >= best.value) best = { value, generation: life.generation };
+        if (value >= best.value) best = { value, generation: life.generation, sex: pathOf(life).sex };
       }
       return { id: player.id, name: player.name, avatar: player.avatar, ...best };
     }).sort((left, right) => right.value - left.value);

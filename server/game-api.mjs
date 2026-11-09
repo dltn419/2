@@ -1,4 +1,5 @@
-import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomInt, scrypt, timingSafeEqual } from 'node:crypto';
+import { promisify } from 'node:util';
 import { addPlayer, GameError, RULE_VERSION, newRoom, profileFor, selectChoice, stateFor, teacherAction, tick, updateRoomRules } from '../public/game.mjs';
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -8,6 +9,13 @@ export const RETENTION = 7 * 24 * 60 * 60 * 1000;
 const key = () => randomBytes(24).toString('base64url');
 const digest = (value) => createHash('sha256').update(value).digest();
 const keyHash = (value) => digest(value).toString('hex');
+const derivePassword = promisify(scrypt);
+
+function roomPassword(value) {
+  const password = typeof value === 'string' ? value.trim() : '';
+  if (password.length < 4 || password.length > 32) throw new GameError('교사 비밀번호를 4~32자로 입력해 주세요.', 400);
+  return password;
+}
 
 function json(status, body) {
   return Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
@@ -57,10 +65,9 @@ function requireRoom(value) {
   return value;
 }
 
-export function makeGameApi({ store, hostPin = '', requirePin = false, clock = Date.now, onActivity = () => {} }) {
-  const hostPinRequired = requirePin || Boolean(hostPin);
-  const throttle = async (address, scope, now, maximum) => {
-    if (!await store.allow(keyHash(`${scope}:${address}`), now, maximum)) {
+export function makeGameApi({ store, hostPin = '', requireRoomPassword = false, clock = Date.now, onActivity = () => {} }) {
+  const throttle = async (identity, scope, now, maximum) => {
+    if (!await store.allow(keyHash(`${scope}:${identity}`), now, maximum)) {
       throw new GameError('요청이 많아요. 잠시 후 다시 시도해 주세요.', 429);
     }
   };
@@ -68,10 +75,9 @@ export function makeGameApi({ store, hostPin = '', requirePin = false, clock = D
   return async function handle(request, { pathname = new URL(request.url).pathname, address = 'unknown' } = {}) {
     try {
       const { method } = request;
-      if (method === 'GET' && pathname === '/api/meta') return json(200, { hostPinRequired });
+      if (method === 'GET' && pathname === '/api/meta') return json(200, { hostPinRequired: Boolean(hostPin) });
       if (!store) throw new GameError('게임 서버에 방 저장소를 연결해 주세요.', 503);
       if (method === 'GET' && pathname === '/api/health') {
-        if (requirePin && !hostPin) throw new GameError('게임 서버에 교사용 비밀번호를 설정해 주세요.', 503);
         await store.check?.();
         return json(200, { status: 'ok' });
       }
@@ -80,16 +86,23 @@ export function makeGameApi({ store, hostPin = '', requirePin = false, clock = D
       const now = clock();
 
       if (method === 'POST' && pathname === '/api/rooms') {
-        if (requirePin && !hostPin) throw new GameError('게임 서버에 교사용 비밀번호를 설정해 주세요.', 503);
         await throttle(address, 'create', now, 12);
         if (hostPin && !timingSafeEqual(digest(hostPin), digest(typeof body.pin === 'string' ? body.pin : ''))) {
-          throw new GameError('교사용 비밀번호가 맞지 않아요.', 403);
+          throw new GameError('서버에 설정된 방 열기 암호가 맞지 않아요.', 403);
+        }
+        const proposedPassword = body.roomPassword ?? (requireRoomPassword ? body.pin : undefined);
+        let hostPass = null;
+        if (requireRoomPassword || proposedPassword !== undefined) {
+          const salt = randomBytes(16).toString('hex');
+          const derived = await derivePassword(roomPassword(proposedPassword), salt, 32);
+          hostPass = { salt, hash: derived.toString('hex') };
         }
         const token = key();
         const seed = randomBytes(12).toString('hex');
         for (let attempt = 0; attempt < 8; attempt++) {
           const code = Array.from({ length: 6 }, () => ALPHABET[randomInt(ALPHABET.length)]).join('');
           const room = newRoom({ code, seed, name: body.name, hostKey: keyHash(token), settings: body.settings, now });
+          if (hostPass) room.hostPass = hostPass;
           markChanged(room, now);
           if (!await store.insert(room)) continue;
           onActivity(code, now);
@@ -98,10 +111,30 @@ export function makeGameApi({ store, hostPin = '', requirePin = false, clock = D
         throw new GameError('참가 코드를 만들 수 없어요. 다시 시도해 주세요.', 503);
       }
 
-      const route = /^\/api\/rooms\/([^/]+)(?:\/(join|choice|teacher|profile)(?:\/([A-Za-z0-9_-]+))?)?$/.exec(pathname);
+      const route = /^\/api\/rooms\/([^/]+)(?:\/(join|host|choice|teacher|profile)(?:\/([A-Za-z0-9_-]+))?)?$/.exec(pathname);
       if (!route) throw new GameError('이 주소를 찾을 수 없어요.', 404);
       const [, code, action, profileId] = route;
       if (!ROOM_CODE.test(code)) requireRoom(null);
+
+      if (method === 'POST' && action === 'host' && !profileId) {
+        await throttle(address, 'host', now, 12);
+        const room = requireRoom(await store.get(code, now));
+        if (!room.hostPass) throw new GameError('이 방은 만든 기기에서 이어 열어 주세요.', 403);
+        await throttle(code, 'host-room', now, 12);
+        const { salt, hash } = room.hostPass;
+        const derived = await derivePassword(roomPassword(body.roomPassword), salt, 32);
+        if (!timingSafeEqual(derived, Buffer.from(hash, 'hex'))) throw new GameError('방의 교사 비밀번호가 맞지 않아요.', 403);
+        const token = key();
+        const result = requireRoom(await store.edit(code, now, (draft) => {
+          const openedAt = clock();
+          applyDeadline(draft, openedAt);
+          draft.hostKey = keyHash(token);
+          markChanged(draft, openedAt);
+          return { session: { code, token, role: 'host', name: draft.name }, state: stateFor(draft, null, openedAt) };
+        }));
+        onActivity(code, now);
+        return json(200, result);
+      }
 
       if (method === 'POST' && action === 'join' && !profileId) {
         await throttle(address, 'join', now, 120);

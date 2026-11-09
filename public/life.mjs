@@ -2,20 +2,30 @@ import { CAREERS, HABITS, pick } from './content.mjs';
 import { finishCare, illnessCare } from './health.mjs';
 
 export const SEXES = { male: '남자', female: '여자' };
-export const SCHOOLS = { general: '일반고', science: '과학고·영재학교', vocational: '직업계고', arts: '예술고', outside: '학교 밖 진로' };
+export const SCHOOLS = { general: '일반고', science: '과학고', gifted: '영재학교', vocational: '직업계고', arts: '예술고', outside: '학교 밖 진로' };
 export const DREAMS = {
-  science: { label: '과학과 연구', title: '궁금한 것을 알아봐요.', mark: 'book', career: 'lab', need: { learning: 32 } },
-  art: { label: '그림과 음악', title: '작품을 만들고 보여 줘요.', mark: 'spark', career: 'studio', need: { art: 25 } },
-  tech: { label: '기술과 만들기', title: '손으로 고치고 만들어요.', mark: 'settings', career: 'tech', need: { learning: 23 } },
-  people: { label: '가르치고 돕기', title: '사람을 돌보고 가르쳐요.', mark: 'link', career: 'care', need: { bond: 24 } },
-  business: { label: '가게 운영', title: '내 가게를 꾸려요.', mark: 'coin', career: 'shop', need: { money: 24 } },
+  science: { label: '과학과 연구', title: '궁금한 것을 알아봐요.', mark: 'book' },
+  art: { label: '그림과 음악', title: '작품을 만들고 보여 줘요.', mark: 'spark' },
+  tech: { label: '기술과 만들기', title: '손으로 고치고 만들어요.', mark: 'settings' },
+  people: { label: '돌봄과 봉사', title: '도움이 필요한 이웃과 함께해요.', mark: 'link' },
+  medical: { label: '보건과 의료', title: '아픈 사람의 몸을 살피고 도와요.', mark: 'heart' },
+  education: { label: '학교와 교육', title: '아이들이 배우도록 가르쳐요.', mark: 'board' },
+  office: { label: '회사와 사무', title: '문서와 일정을 정리해요.', mark: 'book' },
+  sales: { label: '판매와 서비스', title: '사람을 만나 물건을 소개해요.', mark: 'link' },
+  food: { label: '음식과 조리', title: '사람들에게 맛있는 음식을 만들어요.', mark: 'sun' },
+  business: { label: '가게 운영', title: '내 가게를 꾸려요.', mark: 'coin' },
   explore: { label: '아직 모르겠어요', title: '더 알아본 뒤에 정해요.', mark: 'leaf' },
 };
+
+const SERVICE_LIMIT = 28;
+const COMMUNITY_HEALTH = 40;
 
 const PROGRAMS = {
   college: { label: '전문대', years: 2 },
   university: { label: '대학', years: 4 },
   graduate: { label: '대학원', years: 2 },
+  medicine: { label: '의대', years: 6 },
+  teaching: { label: '교육대', years: 4 },
   training: { label: '직업훈련', years: 1 },
 };
 
@@ -28,6 +38,9 @@ const EMPTY_PATH = newPath();
 export const pathOf = (life) => life.path ?? EMPTY_PATH;
 const mostRecentDream = (path) => path.dreams.at(-1)?.field ?? 'explore';
 const fieldLabel = (field) => DREAMS[field]?.label ?? DREAMS.explore.label;
+const isStem = (field) => field === 'science' || field === 'tech';
+const degreesOf = (path) => [...(path.previousDegrees ?? []), ...(path.degree ? [path.degree] : [])];
+const jobFields = (job) => [job?.field, ...(job?.related ?? [])].filter(Boolean);
 const scene = (title, detail, choices, after = '') => ({ title, detail, choices, after });
 const rest = (title = '쉬어 가기', detail = '몸과 마음을 쉬게 해요.', effect = { health: 3, joy: 1 }) => pick('rest', title, detail, 'leaf', effect);
 const option = (id, title, detail, mark, effect, kind, value, after, extra = {}) =>
@@ -136,12 +149,38 @@ const SCHOOL_YEARS = {
 
 function schoolYear(life, path) {
   const age = life.age;
-  if (age < 16 || path.school !== 'outside') return SCHOOL_YEARS[age];
-  return scene(['학교 밖의 첫해', '나만의 공부 계획', '다음 길을 준비하는 해'][age - 16], '관심 있는 일을 찾아 하나씩 배워요.', [
-    pick('outside-portfolio', '만든 것 모아 보기', '혼자 해 본 일을 사진과 글로 남겨요.', 'settings', { learning: 3, art: 3 }),
-    pick('outside-learn', '관심 있는 것 배우기', '도서관이나 배움터에서 공부해요.', 'book', { learning: 4, bond: 1 }),
-    rest('쉬면서 길 찾아보기', '지금 할 수 있는 것부터 해요.'),
-  ]);
+  const entry = SCHOOL_YEARS[age];
+  if (age < 16) return entry;
+  if (path.school === 'outside') {
+    return scene(['학교 밖의 첫해', '나만의 공부 계획', '다음 길을 준비하는 해'][age - 16], '관심 있는 일을 찾아 하나씩 배워요.', [
+      pick('outside-portfolio', '만든 것 모아 보기', '혼자 해 본 일을 사진과 글로 남겨요.', 'settings', { learning: 3, art: 3 }),
+      pick('outside-learn', '관심 있는 것 배우기', '도서관이나 배움터에서 공부해요.', 'book', { learning: 4, bond: 1 }),
+      rest('쉬면서 길 찾아보기', '지금 할 수 있는 것부터 해요.'),
+    ]);
+  }
+  const [first, ...others] = entry.choices;
+  if (path.school === 'science' || path.school === 'gifted') {
+    return { ...entry, choices: [
+      pick(first.id, path.school === 'gifted' ? '깊이 있는 연구 해 보기' : '과학 실험과 탐구하기',
+        '어려운 문제를 풀고 실험 결과를 정리해요.', 'book', { learning: path.school === 'gifted' ? 7 : 6, health: -2 }),
+      ...others,
+    ] };
+  }
+  if (path.school === 'vocational') {
+    const [activity, breakChoice] = others;
+    return { ...entry, choices: [
+      pick(first.id, '현장에서 쓰는 기술 익히기', '공구나 장비를 써 보고 만든 것을 기록해요.', 'settings', { learning: 3, art: 3 }),
+      age === 18 ? { ...activity, effect: { learning: 1, art: 5 } } : activity,
+      breakChoice,
+    ] };
+  }
+  if (path.school === 'arts') {
+    return { ...entry, choices: [
+      pick(first.id, '내 작품을 깊이 다듬기', '연습하고 고쳐서 새로운 작품을 완성해요.', 'spark', { art: 6, health: -2 }),
+      ...others,
+    ] };
+  }
+  return entry;
 }
 
 function dreamSurvey(life) {
@@ -157,11 +196,15 @@ function dreamSurvey(life) {
 
 function highSchool(life) {
   const dream = mostRecentDream(pathOf(life));
+  const scienceInterest = isStem(dream) || dream === 'medical';
   return scene('고등학교 고르기', '어디에서 무엇을 배우고 싶어요?', [
     option('high-general', '일반고 가기', '여러 과목을 배우고 진로를 찾아요.', 'book', {}, 'school', 'general', '새 교복을 입고 거울 앞에 한참 서 있었어요.'),
-    option('high-science', '과학고나 영재학교 가기', '실험과 연구를 많이 해요.', 'book', {}, 'school', 'science', '궁금한 걸 새 공책에 적었어요.', { need: { learning: dream === 'science' ? 21 : 25 } }),
+    option('high-science', '과학고 가기', '수학과 과학 실험을 깊이 배워요.', 'book', {}, 'school', 'science',
+      '궁금한 걸 새 공책에 적었어요.', { need: { learning: scienceInterest ? 34 : 38 }, conditions: [] }),
+    option('high-gifted', '영재학교 가기', '어려운 연구 과제를 해요. 배움 조건이 가장 높아요.', 'spark', {}, 'school', 'gifted',
+      '몇 번씩 고친 실험 노트를 새 가방에 넣었어요.', { need: { learning: scienceInterest ? 45 : 50 }, conditions: [] }),
     option('high-vocational', '직업계고 가기', '직접 만들고 고치는 기술을 배워요.', 'settings', {}, 'school', 'vocational', '처음으로 내 손으로 기계를 움직였어요.'),
-    option('high-arts', '예술고 가기', '그림이나 음악을 깊이 배워요.', 'spark', {}, 'school', 'arts', '좋아하던 일을 학교에서도 하게 됐어요.', { need: { art: dream === 'art' ? 17 : 21 } }),
+    option('high-arts', '예술고 가기', '그림이나 음악을 깊이 배워요.', 'spark', {}, 'school', 'arts', '좋아하던 일을 학교에서도 하게 됐어요.', { need: { art: dream === 'art' ? 23 : 28 }, conditions: [] }),
     option('rest', '학교 밖에서 배우기', '나만의 길을 찾아봐요. 나중에 검정고시도 볼 수 있어요.', 'leaf', {}, 'school', 'outside', '친구들과 다른 곳에서 새 학년을 맞았어요.'),
   ]);
 }
@@ -171,79 +214,152 @@ function examChoice() {
     'diploma', true, '혼자 공부해 온 시간이 새 길을 열어 줬어요.', { need: { learning: 16 } });
 }
 
-function universityChoice(kind, life) {
-  const field = mostRecentDream(pathOf(life));
+function universityChoice(kind, life, engineering = false) {
+  const path = pathOf(life);
+  const dream = mostRecentDream(path);
+  const field = kind === 'medicine' ? 'medical' : kind === 'teaching' ? 'education' : engineering ? 'tech' : dream;
   const data = PROGRAMS[kind];
-  const label = kind === 'university' ? '4년제 대학' : data.label;
-  const cost = { university: 6, college: 4, graduate: 8, training: 3 }[kind];
-  const detail = field !== 'explore' && kind !== 'training' ? `${data.years}년 동안 ‘${fieldLabel(field)}’를 배워요.`
+  const studyLabel = { university: engineering ? '이공계 대학' : '4년제 대학', medicine: '의대', teaching: '교육대' }[kind] ?? data.label;
+  let cost = { university: 8, college: 5, graduate: 9, training: 3, medicine: 16, teaching: 11 }[kind];
+  const scienceSchool = path.school === 'gifted' ? 6 : path.school === 'science' ? 3 : 0;
+  const need = {
+    university: { learning: engineering ? 33 - scienceSchool : field === 'explore' ? 22 : 19 },
+    medicine: { learning: 63 - scienceSchool - (dream === 'medical' ? 4 : 0) },
+    teaching: { learning: dream === 'education' ? 42 : 47, bond: 22 },
+  }[kind];
+  const scholarship = kind === 'medicine' && life.stats.learning >= need.learning + 5;
+  if (scholarship) cost = 9;
+  const detail = kind === 'medicine' ? `6년을 배우고 의사 시험에 도전해요.${scholarship ? ' 장학금을 받아요.' : ''}`
+    : kind === 'teaching' ? '4년 동안 아이들을 가르치는 법을 배워요.'
+    : field !== 'explore' && kind !== 'training' ? `${data.years}년 동안 ‘${fieldLabel(field)}’를 배워요.`
     : `${data.years}년 동안 새로 배우고 싶은 것을 공부해요.`;
-  const extra = kind === 'university' ? { need: { learning: field === 'explore' ? 22 : 19 } } : {};
-  return option(`study-${kind}`, kind === 'training' ? '일할 기술 배우기' : `${label} 가기`, detail,
-    kind === 'training' ? 'settings' : 'book', { money: -cost }, 'study', kind,
-    field === 'explore' ? '처음 보는 시간표를 받아 들었어요.' : `예전에 적은 ‘${fieldLabel(field)}’가 새 시간표에 있었어요.`, extra);
+  return option(engineering ? 'study-engineering' : `study-${kind}`, kind === 'training' ? '일할 기술 배우기' : `${studyLabel} 가기`, detail,
+    kind === 'training' ? 'settings' : kind === 'medicine' ? 'heart' : 'book', { money: -cost }, 'study', kind,
+    field === 'explore' ? '처음 보는 시간표를 받아 들었어요.' : `시간표에서 ‘${fieldLabel(field)}’와 이어지는 수업을 찾았어요.`,
+    { studyField: field, need, ...(need ? { conditions: [] } : {}) });
 }
 
-function workChoices(life) {
-  const path = pathOf(life);
-  const schoolField = { science: 'science', vocational: 'tech', arts: 'art' }[path.school];
-  const field = [path.degree?.field, mostRecentDream(path), path.training && 'tech', schoolField]
-    .find((item) => item && item !== 'explore') ?? 'explore';
-  const dream = DREAMS[field];
-  const work = [
-    pick('work-staff', '회사에 취업하기', path.school === 'vocational' ? '학교에서 실습한 기술을 써요.' : '첫 일터에서 일을 배워요.', 'coin',
-      {}, { employment: true, after: '첫 출근에 입을 옷을 전날 꺼내 놨어요.' }),
-  ];
-  if (dream.career) {
-    const first = path.dreams.find((entry) => entry.field === field);
-    work.unshift(pick('work-dream', `${CAREERS[dream.career].title} 되기`,
-      first ? `${first.age}살에 고른 꿈과 이어지는 일이에요.` : `‘${dream.label}’에서 배운 것을 써요.`, dream.mark,
-      dream.career === 'shop' ? { money: -15 } : {},
-      { career: dream.career, need: dream.need, opportunity: true, after: first
-        ? `${first.age}살 때 꿈을 적던 글씨가 떠올랐어요.` : '내가 고른 일터에서 첫날을 보냈어요.' }));
+function licensePlan() {
+  return scene('의사 시험에 도전할까요?', '의대를 마쳤어요. 의사로 일하려면 시험을 통과해야 해요.', [
+    option('doctor-license', '의사 시험 보기', '공부한 내용을 시험 보고 면허를 받아요.', 'book', { money: -2 },
+      'license', true, '결과를 확인하고 곁에 있던 사람에게 먼저 소식을 전했어요.', { need: { learning: 92 }, conditions: [] }),
+    rest('조금 더 준비하기', '배움을 더 쌓아 나중에 다시 도전해요.', {}),
+  ]);
+}
+
+function finishedSchool(path) {
+  return path.school !== 'outside' || path.diploma;
+}
+
+function careerWindow(life, path) {
+  const age = life.age;
+  return path.retired === null && ([19, 26, 34, 42, 50, 56].includes(age) ||
+    (!life.career && [21, 23, 27, 30, 38, 46, 54, 59].includes(age)) ||
+    path.degree?.age === age || path.licenseAge === age || path.trainingAge === age || path.service?.endedAt === age);
+}
+
+function careerPlan(life, path) {
+  const degrees = degreesOf(path);
+  const bachelor = degrees.some(({ kind }) => kind !== 'college');
+  const credentials = {
+    school: { label: '고등학교 졸업 또는 검정고시', met: finishedSchool(path) },
+    skill: { label: '직업계고·직업훈련·전문대 이상 중 하나', met: path.school === 'vocational' || path.training || degrees.length > 0 },
+    bachelor: { label: '4년제 대학 졸업 이상', met: bachelor },
+    stem: { label: '과학·기술 계열 4년제 대학 졸업 이상', met: degrees.some(({ kind, field }) => kind !== 'college' && isStem(field)) },
+    teaching: { label: '교육대 졸업', met: degrees.some(({ kind }) => kind === 'teaching') },
+    doctor: { label: '의대 졸업과 의사 면허', met: Number.isInteger(path.licenseAge) },
+  };
+  const schoolField = { science: 'science', gifted: 'science', vocational: 'tech', arts: 'art' }[path.school];
+  const interests = [schoolField, ...path.dreams.map(({ field }) => field), ...degrees.map(({ field }) => field)];
+  const current = CAREERS[life.career];
+  const choices = [rest(current ? '지금 일 계속하기' : '이번에는 건너뛰기',
+    current ? `지금의 직업인 ${current.title} 일을 이어가요.` : '나중에 일자리를 다시 살펴볼 수 있어요.', {})];
+  const dream = mostRecentDream(path);
+  for (const [career, job] of Object.entries(CAREERS)) {
+    if (career === life.career) continue;
+    const fields = jobFields(job);
+    const credential = credentials[job.education];
+    if (job.specialty && !credential?.met && !interests.some((field) => fields.includes(field))) continue;
+    const followsDream = fields.includes(dream);
+    choices.push(pick(`work-${career}`, job.title, job.detail, job.mark, job.startup ? { money: -job.startup } : {}, {
+      career, need: job.need, opportunity: Boolean(followsDream),
+      conditions: credential ? [credential] : [],
+      after: followsDream ? `어릴 때 고른 꿈을 떠올리며 ${job.title} 일을 시작했어요.` : `${job.title} 일을 시작했어요. 첫날은 누구나 떨려요.`,
+    }));
   }
-  return work;
+  return scene(current ? '일자리를 바꿀까요?' : '어떤 일을 할까요?',
+    '지원 조건과 해마다 버는 돈을 보고 골라요. 꿈이나 전공과 맞으면 지원하기 쉬워요.', choices);
 }
 
 function educationPlan(life, path) {
-  const eligible = path.school !== 'outside' || path.diploma;
+  const eligible = finishedSchool(path);
   const options = [];
-  if (eligible && !path.degree) options.push(universityChoice('university', life), universityChoice('college', life));
-  else if (!eligible) options.push(examChoice());
-  if (path.degree?.kind === 'university') options.push(universityChoice('graduate', life));
+  const degrees = degreesOf(path);
+  const dream = mostRecentDream(path);
+  const completed = (kind) => degrees.some((degree) => degree.kind === kind);
+  if (eligible && !degrees.some(({ kind }) => kind !== 'college')) {
+    options.push(universityChoice('university', life));
+    if (!completed('college')) options.push(universityChoice('college', life));
+    if (!isStem(dream)) options.push(universityChoice('university', life, true));
+  } else if (!eligible) options.push(examChoice());
+  if (eligible && life.age <= 38 && !completed('medicine') &&
+    (dream === 'medical' || path.school === 'science' || path.school === 'gifted' || life.stats.learning >= 50)) {
+    options.push(universityChoice('medicine', life));
+  }
+  if (eligible && life.age <= 38 && !completed('teaching') &&
+    (['people', 'education'].includes(dream) || (life.stats.learning >= 42 && life.stats.bond >= 20))) {
+    options.push(universityChoice('teaching', life));
+  }
+  if (completed('university') && !completed('graduate')) options.push(universityChoice('graduate', life));
   if (!path.training) options.push(universityChoice('training', life));
-  if (!life.career) options.push(...workChoices(life));
   if (!options.length) return null;
   const title = life.age === 19 ? '학교 다음에는?' : path.service?.endedAt === life.age ? '복무를 마친 뒤' :
-    path.degree?.age === life.age ? '졸업했어요' : '일할까, 더 배울까?';
-  const detail = life.age === 19 && path.sex === 'male' ? '학교나 일을 골라요. 군대는 스무 살부터 정해요.'
-    : '배울지, 일을 할지, 지금의 생활을 이어갈지 골라요.';
-  options.push(rest('조금 더 생각하기', '이번에는 지금 생활을 이어가요.', {}));
+    path.degree?.age === life.age ? '졸업했어요' : '더 배울까요?';
+  const lookForWork = careerWindow(life, path);
+  const detail = life.age === 19 && path.sex === 'male' ? '계속 배울지, 일할지 골라요. 복무 시기는 스무 살부터 정해요.'
+    : '배울지, 지금의 생활을 이어갈지 골라요.';
+  options.unshift(rest(lookForWork ? '일자리 살펴보기' : '지금 생활 이어가기',
+    lookForWork ? '어떤 직업이 있는지 보고 골라요.' : '해 오던 일상을 이어가요.', {}));
   return scene(title, detail, options);
 }
 
 function militaryPlan(life, path) {
+  const age = life.age;
   const detail = path.program ? '학교는 잠시 쉬고 2년 복무해요.' : life.career ? '일은 잠시 쉬고 2년 복무해요.' : '군대에서 2년을 보내요.';
-  const choices = [option('enlist', '군대에 가기', detail, 'flag', {},
+  const choices = [option('enlist', '올해 입영하기', detail, 'flag', {},
     'service', 'start', '짐을 싸며 돌아와서 할 일을 적었어요.')];
-  if (!path.service && path.program) {
-    choices.push(option('service-after-study', '졸업하고 군대 가기', '지금 다니는 학교를 마치고 복무해요.', 'book', {},
-      'service', life.age + path.program.remaining, '졸업할 때까지 지금의 시간표를 이어가요.'));
+  choices.push(option('service-community', '마을에서 복무하기', '몸 상태에 맞춰 2년 동안 마을 일을 도와요.', 'house', {},
+    'service', 'community', '마을에서 할 수 있는 일을 한 가지씩 배웠어요.',
+    { conditions: [{ label: `체력 ${COMMUNITY_HEALTH}점 이하`, met: life.stats.health <= COMMUNITY_HEALTH }] }));
+  choices.push(option('service-exempt', '몸 상태로 복무 면제 받기', '몸이 많이 약해서 치료와 일상을 이어가요.', 'heart', {},
+    'service', 'exempt', '몸을 돌보며 지금의 생활을 이어가기로 했어요.',
+    { conditions: [{ label: '체력 20점 이하', met: life.stats.health <= 20 }] }));
+  const graduation = age + (path.program?.remaining ?? 0);
+  if (graduation > age + 1 && graduation <= SERVICE_LIMIT) {
+    choices.push(option('service-after-study', '졸업하고 복무하기', '지금 다니는 학교를 마치고 복무해요.', 'book', {},
+      'service', graduation, '졸업할 때까지 지금의 시간표를 이어가요.'));
   }
-  if (!path.service) {
-    choices.push(option('rest', '내년에 군대 가기', '올해는 학교나 일터를 다녀요.', 'leaf', {},
-      'service', life.age + 1, '입영할 해를 달력에 표시했어요.'));
+  if (age < SERVICE_LIMIT) {
+    choices.push(option('rest', '내년에 다시 정하기', `학교나 일을 이어가요. 게임에서는 ${SERVICE_LIMIT}살에 복무를 시작해요.`, 'leaf', {},
+      'service', age + 1, '내년 달력에 복무 일정을 적었어요.'));
   }
-  return scene('군대 갈 때 정하기', '학교나 일과 복무 일정을 맞춰요.', choices);
+  const prompt = age < SERVICE_LIMIT ? '지금 갈지, 학교나 일을 더 이어갈지 정해요.' : '게임에서 복무를 시작할 마지막 해예요.';
+  const fallback = choices.find((choice) => choice.id === 'service-after-study')?.id ??
+    (age < SERVICE_LIMIT ? 'rest' : life.stats.health <= 20 ? 'service-exempt' : life.stats.health <= COMMUNITY_HEALTH ? 'service-community' : 'enlist');
+  return { ...scene('복무 시기 정하기', prompt, choices), fallback };
 }
 
 function serving(life, path) {
   const last = path.service.until === life.age + 1;
-  return scene(last ? '복무 마지막 해' : '복무 첫해', last ? '곧 집으로 돌아가요. 무엇을 준비할까요?' : '새로운 생활에 익숙해지는 중이에요.', [
-    pick('service-letter', '가족에게 편지 쓰기', '기다려 줘서 고맙다고 써요.', 'link', { bond: 4, joy: 2 }),
-    pick('service-study', '틈틈이 공부하기', '학교나 일터로 돌아갈 준비를 해요.', 'book', { learning: 4, health: -2 }),
-    rest('동료와 시간 보내기', '같이 밥을 먹고 쉬어요.'),
-  ]);
+  const community = path.service.kind === 'community';
+  const title = `${community ? '마을 복무' : '복무'} ${last ? '마지막 해' : '첫해'}`;
+  return scene(title,
+    last ? '복무를 마치고 다시 내 일상으로 돌아가요.' : '새로운 생활에 익숙해지는 중이에요.', [
+      pick('service-letter', community ? '이웃과 이야기 나누기' : '가족에게 편지 쓰기',
+        community ? '함께 일하는 사람의 이야기를 들어요.' : '기다려 줘서 고맙다고 써요.', 'link', { bond: 4, joy: 2 }),
+      pick('service-study', '틈틈이 공부하기', '학교나 일터로 돌아갈 준비를 해요.', 'book', { learning: 4, health: -2 }),
+      rest('동료와 시간 보내기', '같이 밥을 먹고 쉬어요.'),
+    ]);
 }
 
 function studying(life, path) {
@@ -380,19 +496,25 @@ export function bonusScene(life, done) {
       examChoice(), rest('조금 더 공부하기', '시험은 나중에 볼 수 있어요.', {}),
     ]), key: 'education', fallback: 'rest' };
   }
-  if (path.sex === 'male' && age >= 20 && age <= 28 && !done.includes('military') &&
-    (!path.service || (path.service.status === 'planned' && age >= path.service.at))) {
-    const entry = militaryPlan(life, path);
-    const fallback = entry.choices.find((choice) => choice.id === 'service-after-study')?.id ?? entry.choices.at(-1).id;
-    return { ...entry, key: 'military', fallback };
+  if (path.sex === 'male' && age >= 20 && age <= SERVICE_LIMIT && !done.includes('military') &&
+    (!path.service || (path.service.status === 'planned' && age >= Math.min(path.service.at, SERVICE_LIMIT)))) {
+    return { ...militaryPlan(life, path), key: 'military' };
   }
   const continuing = path.program || path.service?.status === 'serving';
+  const medicine = degreesOf(path).find(({ kind }) => kind === 'medicine');
+  if (!continuing && medicine && !Number.isInteger(path.licenseAge) && !done.includes('license') &&
+    (medicine.age === age || [26, 30, 34, 38, 42, 50, 56].includes(age))) {
+    return { ...licensePlan(), key: 'license', fallback: 'rest' };
+  }
   const planning = [19, 22, 26, 38, 50].includes(age) || path.degree?.age === age ||
     path.diplomaAge === age - 1 || (!life.career && path.trainingAge === age) ||
     (path.service?.endedAt === age && (!life.career || path.degree));
   if (!continuing && planning && !done.includes('education')) {
     const entry = educationPlan(life, path);
     if (entry) return { ...entry, key: 'education', fallback: 'rest' };
+  }
+  if (!continuing && careerWindow(life, path) && !done.includes('career')) {
+    return { ...careerPlan(life, path), key: 'career', fallback: 'rest' };
   }
   return null;
 }
@@ -404,14 +526,16 @@ export function annualScene(life) {
   if (age < 19) return schoolYear(life, path);
   if (path.service?.status === 'serving') return serving(life, path);
   if (path.program && (age === 19 || path.service?.endedAt === age)) return studying(life, path);
+  const milestone = relationships(life) ?? housing(life, path);
+  if (milestone) return milestone;
   if (path.firstJobAge === age) {
     return scene('일터에서 보낸 첫해', '새 일터에서 내 자리를 찾아요.', [
       pick('work-learn', '일을 배우기', '모르는 것을 동료에게 물어요.', 'book', { learning: 5, bond: 2 }),
-      pick('work-more', '일을 더 맡아 저축하기', '바쁘지만 돈을 더 모아요.', 'coin', { money: 8, health: -3 }),
+      pick('work-more', '일을 더 맡아 저축하기', '바쁘지만 돈을 더 모아요.', 'coin', { money: 3, health: -2 }),
       rest('퇴근 뒤 시간 챙기기', '일이 끝나면 몸과 마음을 쉬게 해요.'),
     ]);
   }
-  return relationships(life) ?? housing(life, path) ?? (path.program ? studying(life, path) : laterLife(life, path));
+  return path.program ? studying(life, path) : laterLife(life, path);
 }
 
 export function applyPath(life, age, choice) {
@@ -426,10 +550,13 @@ export function applyPath(life, age, choice) {
       path.diplomaAge = age;
       break;
     case 'study':
-      path.program = { kind: action.value, field: mostRecentDream(path), remaining: PROGRAMS[action.value].years };
+      path.program = { kind: action.value, field: choice.studyField ?? mostRecentDream(path), remaining: PROGRAMS[action.value].years };
       break;
+    case 'license': path.licenseAge = age; break;
     case 'service':
-      path.service = action.value === 'start' ? { status: 'serving', until: age + 2 } : { status: 'planned', at: action.value };
+      if (typeof action.value === 'number') path.service = { status: 'planned', at: action.value };
+      else if (action.value === 'exempt') path.service = { status: 'exempt', endedAt: age };
+      else path.service = { status: 'serving', kind: action.value === 'community' ? 'community' : 'military', until: age + 2 };
       break;
     case 'partner': path.partner = action.value === 'start' ? age : null; break;
     case 'marry': path.married = age; break;
@@ -438,7 +565,7 @@ export function applyPath(life, age, choice) {
     case 'move':
       path.home = { kind: action.value, at: age, deposit: action.value === 'lease' ? LEASE_DEPOSIT : 0 };
       break;
-    case 'care': return [choice.after, finishCare(path, age, action.value)].filter(Boolean).join(' ');
+    case 'care': return [choice.after, finishCare(path, age, action.value, choice.id)].filter(Boolean).join(' ');
   }
   return choice.after ?? '';
 }
@@ -448,7 +575,7 @@ export function advancePath(life) {
   if (path.habit && life.age >= path.habit.until) path.habit = null;
   if (path.service?.status === 'serving') {
     if (life.age < path.service.until) return '';
-    path.service = { status: 'complete', endedAt: life.age };
+    path.service = { status: 'complete', kind: path.service.kind ?? 'military', endedAt: life.age };
     return path.program ? '복무를 마쳤어요. 다니던 학교로 돌아가요.' : '복무를 마치고 집으로 돌아와요.';
   }
   if (!path.program) return '';
@@ -458,7 +585,10 @@ export function advancePath(life) {
   if (kind === 'training') {
     path.training = true;
     path.trainingAge = life.age;
-  } else path.degree = { kind, field, age: life.age };
+  } else {
+    if (path.degree) (path.previousDegrees ??= []).push(path.degree);
+    path.degree = { kind, field, age: life.age };
+  }
   path.program = null;
   return kind === 'training' ? '기술을 배우는 과정을 마쳤어요.' : `${PROGRAMS[kind].label}을 마쳤어요. 처음 메던 가방이 많이 해졌어요.`;
 }
@@ -480,7 +610,7 @@ export function yearlySources(life) {
   if (!serving && path.program) {
     const { kind, remaining } = path.program;
     sources.push({ id: `study-${kind}`, label: `${PROGRAMS[kind].label}에서 배우기`, years: remaining,
-      effect: { learning: kind === 'graduate' ? 2 : 1 } });
+      effect: { learning: kind === 'graduate' || kind === 'medicine' ? 2 : 1 } });
   }
   if (path.home?.kind === 'rent') {
     sources.push({ id: 'rent', label: '월세', term: '이 집에 사는 동안', effect: { money: -2 } });
@@ -496,7 +626,7 @@ export function yearlySources(life) {
     const { label, effect } = HABITS[kind];
     sources.push({ id: `habit-${kind}`, label, years: until - age, effect });
   }
-  const aging = age >= 82 ? -3 : age >= 70 ? -2 : age >= 55 || (age >= 42 && age % 2 === 0) ? -1 : 0;
+  const aging = age >= 83 ? -3 : age >= 72 ? -2 : age >= 58 ? -1 : 0;
   if (aging) sources.push({ id: 'aging', label: '나이가 들며', effect: { health: aging } });
   if (path.illness?.serious) sources.push({ id: 'illness', label: '큰 병으로 지침', term: '치료하는 동안', effect: { health: -2 } });
   return sources;
@@ -516,10 +646,10 @@ export function updateLifePath(life) {
 export function chanceDiscount(life, career, stat) {
   if (!career || stat === 'money') return 0;
   const path = pathOf(life);
-  const field = Object.keys(DREAMS).find((key) => DREAMS[key].career === career);
-  if (!field) return 0;
-  return (path.dreams.some((entry) => entry.field === field) ? 5 : 0)
-    + (path.degree?.field === field ? 6 : 0)
+  const fields = jobFields(CAREERS[career]);
+  if (!fields.length || stat === 'health') return 0;
+  return (path.dreams.some(({ field }) => fields.includes(field)) ? 5 : 0)
+    + (degreesOf(path).some(({ field }) => fields.includes(field)) ? 6 : 0)
     + (career === 'tech' && (path.training || path.school === 'vocational') ? 7 : 0);
 }
 
@@ -529,7 +659,7 @@ export function lifeBadges(life) {
     SEXES[path.sex],
     life.age < 19 && SCHOOLS[path.school],
     path.program && `${PROGRAMS[path.program.kind].label} · ${path.program.remaining}년 남음`,
-    path.service?.status === 'serving' && '복무 중',
+    path.service?.status === 'serving' && (path.service.kind === 'community' ? '마을 복무 중' : '복무 중'),
     path.retired !== null ? '은퇴' : CAREERS[life.career]?.title,
     path.home && HOME_NAMES[path.home.kind],
     path.illness && '치료 중',
@@ -542,9 +672,11 @@ export function pathNotes(life) {
     ...path.dreams.map(({ age, field }) => `${age}살 희망 · ${fieldLabel(field)}`),
     path.school && SCHOOLS[path.school],
     path.diploma && '고졸 검정고시',
-    path.degree && `${path.degree.age}살에 ${PROGRAMS[path.degree.kind].label} 마침`,
+    ...degreesOf(path).map(({ age, kind }) => `${age}살에 ${PROGRAMS[kind].label} 마침`),
+    Number.isInteger(path.licenseAge) && `${path.licenseAge}살에 의사 면허 취득`,
     path.training && '직업훈련 수료',
     path.service?.status === 'complete' && `${path.service.endedAt}살에 복무 마침`,
+    path.service?.status === 'exempt' && '건강 사유로 복무 면제',
     path.home && `${path.home.at}살에 ${HOME_NAMES[path.home.kind]}`,
     path.married !== null && `${path.married}살에 결혼`,
     ...path.children.map((age) => `${age}살에 아이를 맞이함`),

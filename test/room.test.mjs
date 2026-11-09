@@ -30,8 +30,8 @@ async function fixture(t) {
     return { status: response.status, body: response.status === 204 ? null : await response.json() };
   }
 
-  async function room(settings) {
-    const result = await request('/api/rooms', null, { name: '우리 반', pin: 'test-pin', settings });
+  async function room(settings, roomPassword) {
+    const result = await request('/api/rooms', null, { name: '우리 반', pin: 'test-pin', roomPassword, settings });
     assert.equal(result.status, 201);
     const root = `/api/rooms/${result.body.session.code}`;
     const host = result.body.session.token;
@@ -121,58 +121,95 @@ test('20명이 동시에 선택하면 한 턴만 마감하고 서버 재시작 �
   assert.equal(schoolYears.filter(({ body }) => body.year === 11).length, 1);
 });
 
-test('수명에 도달한 두 플레이어가 자녀와 영혼으로 갈라지고 기록이 남는다', async (t) => {
+test('교사는 방의 비밀번호로 다시 열고 학생은 별명으로 참가한다', async (t) => {
+  const app = await fixture(t);
+  assert.equal((await app.request('/api/rooms', null, { name: '교실', pin: 'test-pin', roomPassword: '123' })).status, 400);
+  const room = await app.room({ seconds: 0 }, '별이빛나는밤');
+  const student = await room.join('  작은별  ');
+  assert.equal(student.status, 201);
+  assert.equal(student.body.state.me.name, '작은별');
+  await app.restart();
+
+  assert.equal((await app.request(room.root + '/host', null, { roomPassword: '다른비밀번호' })).status, 403);
+  const reopened = await app.request(room.root + '/host', null, { roomPassword: '별이빛나는밤' });
+  assert.equal(reopened.status, 200);
+  assert.ok(!JSON.stringify(reopened.body).includes('별이빛나는밤'));
+  assert.ok(!JSON.stringify(reopened.body).includes('hostPass'));
+  assert.equal((await app.request(room.root, room.host)).status, 401);
+  assert.equal((await room.state(student.body.session.token)).me.name, '작은별');
+  const started = await app.request(room.root + '/teacher', reopened.body.session.token, { action: 'start' });
+  assert.equal(started.status, 200);
+  assert.equal(started.body.phase, 'play');
+});
+
+test('삶을 마친 두 플레이어가 자녀와 영혼으로 갈라지고 메시지가 바로 보인다', async (t) => {
   const app = await fixture(t);
   const room = await app.room({ maxAge: 80, pace: 'manual' });
   const child = (await room.join('새싹')).body;
   const spirit = (await room.join('바람')).body;
   await room.teacher('start');
 
-  async function advance(choices) {
+  async function advance(choices, message) {
     const state = await room.state();
     await Promise.all([child, spirit].map(async (player, index) => {
       let { me } = await room.state(player.session.token);
       while (me.scene.bonus) {
-        const choice = me.age === 19 && me.scene.key === 'education' ? 'work-staff' : me.scene.fallback;
+        const surgery = me.scene.key === 'illness' && me.scene.choices.find(({ id, locked }) => id === 'operation' && !locked);
+        const choice = me.age === 19 && me.scene.key === 'career' ? 'work-crew' : surgery?.id ?? me.scene.fallback;
         const selected = await room.choose(player, state.turn.number, choice, me.scene.key);
         assert.equal(selected.status, 200, JSON.stringify(selected.body));
         assert.equal(selected.body.me.age, me.age);
         me = selected.body.me;
       }
-      const result = await room.choose(player, state.turn.number, choices(me, index), me.scene.key);
+      const choice = choices(me, index);
+      const result = await room.choose(player, state.turn.number, choice, me.scene.key);
       assert.equal(result.status, 200, JSON.stringify(result.body));
+      if (message && index === 1) {
+        assert.match(result.body.me.latest.text, message);
+        assert.equal(result.body.me.scene.waiting, true);
+        const replay = await room.choose(player, state.turn.number, choice, me.scene.key);
+        assert.equal(replay.status, 200);
+        assert.deepEqual(replay.body.me.visits, result.body.me.visits);
+      }
     }));
     const next = await room.teacher('advance', { round: state.turn.number, phase: 'play' });
     assert.equal(next.phase, 'play');
     assert.equal(next.turn.number, state.turn.number + 1);
+    return next;
   }
 
-  for (let age = 0; age < 80; age++) {
-    await advance((me) => {
+  let state = await room.state();
+  while (state.year < 80 && state.players.some(({ mode }) => mode === 'alive')) {
+    state = await advance((me) => {
+      if (me.mode === 'fork') return 'pass';
       const options = me.scene.choices.filter((item) => !item.locked);
       return (options.find((item) => item.id === 'rest') ?? options[0]).id;
     });
   }
   const fork = (await room.state(spirit.session.token)).me;
-  assert.equal(fork.age, 80);
   assert.equal(fork.mode, 'fork');
   assert.ok(fork.career);
-  await advance((me, index) => index === 0 ? 'child-male' : 'family-dream');
+  assert.deepEqual(fork.scene.choices.map(({ id }) => id), ['successor', 'spirit']);
+  const parent = (await room.state(child.session.token)).me;
+  assert.equal(parent.mode, 'fork');
+  await advance((me, index) => index === 0 ? 'child-male' : 'spirit', /집에 불이 켜졌어요/);
   const successor = (await room.state(child.session.token)).me;
   assert.equal(successor.generation, 2);
   assert.equal(successor.age, 19);
   assert.equal(successor.mode, 'alive');
   assert.equal(successor.life.path.sex, 'male');
-  await advance((me, index) => index === 0 ? 'rest' : 'funeral');
-  await advance((me, index) => index === 0 ? 'rest' : 'workplace');
+  await advance((me, index) => index === 0 ? 'rest' : 'family-dream', /꿈에/);
+  await advance((me, index) => index === 0 ? 'rest' : 'funeral', /./);
+  await advance((me, index) => index === 0 ? 'rest' : 'workplace', /./);
   const ghost = (await room.state(spirit.session.token)).me;
   assert.deepEqual(ghost.visits.map((visit) => visit.id), ['family-dream', 'funeral', 'workplace']);
   assert.match(ghost.visits[0].text, /꿈에/);
+  assert.ok(ghost.scene.choices.every(({ id }) => !ghost.visits.some((visit) => visit.id === id)));
   const family = await app.request(room.root + '/profile/' + successor.id, spirit.session.token);
   assert.equal(family.status, 200);
   assert.equal(family.body.lives.length, 2);
-  assert.equal(family.body.lives[0].age, 80);
+  assert.equal(family.body.lives[0].age, parent.age);
   const ending = await room.teacher('finish');
   assert.equal(ending.phase, 'ended');
-  assert.ok(ending.rankings.age.every((row) => row.value === 80));
+  assert.deepEqual(ending.rankings.age.map(({ value }) => value), [parent.age, fork.age].sort((a, b) => b - a));
 });

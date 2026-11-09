@@ -85,6 +85,7 @@ function render() {
   const focused = document.activeElement?.dataset.focus;
   const openedResult = main.querySelector('.latest[open]')?.dataset.result;
   const showYearly = main.querySelector('.year-effects[open]');
+  const oldStory = main.querySelector('[data-story-key]');
   main.innerHTML = state ? roomView(session, state, { pane, rank, offline }) :
     homeView(invitedCode, selectedAvatar, { player: read(localStorage, lastKey('player')), host: read(localStorage, lastKey('host')) });
   if (focused) main.querySelector(`[data-focus="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
@@ -92,6 +93,8 @@ function render() {
   if (nextResult && nextResult.dataset.result === openedResult) nextResult.open = true;
   const nextYearly = main.querySelector('details.year-effects');
   if (nextYearly && showYearly) nextYearly.open = true;
+  const newStory = main.querySelector('[data-story-key]');
+  if (oldStory && newStory?.dataset.storyKey === oldStory.dataset.storyKey) newStory.scrollTop = oldStory.scrollTop;
   updateClock();
 }
 
@@ -110,6 +113,10 @@ function updateClock() {
 
 function accept(next, expected = session) {
   if (!next || expected !== session || (state && next.revision < state.revision)) return;
+  const memory = next.me?.latest;
+  const previous = state?.me?.latest;
+  const newMemory = state && ['spirit', 'child'].includes(memory?.type) &&
+    (memory.year !== previous?.year || memory.title !== previous?.title);
   const newChoice = state?.me?.scene && next.me?.scene &&
     (state.turn.number !== next.turn.number || state.me.scene.key !== next.me.scene.key);
   const played = document.activeElement?.dataset.action === 'choose';
@@ -122,6 +129,8 @@ function accept(next, expected = session) {
     if (story?.getBoundingClientRect().top < 0) story.scrollIntoView({ block: 'start' });
     if (played) story?.querySelector('h2')?.focus({ preventScroll: true });
   }
+  if (newMemory) modal(memory.title, `<p class="memory-text">${h(memory.text)}</p>
+    <button type="button" class="button primary full" data-action="close">이야기 닫기</button>`, 'memory-dialog');
 }
 
 function activate(nextSession, nextState) {
@@ -215,6 +224,7 @@ function modal(title, markup, kind = '') {
     <button type="button" class="icon-button" data-action="close" aria-label="닫기">${icon('close')}</button></div>
     <p class="dialog-message" role="status" hidden></p>${markup}</div>`;
   if (!dialog.open) dialog.showModal();
+  else dialog.querySelector('.dialog-header button')?.focus({ preventScroll: true });
 }
 
 function formModal(creating, pinRequired) {
@@ -222,6 +232,15 @@ function formModal(creating, pinRequired) {
   modal(creating ? '교사 방 만들기' : '진행 설정', `<form id="settings-form" data-creating="${creating}">
     ${settingsFields(creating ? DEFAULTS : state.settings, { creating, started, pinRequired })}
     <button type="submit" class="button primary full">${icon(creating ? 'arrow' : 'check')} ${creating ? '방 만들기' : '설정 저장'}</button>
+  </form>`);
+}
+
+function openTeacherForm() {
+  modal('코드로 교사 방 열기', `<form id="host-form">
+    <label>참가 코드<input name="code" type="text" required minlength="6" maxlength="6" autocomplete="off" autocapitalize="characters"></label>
+    <label>이 방의 교사 비밀번호<input name="roomPassword" type="password" required minlength="4" maxlength="32" autocomplete="current-password"></label>
+    <p class="field-note">이 기기에서 교사 진행실을 이어 열어요.</p>
+    <button type="submit" class="button primary full">교사 방 열기</button>
   </form>`);
 }
 
@@ -235,7 +254,9 @@ function help() {
   modal('100년 게임 안내', `<ol class="help-list">
     <li><b>캐릭터를 골라요.</b><p>선생님에게 받은 6자리 코드로 들어가요. 한 방에 20명까지 함께해요.</p></li>
     <li><b>한 해에 한 가지를 골라요.</b><p>모두 고르거나 시간이 끝나면 다음 해로 가요. 장래희망, 진학, 치료는 같은 나이에 한 번 더 골라요.</p></li>
+    <li><b>직업마다 지원 조건이 있어요.</b><p>어떤 일은 학교를 마쳐야 하고, 어떤 일은 관계나 준비할 돈이 필요해요. 카드에서 조건과 한 해에 버는 돈을 봐요.</p></li>
     <li><b>몇 해 동안 이어지는 선택도 있어요.</b><p>카드에서 한 번만 바뀌는 수치와 매년 바뀌는 수치를 봐요. 올해 자동 변화를 누르면 월급, 집세처럼 이유별로 볼 수 있어요.</p></li>
+    <li><b>몸이 약할 때는 치료 방법을 골라요.</b><p>큰 병과 낮은 체력이 겹치면 삶을 마칠 수 있어요. 병원 치료나 주변의 도움이 회복을 앞당겨요.</p></li>
     <li><b>나이가 들면 다음 이야기를 골라요.</b><p>한 삶을 마치면 다음 세대로 이어 살거나 영혼이 되어 가족의 꿈과 살던 곳에 들러요.</p></li>
     <li><b>친구들과 이야기를 나눠요.</b><p>친구들 메뉴에서 기록을 읽어요. 순위에서는 자금, 행복, 오래 산 나이 등을 볼 수 있어요.</p></li>
   </ol>`);
@@ -323,12 +344,18 @@ function practiceChoice(id) {
     while (practice.turn.number === round && !friend.choice) {
       const { scene } = stateFor(practice, friend.id, now).me;
       const options = scene.choices.filter((option) => !option.locked);
-      const best = options.sort((left, right) => (right.effect[friend.id] ?? 0) - (left.effect[friend.id] ?? 0))[0];
-      const choice = friend.mode === 'fork' && friend.id === 'art' ? 'spirit' : best.id;
+      const score = (option) => (option.effect[friend.id] ?? 0) +
+        (option.recurring?.starts.reduce((total, effect) => total + (effect.effect[friend.id] ?? 0), 0) ?? 0) * 2;
+      const best = options.sort((left, right) => score(right) - score(left))[0];
+      const choice = friend.mode === 'fork' ? (friend.id === 'art' ? 'spirit' : 'child-female') : best?.id ?? 'pass';
       selectChoice(practice, friend.id, { round, scene: scene.key, choice }, now);
     }
   }
   updatePractice();
+}
+
+function choose(id) {
+  return practice ? practiceChoice(id) : sendRoom('choice', { round: state.turn.number, scene: state.me.scene.key, choice: id });
 }
 
 document.addEventListener('click', (event) => {
@@ -345,6 +372,7 @@ document.addEventListener('click', (event) => {
       const info = await api('/api/meta');
       formModal(true, info.hostPinRequired);
     }); break;
+    case 'host-reopen': openTeacherForm(); break;
     case 'settings': formModal(false); break;
     case 'resume-host':
     case 'resume-player': void run(() => recover(read(localStorage, lastKey(action.slice(7))))); break;
@@ -357,7 +385,9 @@ document.addEventListener('click', (event) => {
     case 'rank-filter': rank = id; render(); break;
     case 'profile': void run(() => showProfile(id)); break;
     case 'generation': showGeneration(Number(index)); break;
-    case 'choose': void run(() => practice ? practiceChoice(id) : sendRoom('choice', { round: state.turn.number, scene: state.me.scene.key, choice: id })); break;
+    case 'choose': void run(() => choose(id)); break;
+    case 'successor': modal('다음 세대 고르기', `<form id="successor-form">${sexFields()}
+      <button type="submit" class="button primary full">다음 세대로 시작하기</button></form>`); break;
     case 'start':
     case 'advance':
     case 'pause':
@@ -380,11 +410,22 @@ document.addEventListener('change', (event) => {
 
 document.addEventListener('submit', (event) => {
   const form = event.target;
-  if (!['join-form', 'settings-form', 'practice-form'].includes(form.id)) return;
+  if (!['join-form', 'settings-form', 'practice-form', 'host-form', 'successor-form'].includes(form.id)) return;
   event.preventDefault();
   void run(async () => {
     if (form.id === 'practice-form') {
       startPractice(form.elements.sex.value);
+      return;
+    }
+    if (form.id === 'successor-form') {
+      await choose(`child-${form.elements.sex.value}`);
+      return;
+    }
+    if (form.id === 'host-form') {
+      const code = form.elements.code.value.trim().toUpperCase();
+      if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) throw Object.assign(new Error('6자리 참가 코드를 확인해 주세요.'), { status: 400 });
+      const result = await api(`/api/rooms/${code}/host`, { body: { roomPassword: form.elements.roomPassword.value } });
+      activate(result.session, result.state);
       return;
     }
     if (form.id === 'join-form') {
@@ -400,7 +441,7 @@ document.addEventListener('submit', (event) => {
     const fields = form.elements;
     const settings = { maxAge: fields.maxAge.valueAsNumber, seconds: fields.seconds.valueAsNumber, pace: fields.pace.value };
     if (form.dataset.creating === 'true') {
-      const result = await api('/api/rooms', { body: { name: fields.name.value, pin: fields.pin?.value, settings } });
+      const result = await api('/api/rooms', { body: { name: fields.name.value, roomPassword: fields.roomPassword.value, pin: fields.pin?.value, settings } });
       activate(result.session, result.state);
     } else {
       await teacher('settings', { settings });

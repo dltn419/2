@@ -32,12 +32,15 @@ export function icon(name, className = '') {
   return `<svg class="pixel-icon ${className}" viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="${PATHS[name] ?? PATHS.spark}"/></svg>`;
 }
 
-export function avatar(index, mode = 'alive') {
+export function avatar(index, mode = 'alive', sex = null) {
   const item = AVATARS[index] ?? AVATARS[0];
   if (mode === 'spirit') return `<span class="avatar avatar-ghost">${icon('ghost')}</span>`;
+  const longerHair = sex === 'female';
+  const hair = longerHair ? 'M5 1h6v1h2v2h1v8h-3v-2H5v3H2V5h1V3h2z' : 'M5 1h6v1h2v2h1v5h-2v1H4V9H2V5h1V3h2z';
   return `<span class="avatar"><svg viewBox="0 0 16 16" aria-hidden="true" shape-rendering="crispEdges">
-    <path fill="${item.hair}" d="M5 1h6v1h2v2h1v6h-2v1H4v-1H2V5h1V3h2z"/>
+    <path fill="${item.hair}" d="${hair}"/>
     <path fill="${item.skin}" d="M5 4h7v2h1v3h-1v2H4V9H3V7h2z"/>
+    ${longerHair ? `<path fill="${item.hair}" d="M4 4h2v2H5v5H3V7h1zm6 0h3v1h1v5h-2V6h-2z"/><path fill="#f5d98a" d="M11 3h2v1h-2z"/>` : ''}
     <path fill="#523e35" d="M6 6h1v2H6zm4 0h1v2h-1z"/>
     <path fill="${item.shirt}" d="M5 11h6v1h2v3H3v-3h2z"/>
     <path fill="#fff3d6" d="M7 11h2v2H7z"/>

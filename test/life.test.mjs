@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { STORIES } from '../public/content.mjs';
 import { addPlayer, newRoom, selectChoice, stateFor, teacherAction, updateRoomRules } from '../public/game.mjs';
-import { fallIll, illnessRisk } from '../public/health.mjs';
+import { fallIll, illnessDeathRisk, illnessRisk, settleHealth } from '../public/health.mjs';
+import { avatar } from '../public/ui.mjs';
+import { roomView } from '../public/views.mjs';
 
 function classroom(students, { age = 0, settings } = {}) {
   const room = newRoom({ code: 'ABC234', name: '한 해씩', seed: 'book-of-years', settings: { years: 7, pace: 'manual', ...settings } });
@@ -78,7 +81,7 @@ test('장래희망과 진학을 골라도 같은 나이의 학교생활을 한�
   const dreams = me(room, '과학').life.path.dreams;
   assert.deepEqual(dreams.map(({ age }) => age), [10, 14, 17]);
   assert.equal(me(room, '도전').life.path.diploma, true);
-  year(room, { 과학: { education: 'study-university' }, 기술: { education: 'work-dream' }, 도전: { education: 'study-college' } });
+  year(room, { 과학: { education: 'study-university' }, 기술: { career: 'work-tech' }, 도전: { education: 'study-college' } });
   assert.equal(me(room, '과학').life.path.program.field, 'science');
   assert.equal(me(room, '과학').life.path.program.remaining, 3);
   assert.equal(me(room, '기술').career, 'tech');
@@ -132,13 +135,164 @@ test('체력이 낮으면 병에 더 자주 걸리고 치료 경로에는 다른
   extras(room, '수술', { illness: 'operation' });
   assert.equal(me(room, '수술').life.path.illness, null);
   assert.equal(me(room, '수술').life.stats.money, 1);
+  extras(room, '돌봄', { illness: 'clinic-care' });
+  assert.equal(me(room, '돌봄').life.path.illness.steps, 1);
   year(room);
-  assert.equal(me(room, '돌봄').life.path.illness.steps, 2);
   assert.equal(me(room, '돌봄').mode, 'alive');
   year(room);
   year(room);
   assert.equal(me(room, '돌봄').life.path.illness, null);
   assert.ok(room.players.every(({ life }) => Object.values(life.stats).every((value) => value >= 1)));
+});
+
+test('큰 병과 체력 저하가 겹치면 집에서 돌볼 때보다 병원 치료가 생존에 유리하다', () => {
+  const deaths = { rest: 0, 'clinic-care': 0, operation: 0, 'assisted-care': 0 };
+  for (let seed = 0; seed < 80; seed++) {
+    for (const choice of Object.keys(deaths)) {
+      const room = classroom({ 환자: 'female' }, { age: 67 });
+      room.seed = `care-${seed}`;
+      const { life } = room.players[0];
+      Object.assign(life.stats, { health: 1, money: choice === 'operation' ? 41 : choice === 'clinic-care' ? 11 : 1,
+        bond: choice === 'assisted-care' ? 34 : 10 });
+      fallIll(life, life.path, 0, 0);
+      year(room, { 환자: { illness: choice } });
+      if (life.end) {
+        assert.equal(life.end.reason, 'illness');
+        deaths[choice] += 1;
+      }
+    }
+  }
+  assert.ok(deaths.rest > deaths['clinic-care']);
+  assert.ok(deaths.rest > deaths['assisted-care']);
+  assert.equal(deaths.operation, 0);
+  const healthy = classroom({ 학생: 'female' }, { age: 49 }).players[0].life;
+  healthy.stats.health = 1;
+  assert.equal(illnessDeathRisk(healthy), 0);
+});
+
+test('위중한 병을 치료하지 않으면 숨은 위험이 쌓이고 수술로 그 병이 끝난다', () => {
+  const room = classroom({ 환자: 'female' }, { age: 75 });
+  const { life } = room.players[0];
+  life.stats.health = 5;
+  life.stats.money = 12;
+  fallIll(life, life.path, 0, 0);
+  assert.equal(life.path.illness.critical, true);
+  assert.match(optionAt(room, '환자', 'operation').locked, /41코인/);
+  assert.match(optionAt(room, '환자', 'clinic-care').locked, /23코인/);
+  const firstRisk = illnessDeathRisk(life);
+  assert.ok(firstRisk >= 75);
+  settleHealth(life);
+  assert.equal(life.path.healthBurden, 2);
+  assert.ok(illnessDeathRisk(life) > firstRisk);
+  assert.ok(!Object.hasOwn(me(room, '환자').life.path, 'healthBurden'));
+  life.stats.money = 41;
+  extras(room, '환자', { illness: 'operation' });
+  assert.equal(life.path.illness, null);
+  assert.equal(life.path.healthBurden, 0);
+  assert.equal(illnessDeathRisk(life), 0);
+});
+
+test('의료 장래희망에서 영재학교와 의대 6년을 지나 면허와 일자리로 이어진다', () => {
+  const room = classroom({ 학생: 'female' });
+  const { life } = room.players[0];
+  for (let age = 0; age < 25; age++) {
+    if (age === 16) {
+      assert.equal(optionAt(room, '학생', 'high-general').locked, '');
+      assert.equal(optionAt(room, '학생', 'high-science').need.learning, 34);
+      assert.equal(optionAt(room, '학생', 'high-gifted').need.learning, 45);
+    }
+    const choices = { dream: 'dream-medical', school: 'high-gifted', education: 'study-medicine' };
+    year(room, { 학생: choices }, (view) => view.scene.choices.filter(({ locked }) => !locked)
+      .sort((left, right) => (right.effect.learning ?? 0) - (left.effect.learning ?? 0))[0].id);
+    if (age >= 19 && age < 24) assert.equal(life.path.program.remaining, 24 - age);
+  }
+  assert.deepEqual(life.path.degree, { kind: 'medicine', field: 'medical', age: 25 });
+  assert.equal(life.career, null);
+  const withoutLicense = structuredClone(room);
+  pick(withoutLicense, '학생', 'license', 'rest');
+  pick(withoutLicense, '학생', 'education', 'rest');
+  assert.match(optionAt(withoutLicense, '학생', 'work-doctor').locked, /의사 면허/);
+  pick(room, '학생', 'license', 'doctor-license');
+  pick(room, '학생', 'education', 'rest');
+  assert.equal(optionAt(room, '학생', 'work-doctor').locked, '');
+  assert.equal(optionAt(room, '학생', 'work-doctor').recurring.starts[0].effect.money, 11);
+  year(room, { 학생: { career: 'work-doctor' } });
+  assert.equal(life.career, 'doctor');
+});
+
+test('쉬기는 체력을, 걷기는 행복을 더 많이 얻는다', () => {
+  const scene = STORIES.flat().find(({ choices }) => choices.some(({ id }) => id === 'breathe'));
+  const rest = scene.choices.find(({ id }) => id === 'rest');
+  const walk = scene.choices.find(({ id }) => id === 'breathe');
+  assert.ok(rest.effect.health > walk.effect.health);
+  assert.ok(walk.effect.joy > rest.effect.joy);
+});
+
+test('플레이 화면은 성별이 다른 도트 캐릭터와 마을, 선택지, 능력치를 보여 준다', () => {
+  const room = classroom({ 학생: 'female' });
+  const html = roomView({ role: 'player' }, stateFor(room, '학생'), { pane: 'play', rank: 'age' });
+  const female = avatar(0, 'alive', 'female');
+  assert.notEqual(female, avatar(0, 'alive', 'male'));
+  assert.ok(html.includes(female));
+  for (const region of ['play-sidebar', 'play-main', 'village-cast', 'stat-grid', 'choice-grid']) assert.ok(html.includes(region));
+});
+
+test('직업마다 학력과 능력치가 다르고 선택해야 고정 수입이 생긴다', () => {
+  const room = classroom({ 학생: 'female' }, { age: 19 });
+  const { life } = room.players[0];
+  Object.assign(life.path, { school: 'outside', dreams: [{ age: 17, field: 'science' }] });
+  Object.assign(life.stats, { learning: 90, bond: 36, money: 57 });
+  pick(room, '학생', 'education', 'rest');
+  assert.equal(optionAt(room, '학생', 'work-crew').locked, '');
+  assert.match(optionAt(room, '학생', 'work-staff').locked, /고등학교 졸업 또는 검정고시/);
+  assert.match(optionAt(room, '학생', 'work-chip').locked, /4년제 대학 졸업 이상/);
+  assert.match(optionAt(room, '학생', 'work-sales').locked, /관계 37점/);
+  assert.match(optionAt(room, '학생', 'work-shop').locked, /자금 58코인/);
+  assert.throws(() => pick(room, '학생', 'career', 'work-chip'), /선택을 할 수 없어요/);
+  life.stats.bond = 37;
+  assert.deepEqual(optionAt(room, '학생', 'work-sales').recurring.starts[0].effect, { money: 5, health: -1 });
+  life.stats.money = 58;
+  assert.equal(optionAt(room, '학생', 'work-shop').effect.money, -38);
+  assert.equal(optionAt(room, '학생', 'work-shop').locked, '');
+  assert.equal(life.career, null);
+  year(room, { 학생: { career: 'work-crew' } });
+  assert.equal(life.career, 'crew');
+  assert.equal(me(room, '학생').scene.base.money, 2);
+  life.age = 26;
+  life.path.degree = { kind: 'university', field: 'science', age: 25 };
+  life.stats.learning = 70;
+  pick(room, '학생', 'education', 'rest');
+  assert.match(optionAt(room, '학생', 'work-chip').locked, /배움 71점/);
+  life.stats.learning = 71;
+  const researcher = optionAt(room, '학생', 'work-chip');
+  assert.equal(researcher.locked, '');
+  assert.ok(researcher.conditions.every(({ met }) => met));
+  assert.deepEqual(researcher.recurring.starts[0].effect, { money: 8, health: -1 });
+  assert.deepEqual(researcher.recurring.stops, ['매장 직원 수입']);
+  year(room, { 학생: { career: 'work-chip' } });
+  assert.equal(life.career, 'chip');
+  assert.equal(me(room, '학생').scene.base.money, 8);
+});
+
+test('미룬 복무 일정은 다시 정할 수 있고 낮은 체력에는 마을 복무가 열린다', () => {
+  const room = classroom({ 학생: 'male' }, { age: 20 });
+  const { life } = room.players[0];
+  year(room, { 학생: { military: 'rest' } });
+  assert.equal(life.path.service.at, 21);
+  assert.equal(optionAt(room, '학생', 'rest').title, '내년에 다시 정하기');
+  while (life.age < 28) year(room, { 학생: { military: 'rest' } });
+  assert.equal(life.path.service.at, 28);
+  life.path.illness = null;
+  assert.equal(optionAt(room, '학생', 'rest'), undefined);
+  life.stats.health = 41;
+  assert.match(optionAt(room, '학생', 'service-community').locked, /체력 40점 이하/);
+  life.stats.health = 40;
+  const next = extras(room, '학생', { military: 'service-community' });
+  assert.equal(next.scene.title, '마을 복무 첫해');
+  assert.equal(next.life.path.service.kind, 'community');
+  year(room);
+  year(room);
+  assert.equal(life.path.service.endedAt, 30);
 });
 
 test('전세금을 집값에 보태고 능력치는 100을 넘겨도 계속 쌓인다', () => {
@@ -192,23 +346,25 @@ test('운동 효과는 선택한 해 다음부터 3년간 한 번씩 쌓인다',
 
 test('월급과 월세를 따로 표시하고 집을 사면 다음 해 월세가 끝난다', () => {
   const room = classroom({ 학생: 'female' }, { age: 19 });
-  assert.deepEqual(optionAt(room, '학생', 'work-staff').recurring.starts[0].effect, { money: 2 });
-  year(room, { 학생: { education: 'work-staff' } });
   const { life } = room.players[0];
+  life.stats.learning = 25;
+  pick(room, '학생', 'education', 'rest');
+  assert.deepEqual(optionAt(room, '학생', 'work-staff').recurring.starts[0].effect, { money: 3 });
+  year(room, { 학생: { career: 'work-staff' } });
   life.age = 28;
   life.stats.money = 100;
   const rent = optionAt(room, '학생', 'rent-room');
   assert.equal(rent.effect.money, -8);
   assert.deepEqual(rent.recurring.starts[0].effect, { money: -2 });
   year(room, {}, () => 'rent-room');
-  assert.equal(life.stats.money, 94);
-  assert.equal(me(room, '학생').scene.base.money, 0);
+  assert.equal(life.stats.money, 95);
+  assert.equal(me(room, '학생').scene.base.money, 1);
   assert.deepEqual(me(room, '학생').scene.yearly.map(({ id }) => id), ['job-staff', 'rent']);
   life.age = 33;
   assert.deepEqual(optionAt(room, '학생', 'buy-home').recurring.stops, ['월세']);
   year(room, {}, () => 'buy-home');
-  assert.equal(life.stats.money, 14);
-  assert.equal(me(room, '학생').scene.base.money, 2);
+  assert.equal(life.stats.money, 16);
+  assert.equal(me(room, '학생').scene.base.money, 3);
 });
 
 test('결혼한 뒤에만 아이를 맞이하고 자녀가 자랄 때까지 돌봄이 이어진다', () => {
@@ -239,7 +395,7 @@ test('현재 방의 정상 선택과 지난 가족 기록을 유지하고 미혼
   first.life.path.children = [31];
   first.choice = 'have-child';
   second.choice = 'rest';
-  room.rules = 3;
+  room.rules = 4;
   const turn = { ...room.turn };
   assert.equal(updateRoomRules(room, 2_000), true);
   assert.deepEqual(room.turn, turn);
