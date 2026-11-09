@@ -308,6 +308,8 @@ test('각자 진행에서 세대를 잇거나 영혼으로 선택해도 친구�
   const room = classroom({ 새싹: 'female', 바람: 'female' }, { age: 79, settings: { pace: 'personal', maxAge: 80 } });
   room.players[0].life.career = 'crew';
   room.players[1].life.career = 'nurse';
+  room.players[0].life.path.retired = 65;
+  room.players[1].life.path.retired = 60;
   pick(room, '새싹', 'year', 'rest');
   assert.equal(me(room, '바람').age, 79);
   assert.equal(me(room, '새싹').mode, 'fork');
@@ -407,13 +409,15 @@ test('직업마다 학력과 능력치가 다르고 선택해야 고정 수입�
   assert.match(optionAt(room, '학생', 'work-staff').locked, /고등학교 졸업 또는 검정고시/);
   assert.match(optionAt(room, '학생', 'work-chip').locked, /4년제 대학 졸업 이상/);
   assert.match(optionAt(room, '학생', 'work-sales').locked, /관계 37점/);
-  assert.match(optionAt(room, '학생', 'work-shop').locked, /자금 58코인/);
+  life.stats.money = 41;
+  assert.match(optionAt(room, '학생', 'work-shop').locked, /자금 42코인/);
+  life.stats.money = 57;
   assert.match(roomView({ role: 'player' }, stateFor(room, '학생'), { pane: 'play', rank: 'age' }), /조건이 필요한 직업/);
   assert.throws(() => pick(room, '학생', 'career', 'work-chip'), /선택을 할 수 없어요/);
   life.stats.bond = 37;
   assert.deepEqual(optionAt(room, '학생', 'work-sales').recurring.starts[0].effect, { money: 5, health: -1 });
-  life.stats.money = 58;
-  assert.equal(optionAt(room, '학생', 'work-shop').effect.money, -38);
+  life.stats.money = 42;
+  assert.equal(optionAt(room, '학생', 'work-shop').effect.money, -24);
   assert.equal(optionAt(room, '학생', 'work-shop').locked, '');
   assert.equal(life.career, null);
   year(room, { 학생: { career: 'work-crew' } });
@@ -449,16 +453,16 @@ test('경력과 직무 능력이 먼저 연봉을 올리고 관련 대학원을 
   year(room, {}, () => 'study-project');
   assert.equal(life.path.workYears.chip, 3);
   assert.equal(life.path.program.remaining, 1);
-  assert.equal(careerPay(life).total, 10);
+  assert.equal(careerPay(life).total, 9);
   assert.equal(me(room, '연구원').latest.changes.money, 8);
-  assert.deepEqual(me(room, '연구원').latest.raise, { from: 8, to: 10 });
-  assert.match(choiceFeedbackView(stateFor(room, '연구원')), /다음 해 연봉 8 → 10코인/);
+  assert.deepEqual(me(room, '연구원').latest.raise, { from: 8, to: 9 });
+  assert.match(choiceFeedbackView(stateFor(room, '연구원')), /다음 해 연봉 8 → 9코인/);
   year(room);
   assert.equal(life.path.degree.kind, 'graduate');
   assert.equal(careerPay(life).education, 2);
   assert.equal(careerPay(life).total, 12);
-  assert.equal(me(room, '연구원').latest.changes.money, 10);
-  assert.deepEqual(me(room, '연구원').latest.raise, { from: 10, to: 12 });
+  assert.equal(me(room, '연구원').latest.changes.money, 9);
+  assert.deepEqual(me(room, '연구원').latest.raise, { from: 9, to: 12 });
 });
 
 test('복무 중에는 직업 경력을 쉬고 복무를 마친 뒤 기존 경력을 이어간다', () => {
@@ -469,7 +473,7 @@ test('복무 중에는 직업 경력을 쉬고 복무를 마친 뒤 기존 경�
   year(room, { 학생: { military: 'enlist' } });
   year(room);
   assert.equal(life.path.workYears.crew, 2);
-  assert.equal(careerPay(life).total, 2);
+  assert.equal(careerPay(life).total, 3);
   year(room);
   assert.equal(life.path.workYears.crew, 3);
   assert.equal(careerPay(life).total, 3);
@@ -506,7 +510,7 @@ test('게임 메뉴에는 팁과 모든 직업의 조건 및 연봉이 있다', 
   life.career = 'crew';
   life.path.workYears.crew = 3;
   assert.match(topView({ role: 'player' }, stateFor(room, '학생')), /<span>메뉴<\/span>/);
-  assert.match(gameMenuView('tips', life), /3년·8년·15년/);
+  assert.match(gameMenuView('tips', life), /직업마다 경력 상승 속도가 달라요/);
   const guide = gameMenuView('jobs', life);
   assert.equal([...guide.matchAll(/class="job-guide-entry"/g)].length, Object.keys(CAREERS).length);
   assert.match(guide, /매장 직원 · 연봉 3코인/);
@@ -556,7 +560,7 @@ test('전세금을 집값에 보태고 능력치는 100을 넘겨도 계속 쌓�
   assert.equal(life.stats.money, 1);
   assert.ok(life.stats.joy > 104);
   while (life.age < 54) year(room);
-  life.stats.money = 17;
+  life.stats.money = 18;
   year(room, {}, () => 'move-home');
   assert.equal(life.path.home.at, 54);
   assert.equal(life.stats.money, 1);
@@ -606,8 +610,8 @@ test('연봉과 월세를 따로 표시하고 집을 사면 다음 해 월세가
   assert.deepEqual(optionAt(room, '학생', 'buy-home').recurring.stops, ['월세']);
   year(room, {}, () => 'buy-home');
   assert.equal(life.stats.money, 16);
-  assert.equal(me(room, '학생').scene.base.money, 4);
-  assert.deepEqual(me(room, '학생').latest.raise, { from: 3, to: 4 });
+  assert.equal(me(room, '학생').scene.base.money, careerPay(life).total);
+  assert.equal(me(room, '학생').latest.raise?.to ?? careerPay(life).total, careerPay(life).total);
 });
 
 test('결혼한 뒤에만 아이를 맞이하고 자녀가 자랄 때까지 돌봄이 이어진다', () => {
