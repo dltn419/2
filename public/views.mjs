@@ -1,7 +1,7 @@
 import { AVATARS, CAREER_CREDENTIALS, CAREERS, STAGES, STATS } from './content.mjs';
 import { CAPACITY, MODES, PASS, RANKS, stageAt } from './game.mjs';
 import { SEXES, careerGrowth, careerPay, chanceDiscount, lifeBadges, pathNotes, pathOf,
-  retirementAge, retirementLumpSum, retirementPayout, retirementTax } from './life.mjs';
+  performanceProfile, retirementAge, retirementLumpSum, retirementPayout, retirementTax } from './life.mjs';
 import { avatar, changes, escapeHtml as h, icon, numeral, statGrid } from './ui.mjs';
 
 const rankInfo = { ...STATS, age: { label: '장수', mark: 'clock', color: 'mint', unit: '살' } };
@@ -33,12 +33,13 @@ function jobGuide(life) {
     current.experience && `경력 +${current.experience}`, current.skill && `${STATS[current.stat].label} +${current.skill}`,
     current.education && `대학원 +${current.education}`,
   ].filter(Boolean).join(' · ');
+  const currentBonus = life?.career && performanceProfile(life.career);
   return `
     ${current ? `<section class="current-pay"><strong>${h(CAREERS[life.career].title)} · 연봉 ${current.total}코인</strong>
-      <p class="field-note">${h(payParts)}</p></section>` : ''}
+      <p class="field-note">${h(payParts)}${currentBonus ? ` · 성과 보너스 매년 0~${currentBonus.max}코인` : ''}</p></section>` : ''}
     <label class="job-search-label">직업 찾기<input id="job-search" type="search" placeholder="직업 이름이나 조건" autocomplete="off"></label>
     <p class="field-note" id="job-no-match" role="status" hidden>찾는 직업이 없어요.</p>
-    <ul class="job-guide-list">${Object.entries(CAREERS).map(([id, job]) => {
+    <ul class="job-guide-list">${Object.entries(CAREERS).filter(([, job]) => !job.legacyPromotion).map(([id, job]) => {
       const requirements = [
         CAREER_CREDENTIALS[job.education],
         ...Object.entries(job.need ?? {}).map(([stat, minimum]) => {
@@ -53,9 +54,11 @@ function jobGuide(life) {
       ].filter(Boolean);
       const growth = careerGrowth(id);
       const growthLine = `${growth.label} · ${growth.steps.join('·')}년차 이후 +${growth.raise}코인씩`;
+      const performance = performanceProfile(id);
       return `<li class="job-guide-entry">
         <div class="job-guide-heading"><h3>${h(job.title)}</h3><span>기본 연봉 ${job.wage}코인</span></div>
         <p>${h(job.detail)}</p>
+        ${performance ? `<p class="job-requirements"><b>성과 보너스</b> 매년 0~${performance.max}코인 · ${h(performance.description)}</p>` : ''}
         <p class="job-requirements"><b>${job.promotionFrom ? '승진 경로' : '연봉 성장'}</b>
           ${h(job.promotionFrom ? `${CAREERS[job.promotionFrom].title} → ${job.title} · ${growthLine}` : growthLine)}</p>
         <p class="job-requirements"><b>조건</b> ${h(requirements.join(' · ') || '취업 기회가 오면 바로 지원')}</p>
@@ -72,7 +75,8 @@ export function gameMenuView(page, life) {
   ${jobs ? jobGuide(life) : `<ul class="help-list">
     <li><b>한 해 보내기</b><p>일상 선택 한 번에 한 살 자라요. 장래희망, 진학, 치료는 같은 나이에 고르는 추가 선택이에요.</p></li>
     <li><b>하고 싶은 일 준비하기</b><p>19살부터 취업할 기회가 와요. 꿈이나 전공이 직업과 맞으면 일부 조건이 낮아져요.</p></li>
-    <li><b>연봉 올리기</b><p>직업마다 경력 상승 속도가 달라요. 직업 선택 시 일반 취업보다 위에 승진·전직 기회가 나타나요. 승진은 이전 단계 경력을 이어받고, 일반 이직은 연관 경력의 절반을 최대 10년 인정해요.</p></li>
+    <li><b>연봉 올리기</b><p>직업마다 경력 상승 속도가 달라요. 조직형 직업은 승진·전직할 수 있고, 농부·창작자·방문판매원·크리에이터·가게 주인·운동선수는 해마다 성과에 따른 추가 수입을 받아요. 성과는 능력치와 경력, 올해의 운에 따라 달라져요.</p></li>
+    <li><b>다른 일 도전하기</b><p>직업 선택 시 승진이 있다면 먼저 표시되고, 다른 직업으로 이직할 수도 있어요. 승진은 직전 직급 경력을 이어받고 일반 이직은 관련 경력의 절반을 최대 10년 인정해요.</p></li>
     <li><b>은퇴와 노후 저축</b><p>직업별로 정년이 달라요. 저축에는 연 4% 복리가 붙고, 은퇴하면 일시금(세금 25%) 또는 10년 연금(세금 5%)을 선택해요.</p></li>
     <li><b>돈과 체력 챙기기</b><p>‘올해 변화’를 펼치면 수입, 집세, 돌봄을 확인할 수 있어요. 체력이 낮을수록 병에 걸리기 쉬워요.</p></li>
     <li><b>인생을 마친 뒤</b><p>다음 세대로 이어 살거나 영혼이 되어 기억이 남은 곳에 들를 수 있어요.</p></li>
@@ -430,7 +434,8 @@ function playerView(session, state, rank) {
     const college = scene.key === 'education' ? scene.choices.filter(({ educationGroup }) => educationGroup === 'college') : [];
     const further = scene.key === 'education' ? scene.choices.filter(({ educationGroup }) => educationGroup === 'further') : [];
     const choices = scene.choices.filter((item) => !item.educationGroup &&
-      (!careerScene || (!item.locked && item.careerGroup !== 'advancement' && !currentJob)));
+      (!careerScene || (!item.locked && item.careerGroup !== 'advancement' &&
+        (!currentJob || item.id === 'rest'))));
     const hint = scene.waiting || me.choice ? waiting : !choices.length ? '친구들 메뉴에서 다른 이야기를 볼 수 있어요.' : '';
     const canPass = !personal && me.mode !== 'alive' && !scene.waiting;
     body = `${roundMeta(state)}

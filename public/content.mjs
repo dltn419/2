@@ -34,7 +34,7 @@ export const CAREER_GROWTH = {
   stable: { label: '안정 성장', steps: [4, 9, 16], raise: 1 },
   skilled: { label: '숙련 성장', steps: [3, 7, 12, 18], raise: 1 },
   professional: { label: '전문 성장', steps: [4, 9, 15], raise: 1 },
-  performance: { label: '성과 성장', steps: [3, 7, 12], raise: 2 },
+  performance: { label: '성과 성장', steps: [3, 7, 12], raise: 1 },
   athlete: { label: '선수 성장', steps: [2, 4, 7], raise: 2 },
 };
 
@@ -98,6 +98,21 @@ export const CAREERS = {
  * from: 직전 직위, minYears: 그 직위에서 요구하는 근무연수.
  * 직전 직위로 일한 상태에서만 승진 지원이 가능합니다.
  */
+export const PERFORMANCE_BONUSES = {
+  farmer: { label: '농작물 수확 보너스', stat: 'health', threshold: 55, max: 5,
+    description: '건강한 농사와 작황에 따라 수확 소득이 달라져요.' },
+  studio: { label: '작품 판매 보너스', stat: 'art', threshold: 60, max: 5,
+    description: '그림과 작품 판매 성과로 추가 수입을 얻어요.' },
+  sales: { label: '판매 실적 수당', stat: 'bond', threshold: 55, max: 5,
+    description: '거래 성사와 고객 관계에 따라 실적 수당을 받아요.' },
+  creator: { label: '콘텐츠 광고·후원 수입', stat: 'art', threshold: 60, max: 6,
+    description: '콘텐츠의 조회수와 인기도에 따라 광고·후원 수입이 생겨요.' },
+  shop: { label: '가게 매출 보너스', stat: 'bond', threshold: 55, max: 6,
+    description: '손님이 늘고 매출이 좋은 해에 순이익 보너스를 받아요.' },
+  athlete: { label: '대회 성적 상금', stat: 'health', threshold: 80, max: 5,
+    description: '경기 성적과 대회 결과에 따라 상금이 달라져요.' },
+};
+
 export const CAREER_PROMOTIONS = {
   storeLead: { from: 'crew', title: '매장 매니저', wage: 4, minYears: 4, need: { bond: 40, learning: 30 } },
   storeManager: { from: 'storeLead', title: '매장 점장', wage: 6, minYears: 5, need: { bond: 55, learning: 42 } },
@@ -114,22 +129,14 @@ export const CAREER_PROMOTIONS = {
   factoryDirector: { from: 'factoryLead', title: '공장장', wage: 9, minYears: 8, need: { learning: 65, bond: 55 } },
   communityLead: { from: 'care', title: '마을 사업팀장', wage: 5, minYears: 5, need: { bond: 48, learning: 41 } },
   communityDirector: { from: 'communityLead', title: '마을센터장', wage: 7, minYears: 7, need: { bond: 65, learning: 55 } },
-  farmManager: { from: 'farmer', title: '농장 운영자', wage: 6, minYears: 6, need: { health: 46, money: 32 } },
-  farmDirector: { from: 'farmManager', title: '농업법인 대표', wage: 8, minYears: 7, need: { bond: 58, money: 53 } },
-  creativeDirector: { from: 'studio', title: '창작 감독', wage: 6, minYears: 5, need: { art: 60, bond: 38 } },
-  studioDirector: { from: 'creativeDirector', title: '창작 스튜디오 대표', wage: 9, minYears: 7, need: { art: 77, bond: 58 } },
   headChef: { from: 'cook', title: '주방장', wage: 6, minYears: 5, need: { art: 49, learning: 42 } },
   executiveChef: { from: 'headChef', title: '총주방장', wage: 9, minYears: 7, need: { art: 68, learning: 58 } },
   careTeamLead: { from: 'caregiver', title: '요양팀장', wage: 6, minYears: 5, need: { bond: 50, learning: 39 } },
   nursingHomeDirector: { from: 'careTeamLead', title: '요양시설장', wage: 8, minYears: 7, need: { bond: 68, learning: 56 } },
-  salesLead: { from: 'sales', title: '영업팀장', wage: 7, minYears: 5, need: { bond: 58, learning: 43 } },
-  salesDirector: { from: 'salesLead', title: '영업본부장', wage: 9, minYears: 7, need: { bond: 75, learning: 59 } },
   marketingLead: { from: 'marketing', title: '홍보팀장', wage: 7, minYears: 5, need: { art: 49, bond: 56 } },
   marketingDirector: { from: 'marketingLead', title: '마케팅 본부장', wage: 10, minYears: 7, need: { learning: 68, bond: 71 } },
   technicalLead: { from: 'tech', title: '기술팀장', wage: 7, minYears: 6, need: { learning: 56, bond: 45 } },
   technicalDirector: { from: 'technicalLead', title: '기술총괄', wage: 10, minYears: 8, need: { learning: 77, bond: 64 } },
-  contentProducer: { from: 'creator', title: '콘텐츠 PD', wage: 7, minYears: 5, need: { art: 59, bond: 46 } },
-  contentDirector: { from: 'contentProducer', title: '콘텐츠 제작사 대표', wage: 10, minYears: 8, need: { art: 74, money: 44 } },
   civilLead: { from: 'civil', title: '행정팀장', wage: 6, minYears: 8, need: { learning: 67, bond: 50 } },
   civilDirector: { from: 'civilLead', title: '행정 과장', wage: 8, minYears: 7, need: { learning: 78, bond: 66 } },
   vicePrincipal: { from: 'teacher', title: '교감', wage: 7, minYears: 12, need: { learning: 74, bond: 60 } },
@@ -144,16 +151,30 @@ export const CAREER_PROMOTIONS = {
   biologyDirector: { from: 'seniorBiologist', title: '생명과학 연구실장', wage: 12, minYears: 8, need: { learning: 103, bond: 57 } },
   seniorDeveloper: { from: 'developer', title: '시니어 개발자', wage: 9, minYears: 5, need: { learning: 76 } },
   engineeringLead: { from: 'seniorDeveloper', title: '개발팀장', wage: 12, minYears: 8, need: { learning: 91, bond: 62 } },
-  multiStoreOwner: { from: 'shop', title: '다점포 운영자', wage: 10, minYears: 8, need: { money: 44, bond: 57 } },
-  franchiseDirector: { from: 'multiStoreOwner', title: '프랜차이즈 대표', wage: 13, minYears: 8, need: { money: 70, bond: 78 } },
   principalChipResearcher: { from: 'chip', title: '반도체 책임연구원', wage: 10, minYears: 6, need: { learning: 98 } },
   chipDirector: { from: 'principalChipResearcher', title: '반도체 연구소장', wage: 13, minYears: 8, need: { learning: 110, bond: 67 } },
   clinicalProfessor: { from: 'doctor', title: '임상교수', wage: 13, minYears: 8, need: { learning: 103, bond: 50 }, requiresGraduate: true },
   hospitalDirector: { from: 'clinicalProfessor', title: '병원장', wage: 16, minYears: 7, need: { learning: 114, bond: 82 } },
 };
 
+// 이전 버전에서 이미 진급한 캐릭터의 기록을 보존하기 위한 직위입니다.
+// 새 게임에서는 해당 직위로 승진할 수 없으며, 직업 메뉴에도 보이지 않습니다.
+export const LEGACY_PERFORMANCE_PROMOTIONS = {
+  farmManager: { from: 'farmer', title: '농장 운영자', wage: 6, minYears: 6, need: { health: 46, money: 32 } },
+  farmDirector: { from: 'farmManager', title: '농업법인 대표', wage: 8, minYears: 7, need: { bond: 58, money: 53 } },
+  creativeDirector: { from: 'studio', title: '창작 감독', wage: 6, minYears: 5, need: { art: 60, bond: 38 } },
+  studioDirector: { from: 'creativeDirector', title: '창작 스튜디오 대표', wage: 9, minYears: 7, need: { art: 77, bond: 58 } },
+  salesLead: { from: 'sales', title: '영업팀장', wage: 7, minYears: 5, need: { bond: 58, learning: 43 } },
+  salesDirector: { from: 'salesLead', title: '영업본부장', wage: 9, minYears: 7, need: { bond: 75, learning: 59 } },
+  contentProducer: { from: 'creator', title: '콘텐츠 PD', wage: 7, minYears: 5, need: { art: 59, bond: 46 } },
+  contentDirector: { from: 'contentProducer', title: '콘텐츠 제작사 대표', wage: 10, minYears: 8, need: { art: 74, money: 44 } },
+  multiStoreOwner: { from: 'shop', title: '다점포 운영자', wage: 10, minYears: 8, need: { money: 44, bond: 57 } },
+  franchiseDirector: { from: 'multiStoreOwner', title: '프랜차이즈 대표', wage: 13, minYears: 8, need: { money: 70, bond: 78 } },
+};
+
+
 // 상위 직위는 독립적인 신규 취업 자리가 아니라 직전 직위에서의 승진으로만 열립니다.
-for (const [id, position] of Object.entries(CAREER_PROMOTIONS)) {
+for (const [id, position] of Object.entries({ ...CAREER_PROMOTIONS, ...LEGACY_PERFORMANCE_PROMOTIONS })) {
   const parent = CAREERS[position.from];
   if (!parent) throw new Error(`승진 경로가 올바르지 않음: ${position.from} → ${id}`);
   CAREERS[id] = {
@@ -168,6 +189,7 @@ for (const [id, position] of Object.entries(CAREER_PROMOTIONS)) {
     field: parent.field,
     related: parent.related,
     promotionFrom: position.from,
+    legacyPromotion: Object.hasOwn(LEGACY_PERFORMANCE_PROMOTIONS, id),
     minYears: position.minYears,
     requiresGraduate: position.requiresGraduate ?? false,
     need: position.need,
