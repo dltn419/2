@@ -129,6 +129,11 @@ test('노후 생활비는 단계적으로 증가하며 건강·주거 지출 선
   };
   assert.deepEqual([49, 50, 65, 75, 85].map(cost), [0, -1, -2, -3, -4]);
   life.age = 72;
+  life.path.home = { kind: 'own', at: 33, deposit: 0 };
+  assert.equal(yearlySources(life).find(({ id }) => id === 'home-maintenance')?.effect.money, -1);
+  life.age = 80;
+  assert.equal(yearlySources(life).find(({ id }) => id === 'home-maintenance')?.effect.money, -2);
+  life.age = 72;
   const choices = annualScene(life).choices;
   assert.ok(choices.some(({ id, effect }) => id === 'age-health' && effect.money === -12));
   assert.ok(choices.some(({ id }) => id === 'age-comfort'));
