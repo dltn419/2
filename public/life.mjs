@@ -1,4 +1,4 @@
-import { CAREER_CREDENTIALS, CAREER_GROWTH, CAREERS, HABITS, PERFORMANCE_BONUSES, pick } from './content.mjs';
+import { CAREER_CREDENTIALS, CAREER_GROWTH, CAREERS, HABITS, PERFORMANCE_BONUSES, STATS, pick } from './content.mjs';
 import { finishCare, illnessCare } from './health.mjs';
 
 export const SEXES = { male: '남자', female: '여자' };
@@ -419,6 +419,40 @@ function licensePlan(kind) {
 
 function finishedSchool(path) {
   return path.school !== 'outside' || path.diploma;
+}
+
+// 현재 직위에서 바로 도전할 수 있는 승진·전직 목표와 달성 상태입니다.
+// 직업 선택 화면과 동일하게 승진에는 조건 완화 없이 원래 능력치를 요구합니다.
+export function careerGoals(life) {
+  if (!life?.career || life.end || pathOf(life).retired !== null) return [];
+  const path = pathOf(life);
+  const current = CAREERS[life.career];
+  if (!current) return [];
+  const years = path.workYears?.[life.career] ?? 0;
+  const targets = Object.entries(CAREERS)
+    .filter(([, job]) => job.promotionFrom === life.career && !job.legacyPromotion)
+    .map(([career, job]) => ({ career, job, type: '승진',
+      minYears: job.minYears ?? 0 }));
+  if (life.career === 'athlete' && life.age <= retirementAge('athlete')) {
+    targets.push({ career: 'coach', job: CAREERS.coach, type: '전직', minYears: 3 });
+  }
+  return targets.filter(({ career }) => life.age < retirementAge(career)).map(({ career, job, type, minYears }) => {
+    const checks = [{
+      id: 'years', label: `${current.title} 경력`, current: years, required: minYears,
+      unit: '년', met: years >= minYears,
+    }, ...Object.entries(job.need ?? {}).map(([stat, minimum]) => ({
+      id: stat, label: STATS[stat].label, current: life.stats[stat] ?? 0,
+      required: minimum, unit: STATS[stat].unit ?? '점', met: (life.stats[stat] ?? 0) >= minimum,
+    }))];
+    if (job.requiresGraduate) {
+      const fields = jobFields(job);
+      const graduated = degreesOf(path).some(({ kind, field }) => kind === 'graduate' && fields.includes(field));
+      checks.push({ id: 'graduate', label: '관련 대학원 수료', met: graduated });
+    }
+    return { career, title: job.title, type, checks,
+      met: checks.filter((item) => item.met).length, total: checks.length,
+      ready: checks.every((item) => item.met) };
+  });
 }
 
 function careerWindow(life, path) {
