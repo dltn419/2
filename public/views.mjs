@@ -537,10 +537,10 @@ function playerView(session, state, rank) {
     body = `${roundMeta(state)}
       ${scene.bonus ? '<p class="extra-label">추가 선택 · 나이 그대로</p>' : ''}
       <h2 tabindex="-1">${h(scene.title)}</h2><p class="subtle scene-detail">${h(scene.detail)}</p>
-      ${yearlyView(scene)}
-      ${me.mode === 'alive' ? careerGoalsView(me.life) : ''}
       ${scene.healthWarning ? `<p class="health-warning">${icon('heart')} 큰 병을 치료 중이에요. 올해는 체력을 아껴요.</p>` : ''}
       ${me.mode === 'fork' && me.life.end ? `<p class="fork-note">${icon('book')} ${h(me.life.end.note)}</p>` : ''}
+      ${yearlyView(scene)}
+      ${me.mode === 'alive' ? careerGoalsView(me.life) : ''}
       <div class="choice-grid">${choices.map((item) => choiceCard(item, me, scene.bonus)).join('')}</div>
       ${advancing.length ? `<section class="career-advancements">
         <div class="section-heading"><h3>승진·전직 기회</h3><span class="small-badge mint">${advancing.length}개</span></div>
