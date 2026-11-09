@@ -28,14 +28,14 @@ export const EXPERIENCE_STEPS = [3, 8, 15];
 const CAREER_BY_TITLE = new Map(Object.entries(CAREERS).map(([id, job]) => [job.title, id]));
 
 const PROGRAMS = {
-  college: { label: '전문대', years: 2 },
-  university: { label: '대학', years: 4 },
-  graduate: { label: '대학원', years: 2 },
-  medicine: { label: '의대', years: 6 },
-  nursing: { label: '간호학과', years: 4 },
-  teaching: { label: '교육대', years: 4 },
-  training: { label: '직업훈련', years: 1 },
-  caregiving: { label: '돌봄 교육', years: 1 },
+  college: { label: '전문대', years: 2, familyCopay: 1 },
+  university: { label: '대학', years: 4, familyCopay: 2 },
+  graduate: { label: '대학원', years: 2, cost: 9 },
+  medicine: { label: '의대', years: 6, familyCopay: 4 },
+  nursing: { label: '간호학과', years: 4, familyCopay: 2 },
+  teaching: { label: '교육대', years: 4, familyCopay: 3 },
+  training: { label: '직업훈련', years: 1, cost: 3 },
+  caregiving: { label: '돌봄 교육', years: 1, cost: 4 },
 };
 
 const LICENSES = {
@@ -264,7 +264,6 @@ function universityChoice(kind, life, engineering = false) {
   const data = PROGRAMS[kind];
   const title = { university: engineering ? '이공계 대학 가기' : '4년제 대학 가기', nursing: '간호학과 가기',
     training: '일할 기술 배우기', caregiving: '돌봄 교육과 시험 준비하기' }[kind] ?? `${data.label} 가기`;
-  let cost = { university: 8, college: 5, graduate: 9, training: 3, medicine: 16, nursing: 8, teaching: 11, caregiving: 4 }[kind];
   const scienceSchool = path.school === 'gifted' ? 6 : path.school === 'science' ? 3 : 0;
   const need = {
     university: { learning: engineering ? 33 - scienceSchool : field === 'explore' ? 22 : 19 },
@@ -273,7 +272,10 @@ function universityChoice(kind, life, engineering = false) {
     teaching: { learning: dream === 'education' ? 42 : 47, bond: 22 },
   }[kind];
   const scholarship = kind === 'medicine' && life.stats.learning >= need.learning + 5;
-  if (scholarship) cost = 9;
+  const familySupported = data.familyCopay !== undefined;
+  const cost = familySupported
+    ? Math.min(scholarship ? 2 : data.familyCopay, Math.max(0, life.stats.money - 1))
+    : data.cost;
   const detail = kind === 'medicine' ? `6년을 배우고 의사 시험에 도전해요.${scholarship ? ' 장학금을 받아요.' : ''}`
     : { nursing: '4년 동안 간호를 배우고 간호사 시험을 준비해요.', teaching: '4년 동안 아이들을 가르치는 법을 배워요.',
       caregiving: '1년 동안 어르신을 돌보는 법을 배우고 시험을 봐요.' }[kind]
@@ -291,9 +293,9 @@ function universityChoice(kind, life, engineering = false) {
     caregiving: '돌봄 수업에 들어가 어르신의 하루를 돕는 법부터 배웠어요.',
   }[kind];
   return option(engineering ? 'study-engineering' : `study-${kind}`, title, detail,
-    kind === 'training' ? 'settings' : field === 'medical' || kind === 'caregiving' ? 'heart' : 'book', { money: -cost }, 'study', kind,
+    kind === 'training' ? 'settings' : field === 'medical' || kind === 'caregiving' ? 'heart' : 'book', cost ? { money: -cost } : {}, 'study', kind,
     field === 'explore' ? '처음 보는 시간표를 받아 들었어요.' : `시간표에서 ‘${fieldLabel(field)}’와 이어지는 수업을 찾았어요.`,
-    { studyField: field, need, narration, ...(need ? { conditions: [] } : {}) });
+    { studyField: field, need, narration, educationGroup: familySupported ? 'college' : 'further', ...(need ? { conditions: [] } : {}) });
 }
 
 function licensePlan(kind) {

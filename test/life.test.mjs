@@ -203,8 +203,8 @@ test('의료 장래희망에서 영재학교와 의대 6년을 지나 면허와 
       assert.equal(optionAt(room, '학생', 'high-gifted').need.learning, 45);
     }
     const choices = { dream: 'dream-medical', school: 'high-gifted', education: 'study-medicine' };
-    year(room, { 학생: choices }, (view) => view.scene.choices.filter(({ locked }) => !locked)
-      .sort((left, right) => (right.effect.learning ?? 0) - (left.effect.learning ?? 0))[0].id);
+    year(room, { 학생: choices }, (view) => view.scene.choices.filter(({ locked, effect }) => !locked && effect.learning > 0)
+      .sort((left, right) => right.effect.learning - left.effect.learning)[0]?.id);
     if (age >= 19 && age < 24) assert.equal(life.path.program.remaining, 24 - age);
   }
   assert.deepEqual(life.path.degree, { kind: 'medicine', field: 'medical', age: 25 });
@@ -260,7 +260,7 @@ test('추가 선택에도 현재 나이에서 입학과 장래희망 이야기�
   const after = stateFor(college, '이수');
   assert.equal(after.me.age, 19);
   assert.match(choiceFeedbackView(after), /이수는<\/strong> 설레는 마음으로 대학교의 첫 강의실에 들어갔어요/);
-  assert.match(choiceFeedbackView(after), /자금 −8/);
+  assert.match(choiceFeedbackView(after), /자금 −2/);
 
   const school = classroom({ 이수: 'female' }, { age: 10, settings: { pace: 'personal' } });
   const before = stateFor(school, '이수');
@@ -270,6 +270,28 @@ test('추가 선택에도 현재 나이에서 입학과 장래희망 이야기�
   assert.deepEqual(dreamed.me.life.stats, before.me.life.stats);
   assert.match(choiceFeedbackView(dreamed), /장래희망 칸에 ‘운동과 스포츠’라고/);
   assert.doesNotMatch(choiceFeedbackView(dreamed), /class="delta /);
+});
+
+test('대학은 가족 학비 지원으로 잔액이 적어도 학업 조건만 충족하면 갈 수 있다', () => {
+  const room = classroom({ 학생: 'female' }, { age: 19, settings: { pace: 'personal' } });
+  const { life } = room.players[0];
+  Object.assign(life.stats, { learning: 52, bond: 22, money: 1 });
+  assert.match(optionAt(room, '학생', 'study-medicine').locked, /^배움 63점 필요$/);
+  assert.equal(optionAt(room, '학생', 'study-engineering').need.learning, 33);
+  assert.equal(optionAt(room, '학생', 'study-nursing').need.bond, 20);
+  assert.equal(optionAt(room, '학생', 'study-teaching').need.learning, 47);
+  assert.equal(optionAt(room, '학생', 'study-university').locked, '');
+  const html = roomView({ role: 'player' }, stateFor(room, '학생'), { pane: 'play', rank: 'age' });
+  assert.match(html, /data-choice-section="college"[\s\S]*data-id="study-university"/);
+  assert.match(html, /data-choice-section="further"[\s\S]*data-id="study-training"/);
+
+  life.stats.learning = 63;
+  assert.equal(optionAt(room, '학생', 'study-medicine').locked, '');
+  assert.deepEqual(optionAt(room, '학생', 'study-medicine').effect, {});
+  pick(room, '학생', 'education', 'study-medicine');
+  assert.equal(life.path.program.kind, 'medicine');
+  assert.equal(life.stats.money, 1);
+  assert.equal(life.age, 19);
 });
 
 test('공유 진행에서 선택 문장은 바로 나오고 수치 변화는 한 해가 지나면 표시된다', () => {
@@ -290,8 +312,8 @@ test('각자 진행에서 세대를 잇거나 영혼으로 선택해도 친구�
   assert.equal(me(room, '바람').age, 79);
   assert.equal(me(room, '새싹').mode, 'fork');
   pick(room, '새싹', 'year', 'child-male');
-  assert.equal(me(room, '새싹').age, 19);
-  assert.equal(me(room, '새싹').scene.key, 'education');
+  assert.equal(me(room, '새싹').age, 0);
+  assert.equal(me(room, '새싹').scene.title, '세상에 온 첫해');
   assert.equal(me(room, '새싹').latest.type, 'child');
   pick(room, '바람', 'year', 'rest');
   pick(room, '바람', 'year', 'spirit');
@@ -304,16 +326,30 @@ test('각자 진행에서 세대를 잇거나 영혼으로 선택해도 친구�
 
   const state = stateFor(room, '새싹');
   const parent = state.rankings.age.find(({ name }) => name === '새싹');
-  assert.equal(parent.age, 19);
+  assert.equal(parent.age, 0);
   assert.equal(parent.career, null);
   assert.equal(parent.value, 80);
   assert.equal(parent.generation, 1);
   const html = roomView({ role: 'player' }, state, { pane: 'rank', rank: 'age' });
-  assert.match(html, /19살 · 직업 없음/);
+  assert.match(html, /0살 · 직업 없음/);
   assert.match(html, /80살 · 간호사/);
   const teacher = roomView({ role: 'host' }, stateFor(room, null), { pane: 'play', rank: 'age' });
   assert.match(teacher, /학생들의 현재 인생/);
   assert.doesNotMatch(teacher, /data-action="advance"|data-clock/);
+});
+
+test('다음 세대는 부모의 수치와 관계없이 기본 능력치 이상으로 태어난다', () => {
+  const initial = classroom({ 기준: 'female' }).players[0].life.stats;
+  const room = classroom({ 새싹: 'female', 가람: 'female' }, { age: 79, settings: { pace: 'personal', maxAge: 80 } });
+  Object.assign(room.players[0].life.stats, { money: -10, bond: -5 });
+  Object.assign(room.players[1].life.stats, { money: 500, bond: 140 });
+  for (const id of ['새싹', '가람']) {
+    pick(room, id, 'year', 'rest');
+    pick(room, id, 'year', 'child-female');
+  }
+  assert.deepEqual(me(room, '새싹').life.stats, initial);
+  assert.deepEqual(me(room, '가람').life.stats, { ...initial, money: initial.money + 30, bond: initial.bond + 8 });
+  assert.ok(room.players.every(({ life }) => life.age === 0 && life.generation === 2));
 });
 
 test('운동선수는 훈련 기록과 체력이 필요하고 영상 크리에이터는 꿈이나 능력치에 따라 나타난다', () => {

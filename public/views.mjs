@@ -312,6 +312,15 @@ function choiceCard(option, me, bonus) {
   </button>`;
 }
 
+function choiceSection(key, title, options, me, bonus, note = '') {
+  if (!options.length) return '';
+  return `<details class="choice-section" data-choice-section="${key}">
+    <summary data-focus="section-${key}">${h(title)} <span>${options.length}개</span></summary>
+    ${note ? `<p class="field-note">${h(note)}</p>` : ''}
+    <div class="choice-grid">${options.map((item) => choiceCard(item, me, bonus)).join('')}</div>
+  </details>`;
+}
+
 function latestView(latest) {
   if (!latest?.text || latest.text === latest.line) return '';
   return `<details class="latest" data-result="${h(latest.year + '-' + latest.type + '-' + latest.title)}">
@@ -371,7 +380,9 @@ function playerView(session, state, rank) {
     const { scene } = me;
     const waiting = state.turn.auto ? '골랐어요. 친구들을 기다려요.' : '골랐어요. 선생님이 마감하면 다음 해로 가요.';
     const lockedJobs = scene.key === 'career' ? scene.choices.filter(({ locked }) => locked) : [];
-    const choices = lockedJobs.length ? scene.choices.filter(({ locked }) => !locked) : scene.choices;
+    const college = scene.key === 'education' ? scene.choices.filter(({ educationGroup }) => educationGroup === 'college') : [];
+    const further = scene.key === 'education' ? scene.choices.filter(({ educationGroup }) => educationGroup === 'further') : [];
+    const choices = scene.choices.filter((item) => !item.educationGroup && (scene.key !== 'career' || !item.locked));
     const hint = scene.waiting || me.choice ? waiting : !choices.length ? '친구들 메뉴에서 다른 이야기를 볼 수 있어요.' : '';
     const canPass = !personal && me.mode !== 'alive' && !scene.waiting;
     body = `${roundMeta(state)}
@@ -380,8 +391,9 @@ function playerView(session, state, rank) {
       ${scene.healthWarning ? `<p class="health-warning">${icon('heart')} 큰 병을 치료 중이에요. 올해는 체력을 아껴요.</p>` : ''}
       ${me.mode === 'fork' && me.life.end ? `<p class="fork-note">${icon('book')} ${h(me.life.end.note)}</p>` : ''}
       <div class="choice-grid">${choices.map((item) => choiceCard(item, me, scene.bonus)).join('')}</div>
-      ${lockedJobs.length ? `<details class="career-locked"><summary data-focus="career-locked">조건이 필요한 직업 ${lockedJobs.length}개</summary>
-        <div class="choice-grid">${lockedJobs.map((item) => choiceCard(item, me, scene.bonus)).join('')}</div></details>` : ''}
+      ${choiceSection('college', '대학 진학', college, me, scene.bonus, '가족 지원을 뺀 본인 부담만 표시해요.')}
+      ${choiceSection('further', '대학원·직업훈련', further, me, scene.bonus)}
+      ${choiceSection('career-locked', '조건이 필요한 직업', lockedJobs, me, scene.bonus)}
       ${hint || canPass ? `<div class="choice-footer">${hint ? `<span>${hint}</span>` : ''}
         ${canPass ? button('choose', me.choice === 'pass' ? '기다리기를 골랐어요' : '이번엔 기다리기', 'clock', 'quiet', 'data-id="pass"') : ''}</div>` : ''}
       ${yearlyView(scene)}

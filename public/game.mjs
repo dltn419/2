@@ -52,10 +52,10 @@ export function nickname(value, maximum = 14) {
 function newLife(generation, sex, parent) {
   const stats = { ...INITIAL_STATS };
   if (parent) {
-    stats.money = 12 + Math.min(30, Math.floor(parent.stats.money * 0.15));
-    stats.bond += Math.min(8, Math.floor(parent.stats.bond / 12));
+    stats.money += Math.min(30, Math.floor(Math.max(0, parent.stats.money ?? 0) * 0.15));
+    stats.bond += Math.min(8, Math.floor(Math.max(0, parent.stats.bond ?? 0) / 12));
   }
-  return { generation, age: parent ? 19 : 0, stats, career: null, path: newPath(sex), history: [], end: null };
+  return { generation, age: 0, stats, career: null, path: newPath(sex), history: [], end: null };
 }
 
 export function newRoom({ code, seed, name, hostKey, settings, now = Date.now() }) {
@@ -123,7 +123,7 @@ function choicesFor(room, player) {
     const next = pathOf(life).children.length ? '자녀로 이어 살기' : '다음 세대로 이어 살기';
     return { key: 'year', title: '다음 이야기를 골라요', detail: '한 삶의 기록이 남았어요. 이제 어디로 갈까요?',
       choices: [
-        pick('successor', next, '캐릭터를 골라 다음 세대의 19살부터 시작해요.', 'sprout', {}),
+        pick('successor', next, '다음 세대의 캐릭터를 골라 0살부터 시작해요.', 'sprout', {}),
         pick('spirit', '영혼으로 머물기', '가족의 꿈과 기억에 남은 곳에 들러요.', 'ghost', {}),
       ] };
   }
@@ -275,7 +275,7 @@ function branch(player, year, option) {
     player.latest = {
       year, age: player.life.age, title: option.title,
       line: '앞 세대의 마음을 이어받아 새로운 첫날을 맞았어요.',
-      text: `${player.life.generation}대의 첫날이에요. 앞 세대가 남긴 돈과 인연을 조금 이어받았어요.`, type: 'child',
+      text: `${player.life.generation}대가 0살로 태어났어요. 기본 능력치를 받고 앞 세대의 돈과 인연 일부를 더 받을 수 있어요.`, type: 'child',
     };
     player.life.history.push(player.latest);
   } else if (option.id === 'spirit') {

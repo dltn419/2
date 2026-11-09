@@ -268,9 +268,10 @@ test('삶을 마친 두 플레이어가 자녀와 영혼으로 갈라지고 메�
   await advance((me, index) => index === 0 ? 'child-male' : 'spirit', /집에 불이 켜졌어요/);
   const successor = (await room.state(child.session.token)).me;
   assert.equal(successor.generation, 2);
-  assert.equal(successor.age, 19);
+  assert.equal(successor.age, 0);
   assert.equal(successor.mode, 'alive');
   assert.equal(successor.life.path.sex, 'male');
+  assert.equal(successor.scene.title, '세상에 온 첫해');
   await advance((me, index) => index === 0 ? 'rest' : 'family-dream', /꿈에/);
   await advance((me, index) => index === 0 ? 'rest' : 'funeral', /./);
   await advance((me, index) => index === 0 ? 'rest' : 'workplace', /./);

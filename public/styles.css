@@ -179,7 +179,7 @@ input[name="code"] { font-family: var(--mono); text-transform: uppercase; letter
 .landscape-hint { display: none; color: var(--muted); font-size: 12px; margin-top: 4px; }
 body:has(.playing-room) { height: 100dvh; min-height: 0; overflow: hidden; }
 body:has(.playing-room) #top { flex: none; }
-body:has(.playing-room) #main { flex: 1; min-height: 0; overflow-y: auto; }
+body:has(.playing-room) #main { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
 body:has(.playing-room) .footer { display: none; }
 .choice-feedback { flex: none; }
 .choice-feedback:not(:empty) { margin-bottom: max(8px, env(safe-area-inset-bottom)); }
@@ -242,6 +242,7 @@ body:has(.playing-room) .footer { display: none; }
 .scene-detail { font-size: 16px; }
 .extra-label { margin: 5px 0; color: var(--muted); font-size: 13px; font-weight: 750; }
 .choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.choice-grid > .choice:only-child { grid-column: 1 / -1; }
 .choice { display: flex; flex-direction: column; gap: 5px; align-items: stretch; justify-content: start; min-width: 0; min-height: 106px; padding: 11px; border: 1px solid #d4dbc3; border-radius: 5px; background: #fbfbef; text-align: left; transition: border-color .12s, background .12s; }
 .choice:hover:not(:disabled) { border-color: #729767; background: #f2f6e2; }
 .choice.picked { border-color: #68945a; background: #edf5d6; box-shadow: inset 0 0 0 1px #b3cc91, 1px 2px #d8e4c1; }
@@ -262,9 +263,11 @@ body:has(.playing-room) .footer { display: none; }
 .effect-caption small { color: var(--muted); font-size: 11px; font-weight: 550; }
 .effect-stop { color: var(--muted); }
 .effect-stop b { margin-right: 3px; color: #58674b; }
-.career-locked { margin-top: 10px; color: var(--muted); font-size: 13px; }
-.career-locked summary { padding: 4px 2px; cursor: pointer; }
-.career-locked .choice-grid { margin-top: 6px; }
+.choice-section { margin-top: 8px; border: 1px solid #dce2c7; border-radius: 4px; background: #fbfbef; }
+.choice-section summary { min-height: 41px; padding: 8px 10px; cursor: pointer; font-size: 14px; font-weight: 800; }
+.choice-section summary span { margin-left: 4px; color: var(--muted); font-size: 12px; font-weight: 650; }
+.choice-section .field-note { margin: 0 8px 7px; }
+.choice-section .choice-grid { padding: 0 8px 8px; }
 .health-warning { display: flex; align-items: center; gap: 6px; margin: 0 0 9px; padding: 7px 9px; border: 1px solid #e5c6b0; border-radius: 4px; background: #fbefe3; color: #79432f; font-size: 13px; word-break: keep-all; }
 .requirement, .delta { display: inline-block; width: fit-content; padding: 2px 5px; border: 1px solid var(--tone-line, #ddd6c7); border-radius: 3px; background: var(--tone, #f2ecdf); color: var(--tone-ink, #625a49); font-size: 12px; font-weight: 750; }
 .delta { white-space: nowrap; }
@@ -437,7 +440,7 @@ dialog::backdrop { background: #233e34a0; }
   .play-grid .village-person-label { padding: 1px 2px; font-size: 9px; }
   .play-grid .village-year { top: 4px; right: 4px; padding: 1px 4px; font-size: 9px; }
   .play-grid .tabs button { min-height: 32px; padding-block: 4px; }
-  .play-grid .story-panel { min-height: 0; overflow: auto; padding: 9px 11px; }
+  .play-grid .story-panel { min-height: 0; overflow: auto; overscroll-behavior-y: contain; padding: 9px 11px; }
   .play-grid .story-panel > h2 { font-size: clamp(18px, 2.4vw, 26px); margin-block: 4px; }
   .play-grid .scene-detail { font-size: 13px; margin-bottom: 8px; }
   .play-grid .choice { min-height: 79px; padding: 7px 8px; gap: 3px; }

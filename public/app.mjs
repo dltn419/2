@@ -9,6 +9,7 @@ const toast = document.querySelector('#toast');
 const feedback = document.querySelector('#choice-feedback');
 const storedSession = '100nyeon.session';
 const lastKey = (role) => `100nyeon.last.${role}`;
+const playSections = ['.notice', '.room-hero', '.play-stats', '.play-navigation', '.story-panel'];
 
 let invitedCode = new URL(location.href).searchParams.get('room')?.toUpperCase().match(/^[A-HJ-NP-Z2-9]{6}$/)?.[0] ?? '';
 let selectedAvatar = 0;
@@ -25,6 +26,8 @@ let clockOffset = 0;
 let headerKey;
 let toastTimer;
 let feedbackMarkup = '';
+let mainMarkup = '';
+let playMarkup = new Map();
 
 function read(storage, key) {
   try {
@@ -78,37 +81,68 @@ async function api(path, { body, token } = {}) {
   return result;
 }
 
+function updateMain(markup) {
+  if (markup === mainMarkup) return;
+  const template = document.createElement('template');
+  template.innerHTML = markup;
+  const current = main.firstElementChild;
+  const next = template.content.firstElementChild;
+  const sections = next?.classList.contains('playing-room')
+    ? playSections.map((selector) => [selector, next.querySelector(selector)]) : [];
+  const nextMarkup = new Map(sections.map(([selector, node]) => [selector, node?.outerHTML]));
+  if (current?.classList.contains('playing-room') && sections.length) {
+    for (const [selector, node] of sections) {
+      if (nextMarkup.get(selector) === playMarkup.get(selector)) continue;
+      const old = current.querySelector(selector);
+      if (old && node) old.replaceWith(node);
+      else if (old) old.remove();
+      else if (node) current.prepend(node);
+    }
+  } else {
+    main.replaceChildren(template.content);
+  }
+  mainMarkup = markup;
+  playMarkup = nextMarkup;
+}
+
 function render() {
   const key = state ? `${session.role}-${state.phase === 'lobby' ? 'lobby' : 'game'}` : 'home';
   if (key !== headerKey) {
     top.innerHTML = topView(session, state);
     headerKey = key;
   }
-  const focused = document.activeElement?.dataset.focus;
+  const active = document.activeElement;
+  const focused = active?.dataset.focus;
   const openedResult = main.querySelector('.latest[open]')?.dataset.result;
   const showYearly = main.querySelector('.year-effects[open]');
-  const showLocked = main.querySelector('.career-locked[open]');
   const oldStory = main.querySelector('[data-story-key]');
+  const oldStoryKey = oldStory?.dataset.storyKey;
+  const openSections = new Set(Array.from(oldStory?.querySelectorAll('[data-choice-section][open]') ?? [],
+    (section) => section.dataset.choiceSection));
+  const storyScroll = oldStory?.scrollTop ?? 0;
   const mainScroll = main.scrollTop;
-  main.innerHTML = state ? roomView(session, state, { pane, rank, offline }) :
-    homeView(invitedCode, selectedAvatar, { player: read(localStorage, lastKey('player')), host: read(localStorage, lastKey('host')) });
+  updateMain(state ? roomView(session, state, { pane, rank, offline }) :
+    homeView(invitedCode, selectedAvatar, { player: read(localStorage, lastKey('player')), host: read(localStorage, lastKey('host')) }));
   const nextFeedback = pane === 'play' ? choiceFeedbackView(state) : '';
   if (nextFeedback !== feedbackMarkup) {
     feedbackMarkup = nextFeedback;
     feedback.innerHTML = nextFeedback;
   }
-  if (focused) main.querySelector(`[data-focus="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
   const nextResult = main.querySelector('details.latest');
   if (nextResult && nextResult.dataset.result === openedResult) nextResult.open = true;
   const nextYearly = main.querySelector('details.year-effects');
   if (nextYearly && showYearly) nextYearly.open = true;
   const newStory = main.querySelector('[data-story-key]');
-  if (oldStory && newStory?.dataset.storyKey === oldStory.dataset.storyKey) {
-    const nextLocked = newStory.querySelector('.career-locked');
-    if (showLocked && nextLocked) nextLocked.open = true;
-    newStory.scrollTop = oldStory.scrollTop;
-    main.scrollTop = mainScroll;
+  if (oldStoryKey && newStory?.dataset.storyKey === oldStoryKey) {
+    if (newStory !== oldStory) {
+      for (const section of newStory.querySelectorAll('[data-choice-section]')) {
+        if (openSections.has(section.dataset.choiceSection)) section.open = true;
+      }
+      newStory.scrollTop = storyScroll;
+    }
+    if (main.scrollTop !== mainScroll) main.scrollTop = mainScroll;
   }
+  if (focused && !main.contains(active)) main.querySelector(`[data-focus="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
   updateClock();
 }
 
@@ -161,7 +195,10 @@ function accept(next, expected = session) {
   highlightStats(beforeLife, next.me?.life);
   if (newChoice && pane === 'play' && !dialog.open && !next.paused) {
     const story = main.querySelector('.story-panel');
-    if (story && story.getBoundingClientRect().top < main.getBoundingClientRect().top) story.scrollIntoView({ block: 'start' });
+    if (story) {
+      const offset = story.getBoundingClientRect().top - main.getBoundingClientRect().top;
+      if (offset < 0) main.scrollBy({ top: offset, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    }
     if (played) story?.querySelector('h2')?.focus({ preventScroll: true });
   }
   if (newMemory) modal(memory.title, `<p class="memory-text">${h(memory.text)}</p>
