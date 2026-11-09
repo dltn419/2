@@ -13,8 +13,8 @@ test('직업 안내 기본 목록에는 초기 직업만 표시하고 요약은 
   assert.equal([...html.matchAll(/<summary class="job-guide-trigger">/g)].length, baseCareers.length);
   assert.match(html, /초기 연봉/);
   assert.match(html, /성장/);
-  assert.match(html, /필요 조건/);
-  assert.match(html, /직업을 누르면 설명과 승진 조건/);
+  assert.match(html, /지원 조건/);
+  assert.match(html, /누르면 승진 경로와 조건/);
   assert.doesNotMatch(html, /<details class="job-guide-card" open/);
 });
 

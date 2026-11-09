@@ -61,13 +61,16 @@ function jobGuide(life) {
     ${current ? `<section class="current-pay"><strong>${h(CAREERS[life.career].title)} · 연봉 ${current.total}코인</strong>
       <p class="field-note">${h(payParts)}${currentBonus ? ` · 성과 보너스 매년 0~${currentBonus.max}코인` : ''}</p></section>` : ''}
     <label class="job-search-label">직업 찾기<input id="job-search" type="search" placeholder="직업명이나 승진 직급 검색" autocomplete="off"></label>
-    <p class="field-note job-guide-intro">기본 직업 ${baseCareers.length}개 · 직업을 누르면 설명과 승진 조건을 볼 수 있어요.</p>
+    <p class="field-note job-guide-intro">${baseCareers.length}개 직업 · 누르면 승진 경로와 조건을 볼 수 있어요.</p>
     <p class="field-note" id="job-no-match" role="status" hidden>찾는 직업이 없어요.</p>
     <ul class="job-guide-list">${baseCareers.map(([id, job]) => {
       const growth = careerGrowth(id);
       const growthLine = `${growth.steps.join('·')}년차 이후 +${growth.raise}코인씩`;
       const requirements = jobRequirementList(id, job, life);
       const requirementText = requirements.join(' · ') || '별도 조건 없음';
+      const summaryRequirements = requirements.length > 2
+        ? `${requirements.slice(0, 2).join(' · ')} 외 ${requirements.length - 2}개`
+        : requirementText;
       const performance = performanceProfile(id);
       const routeIds = careerPromotionRoute(id);
       const route = id === 'athlete' ? ['coach', ...careerPromotionRoute('coach')] : routeIds;
@@ -106,10 +109,11 @@ function jobGuide(life) {
               <span>초기 연봉 <b>${job.wage}코인</b></span>
               <span class="job-growth-tag">${h(growth.label)}</span>
             </span>
-            <span class="job-guide-summary-req"><b>필요 조건</b> ${h(requirementText)}</span>
+            <span class="job-guide-summary-req"><b>지원 조건</b> ${h(summaryRequirements)}</span>
           </summary>
           <div class="job-guide-detail">
             <p class="job-guide-description">${h(job.detail)}</p>
+            <p class="job-guide-full-req"><strong>지원 조건</strong> ${h(requirementText)}</p>
             <div class="job-guide-details-meta">
               <span><b>연봉 성장</b> ${h(growthLine)}</span>
               <span><b>정년</b> ${retirementAge(id)}세</span>
@@ -135,13 +139,11 @@ export function gameMenuView(page, life) {
     ${button('help', '직업 안내', 'settings', 'quiet', `data-id="jobs" aria-pressed="${jobs}"`)}
   </nav>
   ${jobs ? jobGuide(life) : `<ul class="help-list">
-    <li><b>한 해 보내기</b><p>일상 선택 한 번에 한 살 자라요. 장래희망, 진학, 치료는 같은 나이에 고르는 추가 선택이에요.</p></li>
-    <li><b>하고 싶은 일 준비하기</b><p>19살부터 취업할 기회가 와요. 꿈이나 전공이 직업과 맞으면 일부 조건이 낮아져요.</p></li>
-    <li><b>연봉 올리기</b><p>직업마다 경력 상승 속도가 달라요. 조직형 직업은 승진·전직할 수 있고, 농부·창작자·방문판매원·크리에이터·가게 주인·운동선수는 해마다 성과에 따른 추가 수입을 받아요. 성과는 능력치와 경력, 올해의 운에 따라 달라져요.</p></li>
-    <li><b>다른 일 도전하기</b><p>직업 선택 시 승진이 있다면 먼저 표시되고, 다른 직업으로 이직할 수도 있어요. 승진은 직전 직급 경력을 이어받고 일반 이직은 관련 경력의 절반을 최대 10년 인정해요.</p></li>
-    <li><b>은퇴와 노후 저축</b><p>직업별로 정년이 달라요. 저축에는 연 4% 복리가 붙고, 은퇴하면 일시금(세금 25%) 또는 10년 연금(세금 5%)을 선택해요.</p></li>
-    <li><b>돈과 체력 챙기기</b><p>‘올해 변화’를 펼치면 수입, 집세, 돌봄을 확인할 수 있어요. 체력이 낮을수록 병에 걸리기 쉬워요.</p></li>
-    <li><b>인생을 마친 뒤</b><p>다음 세대로 이어 살거나 영혼이 되어 기억이 남은 곳에 들를 수 있어요.</p></li>
+    <li><b>한 해씩 성장</b><p>일상 선택으로 한 살 자라요. 진학·치료·저축은 같은 나이에 추가로 선택해요.</p></li>
+    <li><b>직업과 승진</b><p>꿈과 전공에 맞는 일을 찾고, 경력과 조건을 쌓아 승진해요. 성과형 직업은 추가 보너스를 받아요.</p></li>
+    <li><b>돈과 건강</b><p>‘올해 변화’에서 수입과 생활비를 확인해요. 체력이 낮으면 병에 걸릴 위험이 커져요.</p></li>
+    <li><b>노후 준비</b><p>적금에는 연 4% 복리가 붙어요. 은퇴할 때 일시금 또는 10년 연금 중 선택해요.</p></li>
+    <li><b>다음 세대</b><p>삶을 마친 뒤 자녀나 다음 세대로 이어 살거나, 영혼이 되어 이야기를 남길 수 있어요.</p></li>
   </ul>`}`;
 }
 
@@ -157,7 +159,7 @@ export function homeView(code, selected, saved) {
       <div class="hero-copy">
         <div class="eyebrow">${icon('sprout')} <span>교실 인생 게임</span></div>
         <h1>같은 마을,<br>다른 <em>인생.</em></h1>
-        <p>태어나고, 배우고, 살아가며 한 권의 기록을 써요.<br class="wide-only"> 친구들과 한 마을에서 각자의 이야기를 만들어 보세요.</p>
+        <p>태어나고, 배우고, 선택하며 나만의 인생을 만들어 봐요.</p>
         <div class="hero-actions">
           <a class="button primary" href="#join">${icon('down')} 학생 참가</a>
           ${button('practice', '혼자 체험', 'play')}
@@ -174,7 +176,7 @@ export function homeView(code, selected, saved) {
       <article id="join" class="panel entry-panel">
         <div class="entry-top"><span class="tile-icon mint">${icon('users')}</span><span class="eyebrow">학생</span></div>
         <h2>친구들과 시작하기</h2>
-        <p class="subtle">${code ? '초대받은 방의 코드가 들어 있어요. 별명을 골라 참가하세요.' : '선생님에게 받은 6자리 코드로 같은 방에 들어가요.'} 게임이 이미 시작됐어도 참가할 수 있고, 새 인생은 0살부터 시작해요.</p>
+        <p class="subtle">${code ? '초대 코드가 입력돼 있어요. 별명을 골라 주세요.' : '선생님이 알려 준 방 코드로 참가해요.'} 게임이 이미 시작됐어도 참가할 수 있고, 0살부터 시작해요.</p>
         <form id="join-form">
           <div class="join-fields">
             <label>참가 코드<input name="code" type="text" placeholder="예  ABC234" value="${h(code)}" required minlength="6" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>
@@ -190,7 +192,7 @@ export function homeView(code, selected, saved) {
       <article class="panel entry-panel teacher-entry">
         <div class="entry-top"><span class="tile-icon amber">${icon('board')}</span><span class="eyebrow">교사</span></div>
         <h2>우리 반 방 만들기</h2>
-        <p class="subtle">최대 20명. 같은 마을에서 각자의 속도로 살아가요.</p>
+        <p class="subtle">최대 20명 · 방을 만들고 QR로 초대하세요.</p>
         <div class="chalkboard" aria-hidden="true"><div>우리 반 시간표<span>01 — 100</span></div><div class="classroom">${classroom}</div></div>
         ${button('create', '교사 방 만들기', 'arrow', 'dark')}
         ${button('host-reopen', '코드로 교사 방 열기', 'lock', 'quiet')}
@@ -213,8 +215,8 @@ export function settingsFields(settings, { creating = false, started = false, pi
       </select></label>
       <label>선택 시간 (초)<input name="seconds" type="number" min="0" max="180" value="${seconds}" required ${pace === 'manual' ? 'disabled' : ''}></label>`}
     </div>
-    <p class="field-note">${personal ? '학생마다 고르는 즉시 자기 인생의 다음 해가 열려요.' :
-      '전원이 고르거나 시간이 끝나면 바로 다음 해가 열려요. 0초로 두면 전원이 고를 때까지 기다려요.'}</p>
+    <p class="field-note">${personal ? '학생마다 자기 속도로 진행해요.' :
+      '전원이 선택하거나 제한 시간이 끝나면 다음 해로 넘어가요. 0초는 시간 제한이 없어요.'}</p>
     ${creating ? '<label>이 방의 교사 비밀번호<input name="roomPassword" type="password" required minlength="4" maxlength="32" autocomplete="new-password" placeholder="4~32자로 새로 정해요"></label><p class="field-note">다른 기기에서 이 방을 이어 열 때 써요. 학생은 참가 코드와 별명으로 들어와요.</p>' : ''}
     ${pinRequired ? '<label>서버 방 열기 암호<input name="pin" type="password" required autocomplete="current-password"></label>' : ''}
   `;
@@ -305,7 +307,7 @@ function lobbyView(session, state) {
   return `<div class="room-grid">
     <section class="panel section-panel">
       <div class="section-heading"><div class="eyebrow">${icon('users')} 대기실</div><span class="small-badge mint">${state.players.length} / ${CAPACITY}명</span></div>
-      <h2>${teacher ? '참가자 명단' : '함께 시작할 친구들'}</h2>
+      <h2>${teacher ? '참가자' : '함께할 친구들'}</h2>
       <p class="subtle">${teacher ? '학생이 모이면 게임을 시작하세요.' : '선생님이 시작하면 첫 번째 인생 선택이 열려요.'}</p>
       ${roster(state.players, { teacher, kickable: teacher, lobby: true, meId: state.me?.id })}
     </section>
@@ -316,7 +318,7 @@ function lobbyView(session, state) {
         ${teacher ? button('share', '초대 QR 크게 보기', 'qr') : button('share', '초대 링크 열기', 'copy')}
       </section>
       <section class="panel section-panel">
-        <div class="section-heading"><h2>방 설정</h2>${teacher ? button('settings', '설정', 'settings', 'quiet') : ''}</div>
+        <div class="section-heading"><h2>방 설정</h2>${teacher ? button('settings', '변경', 'settings', 'quiet') : ''}</div>
         ${settingsSummary(state.settings)}
         ${teacher ? button('start', '게임 시작', 'play', 'primary full', state.players.length ? 'data-focus="start"' : 'disabled') : ''}
       </section>
@@ -375,13 +377,13 @@ function careerGoalsView(life) {
   const goals = careerGoals(life);
   if (!goals.length) return '';
   return `<section class="career-goals" aria-label="내 승진·전직 준비 현황">
-    <div class="career-goals-head"><strong>승진·전직 준비</strong><span>조건 달성 현황</span></div>
+    <div class="career-goals-head"><strong>승진·전직 준비</strong></div>
     ${goals.map((goal) => {
       const missing = goal.checks.filter(({ met }) => !met);
       const summary = goal.ready
         ? '모든 조건 충족 · 다음 직업 선택 때 도전할 수 있어요'
         : `남은 조건: ${missing.map(({ label }) => label).join(' · ')}`;
-      return `<details class="career-goal-card">
+      return `<details class="career-goal-card" data-career-goal="${h(goal.career)}">
         <summary>
           <span class="career-goal-main"><b>${h(goal.type)} 목표 · ${h(goal.title)}</b>
             <span class="career-goal-progress${goal.ready ? ' complete' : ''}">${goal.met}/${goal.total} 충족</span></span>
@@ -397,9 +399,7 @@ function careerGoalsView(life) {
             <span class="career-goal-check-state">${item.met ? '충족' : '미충족'}</span>
           </li>`).join('')}
         </ul>
-        <p class="career-goal-note">${goal.type === '전직'
-          ? '조건이 충족되면 전직 선택 시기나 운동선수 은퇴 시점에 선택할 수 있어요.'
-          : '조건이 충족되면 다음 직업 선택 시기에 승진을 지원할 수 있어요.'}</p>
+        <p class="career-goal-note">조건을 채운 뒤 직업 선택 기회에 지원할 수 있어요.</p>
       </details>`;
     }).join('')}
   </section>`;
@@ -537,23 +537,21 @@ function playerView(session, state, rank) {
     body = `${roundMeta(state)}
       ${scene.bonus ? '<p class="extra-label">추가 선택 · 나이 그대로</p>' : ''}
       <h2 tabindex="-1">${h(scene.title)}</h2><p class="subtle scene-detail">${h(scene.detail)}</p>
-      ${me.mode === 'alive' ? careerGoalsView(me.life) : ''}
       ${scene.healthWarning ? `<p class="health-warning">${icon('heart')} 큰 병을 치료 중이에요. 올해는 체력을 아껴요.</p>` : ''}
       ${me.mode === 'fork' && me.life.end ? `<p class="fork-note">${icon('book')} ${h(me.life.end.note)}</p>` : ''}
+      ${yearlyView(scene)}
+      ${me.mode === 'alive' ? careerGoalsView(me.life) : ''}
       <div class="choice-grid">${choices.map((item) => choiceCard(item, me, scene.bonus)).join('')}</div>
       ${advancing.length ? `<section class="career-advancements">
         <div class="section-heading"><h3>승진·전직 기회</h3><span class="small-badge mint">${advancing.length}개</span></div>
-        <p class="field-note">현재 직업에서 경력과 능력치를 쌓으면 도전할 수 있어요.</p>
         <div class="choice-grid">${advancing.map((item) => choiceCard(item, me, scene.bonus)).join('')}</div>
       </section>` : ''}
-      ${choiceSection('career-other', '다른 직업 보기', otherJobs, me, scene.bonus,
-        '현재 직업과 다른 일을 선택하면 일반 이직으로 처리돼요.')}
+      ${choiceSection('career-other', '다른 직업 보기', otherJobs, me, scene.bonus)}
       ${choiceSection('college', '대학 진학', college, me, scene.bonus, '가족 지원을 뺀 본인 부담만 표시해요.')}
       ${choiceSection('further', '대학원·직업훈련', further, me, scene.bonus)}
       ${choiceSection('career-locked', '조건이 필요한 직업', lockedJobs, me, scene.bonus)}
       ${hint || canPass ? `<div class="choice-footer">${hint ? `<span>${hint}</span>` : ''}
         ${canPass ? button('choose', me.choice === 'pass' ? '기다리기를 골랐어요' : '이번엔 기다리기', 'clock', 'quiet', 'data-id="pass"') : ''}</div>` : ''}
-      ${yearlyView(scene)}
       ${personal || session.role === 'demo' ? '' : `<div class="submission-note"><span>${icon('users')} ${progress}</span></div>`}
       ${latestView(me.latest)}`;
   }
@@ -563,7 +561,7 @@ function playerView(session, state, rank) {
       ${roomHero(session, state)}
       <aside class="stack play-stats">
         <section class="panel section-panel">
-          <div class="section-heading"><h2>${me.mode === 'alive' ? '내 능력치' : '남긴 능력치'}</h2><span class="small-badge paper">${me.generation}대</span></div>
+          <div class="section-heading"><h2>${me.mode === 'alive' ? '능력치' : '마지막 능력치'}</h2></div>
           ${statGrid(me.life.stats, pathOf(me.life).romance)}
           ${relationshipDetails(me.life)}
           ${retirementDetails(me.life)}
@@ -586,9 +584,9 @@ function teacherView(state) {
   const ended = phase === 'ended';
   return `<div class="room-grid">
     <section class="panel section-panel">
-      <div class="section-heading"><div class="eyebrow">${icon('users')} 실시간 참가 현황</div><span class="small-badge mint">${players.length} / ${CAPACITY}명</span></div>
-      <h2>${ended ? '우리 반 최종 기록' : personal ? '학생들의 현재 인생' : '누가 선택을 마쳤나요?'}</h2>
-      ${ended ? '' : '<p class="field-note">진행 중에도 QR이나 참가 코드로 학생을 추가할 수 있어요. 새 학생은 0살부터 시작해요.</p>'}
+      <div class="section-heading teacher-roster-heading"><h2>${ended ? '우리 반 최종 기록' : personal ? '학생 현황' : '선택 현황'}</h2>
+        <span class="roster-total">${players.length} / ${CAPACITY}명</span></div>
+      ${ended ? '' : '<p class="field-note roster-hint">진행 중에도 QR이나 참가 코드로 입장 가능 · 새 학생은 0살부터 시작</p>'}
       ${phase === 'play' && !personal ? `<div class="progress-card"><span>선택 제출</span><strong>${submitted} / ${players.length}명</strong><span class="progress-bar"><i style="width:${(players.length ? submitted * 100 / players.length : 0)}%"></i></span></div>` : ''}
       ${roster(players, { teacher: phase === 'play' && !personal, kickable: phase === 'play' })}
     </section>
@@ -611,9 +609,11 @@ function teacherView(state) {
           </div>`}
       </section>
       <section class="panel section-panel">
-        <div class="section-heading"><h2>방 설정</h2>${ended || personal ? '' : button('settings', '설정', 'settings', 'quiet')}</div>
-        ${settingsSummary(state.settings)}
-        ${ended || personal ? '' : '<p class="field-note">바꾼 설정은 다음 해부터 적용돼요.</p>'}
+        <details class="teacher-settings">
+          <summary><strong>방 설정</strong><span>${state.settings.pace === 'personal' ? '각자 진행' : state.settings.pace === 'auto' ? '자동 진행' : '교사 마감'} · 최대 ${state.settings.maxAge}살</span></summary>
+          ${settingsSummary(state.settings)}
+          ${ended || personal ? '' : button('settings', '설정 변경', 'settings', 'quiet')}
+        </details>
       </section>
     </aside>
   </div>`;
@@ -648,8 +648,8 @@ export function roomView(session, state, { pane, rank, offline }) {
     ${roomHero(session, state)}
     ${state.phase === 'lobby' ? lobbyView(session, state) : `${navigation(session, pane, state)}
       ${pane === 'rank' ? rankView(state, rank) : pane === 'friends' ? `<section class="panel section-panel sheet">
-        <div class="eyebrow">${icon('users')} 마을 사람들</div>
-        <h2>친구들의 인생 기록</h2><p class="subtle">한 사람을 고르면 어떤 선택을 하며 살아왔는지 볼 수 있어요.</p>
+        <div class="eyebrow">${icon('users')} 친구들</div>
+        <h2>친구들의 인생</h2><p class="subtle">친구를 누르면 인생 기록을 볼 수 있어요.</p>
         ${roster(state.players, { meId: state.me?.id, kickable: teacher && state.phase === 'play' })}</section>` : teacherView(state)}`}
   </div>`;
 }
@@ -670,9 +670,17 @@ export function profileView(profile, index) {
     ${retirementDetails(life)}
     ${notes.length ? `<h3>지나온 길</h3><div class="life-chips">${notes.map((note) => `<span>${h(note)}</span>`).join('')}</div>` : ''}
     <h3>인생 연대기</h3>
+    <p class="field-note timeline-hint">선택을 누르면 그해의 자세한 이야기를 볼 수 있어요.</p>
     ${entries.length ? `<ol class="timeline">${entries.map((entry) => `<li>
-      <span class="timeline-year">${entry.type === 'spirit' ? '영혼' : `${entry.decisionAge ?? entry.age}살`}${entry.type === 'bonus' ? '<small>추가 선택</small>' : ''}</span><div><strong>${h(entry.title)}</strong>
-        ${entry.text || entry.line ? `<p>${h(entry.text || entry.line)}</p>` : ''}<div class="delta-list">${changes(entry.changes)}</div></div>
+      <details class="timeline-entry">
+        <summary>
+          <span class="timeline-year">${entry.type === 'spirit' ? '영혼' : `${entry.decisionAge ?? entry.age}살`}${entry.type === 'bonus' ? '<small>추가 선택</small>' : ''}</span>
+          <span class="timeline-main"><strong>${h(entry.title)}</strong>
+            ${changes(entry.changes) ? `<span class="delta-list">${changes(entry.changes)}</span>` : ''}
+          </span>
+        </summary>
+        ${entry.text || entry.line ? `<p class="timeline-description">${h(entry.text || entry.line)}</p>` : '<p class="timeline-description">이때의 선택을 기록했어요.</p>'}
+      </details>
     </li>`).join('')}</ol>` : '<p class="subtle">첫 선택을 기다리고 있어요.</p>'}
   `;
 }
