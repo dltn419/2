@@ -99,7 +99,7 @@ test('일시금은 높은 세금으로 즉시 수령, 연금은 10년 동안 낮
   life.path.retired = 65;
   life.path.savings = { annual: 4, chosenAt: 26, balance: 100, interestRate: 0.04 };
   assert.equal(retirementLumpSum(life.path.savings), 75);
-  assert.equal(retirementPayout(life.path.savings), 9.5);
+  assert.equal(retirementPayout(life.path.savings), 10);
   assert.equal(retirementTax(life.path.savings, 'lump'), 25);
   assert.equal(retirementTax(life.path.savings, 'pension'), 5);
   assert.equal(state(room).me.scene.key, 'savings-payout');
@@ -115,7 +115,7 @@ test('일시금은 높은 세금으로 즉시 수령, 연금은 10년 동안 낮
   choose(second.room, 'savings-pension');
   for (let age = 66; age <= 75; age++) {
     second.life.age = age;
-    assert.equal(yearlySources(second.life).find(({ id }) => id === 'retirement-payout')?.effect.money, 9.5);
+    assert.equal(yearlySources(second.life).find(({ id }) => id === 'retirement-payout')?.effect.money, age <= 70 ? 10 : 9);
   }
   second.life.age = 76;
   assert.ok(!yearlySources(second.life).some(({ id }) => id === 'retirement-payout'));

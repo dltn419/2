@@ -8,7 +8,7 @@ import {
 import { fallIll, illnessDeathRisk, settleHealth } from './health.mjs';
 
 export const CAPACITY = 20;
-export const RULE_VERSION = 9;
+export const RULE_VERSION = 10;
 export const DEFAULTS = { years: 1, seconds: 0, maxAge: 100, pace: 'personal' };
 const EXTRA_SECONDS = 12;
 export const PASS = { id: 'pass', title: '이번에는 기다리기', detail: '잠시 쉬며 친구들의 이야기를 지켜봐요.', effect: {} };
@@ -146,7 +146,7 @@ function choicesFor(room, player) {
   let before = extra ? yearly : null;
   let choices = entry.choices.map((option) => {
     const need = Object.fromEntries(Object.entries(option.need ?? {}).map(([stat, minimum]) =>
-      [stat, Math.max(1, minimum - chanceDiscount(life, option.career, stat))]));
+      [stat, Math.max(1, minimum - (option.strictNeed ? 0 : chanceDiscount(life, option.career, stat)))]));
     for (const [stat, delta] of Object.entries(option.effect)) {
       if (delta < 0) {
         const yearlyLoss = extra ? 0 : Math.min(0, base[stat] ?? 0);
@@ -167,7 +167,9 @@ function choicesFor(room, player) {
   });
   if (entry.key === 'career') {
     const [keep, ...jobs] = choices;
-    jobs.sort((left, right) => Number(Boolean(left.locked)) - Number(Boolean(right.locked)) ||
+    jobs.sort((left, right) =>
+      Number(right.careerGroup === 'advancement') - Number(left.careerGroup === 'advancement') ||
+      Number(Boolean(left.locked)) - Number(Boolean(right.locked)) ||
       Number(right.opportunity) - Number(left.opportunity));
     choices = [keep, ...jobs];
   }
@@ -210,8 +212,13 @@ function applyEffects(life, effects) {
 
 function applyDecision(life, age, option) {
   if (option.career) {
+    const previousSalary = life.career && life.path.retired === null ? careerPay(life)?.total : 0;
     if (!life.career) life.path.firstJobAge = age;
     life.career = option.career;
+    const newSalary = careerPay(life)?.total ?? 0;
+    if (previousSalary > 0 && newSalary > previousSalary && life.path.retired === null) {
+      life.path.savingsReview = { at: age + 1, from: previousSalary, to: newSalary };
+    }
   }
   return applyPath(life, age, option);
 }
@@ -257,13 +264,14 @@ function changeLife(room, player, year, option, after) {
     ...sources.filter(({ id }) => id !== 'retirement-saving').map((source) => source.effect));
   // 실제로 낼 수 있는 자금만 적립해 부족한 해에 공짜 저축이 생기지 않게 합니다.
   const deposit = savings ? Math.min(-savings.effect.money,
-    Math.max(0, life.stats.money + (ordinaryEffects.money ?? 0) - 1)) : 0;
+    Math.floor(Math.max(0, life.stats.money + (ordinaryEffects.money ?? 0) - 1))) : 0;
   const effects = deposit ? { ...ordinaryEffects, money: (ordinaryEffects.money ?? 0) - deposit } : ordinaryEffects;
   const changes = applyEffects(life, effects);
-  if (life.path.savings?.annual > 0 && life.path.retired === null) {
-    const savings = life.path.savings;
-    const rate = savings.interestRate ?? 0.04;
-    savings.balance = Math.round(((savings.balance ?? 0) * (1 + rate) + deposit) * 100) / 100;
+  if (life.path.savings && life.path.retired === null) {
+    const account = life.path.savings;
+    const balance = Math.floor(Math.max(0, account.balance ?? 0));
+    const rate = account.interestRate ?? 0.04;
+    account.balance = Math.floor(balance * (1 + rate) + 1e-9) + deposit;
   }
   if (salary) creditWorkYear(life);
   const affectionBefore = pathOf(life).romance?.affection;
@@ -287,6 +295,9 @@ function changeLife(room, player, year, option, after) {
   }
   const nextSalary = salary && !life.end && life.path.retired === null ? careerPay(life).total : 0;
   const raise = nextSalary > salary ? { from: salary, to: nextSalary } : undefined;
+  if (raise && salary > 0 && !life.end) {
+    life.path.savingsReview = { at: life.age, from: salary, to: nextSalary };
+  }
   recordChoice(player, year, option, age, changes, memories.filter(Boolean).join(' '), 'life', raise);
 }
 
@@ -383,7 +394,7 @@ export function updateRoomRules(room, now) {
     for (const life of [...player.archives, player.life]) {
       if (previous < 3) updateLifePath(life);
       restoreWorkYears(life);
-      if (previous < 8) upgradeLifePath(life, hash(`${room.seed}:${player.id}:${life.generation}`));
+      if (previous < 10) upgradeLifePath(life, hash(`${room.seed}:${player.id}:${life.generation}`));
     }
   }
   if (previous >= 3) {
@@ -415,7 +426,7 @@ export function updateRoomRules(room, now) {
         }
       }
     }
-    if (previous === 8 && room.phase === 'play') {
+    if (previous >= 8 && previous < 10 && room.phase === 'play') {
       for (const player of room.players) {
         if (!player.choice || player.afterlifeDone || player.mode !== 'alive') continue;
         const entry = choicesFor(room, player);

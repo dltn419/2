@@ -263,6 +263,10 @@ body:has(.playing-room) .footer { display: none; }
 .effect-caption small { color: var(--muted); font-size: 11px; font-weight: 550; }
 .effect-stop { color: var(--muted); }
 .effect-stop b { margin-right: 3px; color: #58674b; }
+.career-advancements { margin: 12px 0 8px; padding: 12px; border: 1px solid #c8d9c7; border-radius: 6px; background: #f5f8ed; }
+.career-advancements .section-heading h3 { font-size: 16px; }
+.career-advancements .field-note { margin: 3px 0 10px; }
+.career-advancements .choice { background: #fffdf6; }
 .choice-section { margin-top: 8px; border: 1px solid #dce2c7; border-radius: 4px; background: #fbfbef; }
 .choice-section summary { min-height: 41px; padding: 8px 10px; cursor: pointer; font-size: 14px; font-weight: 800; }
 .choice-section summary span { margin-left: 4px; color: var(--muted); font-size: 12px; font-weight: 650; }
