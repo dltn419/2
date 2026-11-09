@@ -263,6 +263,32 @@ body:has(.playing-room) .footer { display: none; }
 .effect-caption small { color: var(--muted); font-size: 11px; font-weight: 550; }
 .effect-stop { color: var(--muted); }
 .effect-stop b { margin-right: 3px; color: #58674b; }
+.career-goals { margin: 10px 0 12px; padding: 10px 11px; border: 1px solid #c8d9c7; border-radius: 5px; background: #f5f8ed; }
+.career-goals-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; margin-bottom: 7px; }
+.career-goals-head strong { font-size: 13px; color: var(--pine); }
+.career-goals-head > span { font-size: 11px; color: var(--muted); }
+.career-goal-card { background: #fffdf6; border: 1px solid #d6dfc7; border-radius: 4px; overflow: hidden; }
+.career-goal-card + .career-goal-card { margin-top: 6px; }
+.career-goal-card > summary { list-style: none; cursor: pointer; padding: 8px 9px; }
+.career-goal-card > summary::-webkit-details-marker { display: none; }
+.career-goal-card > summary:focus-visible { outline: 2px solid var(--pine); outline-offset: -2px; }
+.career-goal-card[open] > summary { border-bottom: 1px solid #dce3cc; }
+.career-goal-main { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; }
+.career-goal-main b { font-size: 13px; }
+.career-goal-progress { flex: none; padding: 2px 6px; font-size: 11px; font-weight: 800; color: #745632; background: #f2e8d5; border-radius: 3px; }
+.career-goal-progress.complete { background: #dbeed4; color: #275a30; }
+.career-goal-teaser { display: block; margin-top: 4px; font-size: 11px; line-height: 1.5; color: var(--muted); overflow-wrap: break-word; }
+.career-goal-checks { list-style: none; margin: 0; padding: 5px 9px 7px; }
+.career-goal-checks li { display: flex; gap: 5px; align-items: baseline; flex-wrap: wrap; min-width: 0; padding: 5px 0; font-size: 12px; }
+.career-goal-checks li + li { border-top: 1px solid #eef0e4; }
+.career-goal-check-icon { flex: none; font-size: 13px; font-weight: 800; color: #8b7546; }
+.career-goal-checks .met .career-goal-check-icon { color: #338046; }
+.career-goal-check-name { flex: 1; min-width: 62px; font-weight: 650; }
+.career-goal-check-current { color: var(--muted); font-variant-numeric: tabular-nums; }
+.career-goal-check-state { flex: none; font-weight: 750; color: #8b7546; }
+.career-goal-checks .met .career-goal-check-state { color: #337644; }
+.career-goal-note { margin: 0 9px 9px; font-size: 11px; line-height: 1.5; color: var(--muted); }
+@media (hover: hover) { .career-goal-card > summary:hover { background: #f1f5e8; } }
 .career-advancements { margin: 12px 0 8px; padding: 12px; border: 1px solid #c8d9c7; border-radius: 6px; background: #f5f8ed; }
 .career-advancements .section-heading h3 { font-size: 16px; }
 .career-advancements .field-note { margin: 3px 0 10px; }
