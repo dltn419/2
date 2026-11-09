@@ -66,7 +66,6 @@ const RETIREMENT_YEARS = 10;
 const SAVINGS_RATE = 0.04;
 const LUMP_TAX = 0.25;
 const PENSION_TAX = 0.05;
-const roundCoins = (value) => Math.round(value * 100) / 100;
 export const retirementAge = (career) => {
   const job = CAREERS[career];
   return job?.retireAt ?? (job?.promotionFrom ? retirementAge(job.promotionFrom) : 65);
@@ -757,7 +756,7 @@ function retirementPaymentChoice(life) {
   const annuity = retirementPayout(account);
   const finalYear = retirementPayout(account, RETIREMENT_YEARS - 1);
   return scene('모아 둔 노후 저축을 어떻게 받을까?',
-    `총 ${roundCoins(account.balance)}코인이 모였어요. 일시금은 세금 25%, 연금은 세금 5%가 적용돼요.`, [
+    `총 ${savingsBalance(account)}코인이 모였어요. 일시금은 세금 25%, 연금은 세금 5%가 적용돼요.`, [
       option('savings-lump', '한꺼번에 받기',
         `지금 ${lump}코인 수령 · 세금 등 ${retirementTax(account, 'lump')}코인 공제`,
         'coin', { money: lump }, 'savings-payout', 'lump', '모은 돈을 한 번에 찾아 앞으로의 생활을 준비했어요.'),
@@ -795,7 +794,7 @@ export function bonusScene(life, done) {
   const firstOffer = path.savings === null &&
     age >= offerAge && age <= Math.max(offerAge, firstJob + 5);
   const raisedOffer = path.savingsReview && age >= path.savingsReview.at;
-  if (!continuing && life.career && path.retired === null && (firstOffer || raisedOffer) &&
+  if (!continuing && life.career && path.retired === null && age < retirementAge(life.career) && (firstOffer || raisedOffer) &&
     !done.includes('saving')) {
     return { ...savingsOffer(life), key: 'saving',
       fallback: path.savings?.annual ? `save-${Math.floor(path.savings.annual)}` : 'save-none' };
