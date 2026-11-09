@@ -68,7 +68,9 @@ export function newRoom({ code, seed, name, hostKey, settings, now = Date.now() 
 }
 
 export function addPlayer(room, { id, key, name, avatar, sex = null }) {
-  if (room.phase !== 'lobby') throw new GameError('이미 시작한 방이에요. 이전에 참가했다면 같은 기기에서 이어 할 수 있어요.');
+  if (!['lobby', 'play'].includes(room.phase)) {
+    throw new GameError('이미 마감된 방이에요. 선생님이 방을 초기화한 뒤 참가해 주세요.');
+  }
   if (room.players.length >= CAPACITY) throw new GameError('이 방에 20명이 모두 들어왔어요.');
   const normalized = nickname(name);
   if (room.players.some((player) => player.name.toLowerCase() === normalized.toLowerCase())) {
