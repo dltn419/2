@@ -222,7 +222,7 @@ body:has(.playing-room) .footer { display: none; }
 .person .small-badge { padding: 2px 4px; font-size: 11px; }
 .person .icon-button { width: 28px; height: 34px; }
 .person-kick { flex: none; border: 1px solid #edd6cc; background: #fbf1ec; color: #8b493f;
-  border-radius: 4px; min-height: 36px; padding: 6px 9px; font-size: 12px; font-weight: 800; }
+  border-radius: 4px; min-height: 40px; padding: 7px 10px; font-size: 12px; font-weight: 800; }
 .person-kick:hover { background: #f5e1d9; }
 .person-kick:focus-visible { outline: 2px solid #8b493f; outline-offset: 2px; }
 .person small, .rank-row strong small { color: #507b51; }
@@ -438,7 +438,7 @@ dialog::backdrop { background: #233e34a0; }
 .teacher-roster-heading h2 { font-size: 21px; }
 .roster-total { color: var(--pine); font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .roster-hint { margin: 0 0 12px; }
-.teacher-settings > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; min-height: 38px; font-size: 15px; }
+.teacher-settings > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; min-height: 44px; font-size: 15px; }
 .teacher-settings > summary::-webkit-details-marker { display: none; }
 .teacher-settings > summary strong { font-weight: 800; }
 .teacher-settings > summary span { color: var(--muted); font-size: 12px; text-align: right; }
@@ -451,7 +451,7 @@ dialog::backdrop { background: #233e34a0; }
 .job-guide-card[open] .job-guide-summary-req { display: none; }
 .career-goals { background: #f9fbf4; border-color: #dfe6d7; }
 .career-goals-head { margin-bottom: 5px; }
-.career-goal-card > summary { padding-block: 7px; }
+.career-goal-card > summary { padding-block: 9px; min-height: 44px; }
 .career-goal-teaser, .career-goal-note { font-size: 12px; }
 .choice-section > summary, .year-effects > summary, .career-goal-card > summary { touch-action: manipulation; }
 .timeline-hint { margin: -2px 0 8px; }
@@ -506,6 +506,7 @@ dialog::backdrop { background: #233e34a0; }
   .chapter-road { display: none; }
   .home-hero .world-card img { height: 108px; object-fit: cover; object-position: center 56%; }
   .home-hero .world-card { box-shadow: 0 1px 0 var(--shadow); }
+  .teacher-entry .chalkboard { display: none; }
   .hero-copy { padding-block: 6px 9px; }
   .hero-copy h1 { margin: 12px 0 9px; font-size: clamp(43px, 11vw, 65px); }
   .hero-copy p { max-width: 420px; }
@@ -572,14 +573,14 @@ dialog::backdrop { background: #233e34a0; }
   .play-grid .scene-detail { font-size: 13px; margin-bottom: 8px; }
   .play-grid .choice { min-height: 79px; padding: 7px 8px; gap: 3px; }
   .play-grid .choice strong { font-size: 15px; }
-  .play-grid .choice-detail { font-size: 12px; }
+  .play-grid .choice-detail { font-size: 13px; }
   .play-grid .choice-top .tile-icon { width: 23px; height: 23px; }
   .play-grid .play-stats .section-panel { padding: 7px 9px; }
   .play-grid .play-stats h2 { font-size: 16px; }
   .play-grid .stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 4px 0; gap: 4px; }
   .play-grid .stat-tile { padding: 3px 4px; }
   .play-grid .stat-tile strong { font-size: 16px; }
-  .play-grid .stat-label { font-size: 10px; }
+  .play-grid .stat-label { font-size: 11px; }
   .play-grid .play-stats .button.quiet { min-height: 25px; padding: 3px 5px; }
   .play-grid .mini-rank { display: none; }
 }
