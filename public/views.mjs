@@ -1,6 +1,7 @@
 import { AVATARS, CAREER_CREDENTIALS, CAREERS, STAGES, STATS } from './content.mjs';
 import { CAPACITY, MODES, PASS, RANKS, stageAt } from './game.mjs';
-import { EXPERIENCE_STEPS, SEXES, careerPay, chanceDiscount, lifeBadges, pathNotes, pathOf } from './life.mjs';
+import { SEXES, careerGrowth, careerPay, chanceDiscount, lifeBadges, pathNotes, pathOf,
+  retirementAge, retirementLumpSum, retirementPayout, retirementTax } from './life.mjs';
 import { avatar, changes, escapeHtml as h, icon, numeral, statGrid } from './ui.mjs';
 
 const rankInfo = { ...STATS, age: { label: '장수', mark: 'clock', color: 'mint', unit: '살' } };
@@ -27,7 +28,8 @@ function jobGuide(life) {
   const path = life && pathOf(life);
   const current = path?.retired === null && !life.end && path.service?.status !== 'serving' ? careerPay(life) : null;
   const payParts = current && [
-    `경력 ${current.years}년`, `기본 ${current.base}`,
+    `경력 ${current.years}년`, `기본 ${current.base}`, `성장: ${current.track}`,
+    current.transfer && `관련 경력 ${current.transfer}년 인정`,
     current.experience && `경력 +${current.experience}`, current.skill && `${STATS[current.stat].label} +${current.skill}`,
     current.education && `대학원 +${current.education}`,
   ].filter(Boolean).join(' · ');
@@ -45,10 +47,14 @@ function jobGuide(life) {
         }),
         job.latestStart && `${job.latestStart}살까지 지원`,
         job.startup && `시작 비용 ${job.startup}코인`,
+        `정년 ${retirementAge(id)}세`,
       ].filter(Boolean);
+      const growth = careerGrowth(id);
+      const growthLine = `${growth.label} · ${growth.steps.join('·')}년차 이후 +${growth.raise}코인씩`;
       return `<li class="job-guide-entry">
         <div class="job-guide-heading"><h3>${h(job.title)}</h3><span>기본 연봉 ${job.wage}코인</span></div>
         <p>${h(job.detail)}</p>
+        <p class="job-requirements"><b>연봉 성장</b> ${h(growthLine)}</p>
         <p class="job-requirements"><b>조건</b> ${h(requirements.join(' · ') || '취업 기회가 오면 바로 지원')}</p>
       </li>`;
     }).join('')}</ul>`;
@@ -63,7 +69,8 @@ export function gameMenuView(page, life) {
   ${jobs ? jobGuide(life) : `<ul class="help-list">
     <li><b>한 해 보내기</b><p>일상 선택 한 번에 한 살 자라요. 장래희망, 진학, 치료는 같은 나이에 고르는 추가 선택이에요.</p></li>
     <li><b>하고 싶은 일 준비하기</b><p>19살부터 취업할 기회가 와요. 꿈이나 전공이 직업과 맞으면 일부 조건이 낮아져요.</p></li>
-    <li><b>연봉 올리기</b><p>같은 직업에서 ${EXPERIENCE_STEPS.map((years) => `${years}년`).join('·')} 일할 때마다 연봉이 1코인 올라요. 직무에 맞는 능력치와 관련 대학원 수료도 수입에 반영돼요.</p></li>
+    <li><b>연봉 올리기</b><p>직업마다 경력 상승 속도가 달라요. 관련 분야로 이직하면 이전 경력의 절반을 최대 10년까지 인정받아요. 직무 능력치와 관련 대학원 수료도 반영돼요.</p></li>
+    <li><b>은퇴와 노후 저축</b><p>직업별로 정년이 달라요. 저축에는 연 4% 복리가 붙고, 은퇴하면 일시금(세금 25%) 또는 10년 연금(세금 5%)을 선택해요.</p></li>
     <li><b>돈과 체력 챙기기</b><p>‘올해 변화’를 펼치면 수입, 집세, 돌봄을 확인할 수 있어요. 체력이 낮을수록 병에 걸리기 쉬워요.</p></li>
     <li><b>인생을 마친 뒤</b><p>다음 세대로 이어 살거나 영혼이 되어 기억이 남은 곳에 들를 수 있어요.</p></li>
   </ul>`}`;
@@ -381,11 +388,16 @@ function retirementDetails(life) {
   const path = pathOf(life);
   const account = path.savings;
   if (!account?.annual) return '';
-  const payout = Math.floor((account.balance ?? 0) / 10);
-  const remaining = (account.balance ?? 0) % 10;
-  return `<p class="life-extra">${icon('coin')} <strong>노후 저축 · ${numeral(account.balance)}코인</strong>
-    <span>${path.retired === null ? `매년 ${account.annual}코인씩 적립` :
-      `매년 ${payout}코인씩 10년 수령 · 세금 ${remaining}코인`}</span></p>`;
+  const details = path.retired === null
+    ? `매년 ${account.annual}코인 적립 · 연 4% 복리`
+    : account.payoutMode === 'lump'
+      ? `일시금 ${numeral(retirementLumpSum(account))}코인 수령 · 세금 ${numeral(retirementTax(account, 'lump'))}코인`
+      : account.payoutMode === 'pension'
+        ? `10년간 매년 ${numeral(retirementPayout(account))}코인 · 세금 ${numeral(retirementTax(account))}코인`
+        : '은퇴 저축 수령 방식을 선택할 수 있어요';
+  const totalLabel = path.retired === null ? '노후 저축' : '노후 적립 총액';
+  return `<p class="life-extra">${icon('coin')} <strong>${totalLabel} · ${numeral(account.balance)}코인</strong>
+    <span>${details}</span></p>`;
 }
 
 function playerView(session, state, rank) {

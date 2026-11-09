@@ -91,12 +91,15 @@ test('취업 후 저축 옵션, 실제 적립, 은퇴 후 정확히 10년 수령
   life.stats.money = 1;
   annual(room);
   assert.equal(life.stats.money, 1);
-  assert.equal(life.path.savings.balance, 6, '급여 2코인만 들어오면 저축도 2코인만 적립');
+  assert.equal(life.path.savings.balance, 6.16, '기존 4코인의 연 4% 이자와 납부 가능한 2코인이 적립');
   life.path.savings.balance = 85;
   life.path.retired = 60;
   life.age = 61;
   assert.equal(retirementPayout(life.path.savings), 8);
   assert.equal(retirementTax(life.path.savings), 5);
+  assert.equal(view(room).me.scene.key, 'savings-payout');
+  choose(room, 'savings-pension');
+  assert.equal(life.path.savings.payoutMode, 'pension');
   for (let age = 61; age <= 70; age++) {
     life.age = age;
     assert.equal(yearlySources(life).find(({ id }) => id === 'retirement-payout')?.effect.money, 8);

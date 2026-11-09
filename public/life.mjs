@@ -1,4 +1,4 @@
-import { CAREER_CREDENTIALS, CAREERS, HABITS, pick } from './content.mjs';
+import { CAREER_CREDENTIALS, CAREER_GROWTH, CAREERS, HABITS, pick } from './content.mjs';
 import { finishCare, illnessCare } from './health.mjs';
 
 export const SEXES = { male: '남자', female: '여자' };
@@ -36,7 +36,6 @@ export const DREAM_OPTIONS = {
 
 const SERVICE_LIMIT = 28;
 const COMMUNITY_HEALTH = 40;
-export const EXPERIENCE_STEPS = [3, 8, 15];
 const CAREER_BY_TITLE = new Map(Object.entries(CAREERS).map(([id, job]) => [job.title, id]));
 
 const PROGRAMS = {
@@ -64,6 +63,12 @@ const PARTNER_CAREERS = [
   'marketing', 'tech', 'creator', 'civil', 'teacher', 'nurse', 'lab', 'developer', 'shop', 'restaurant',
 ];
 const RETIREMENT_YEARS = 10;
+const SAVINGS_RATE = 0.04;
+const LUMP_TAX = 0.25;
+const PENSION_TAX = 0.05;
+const roundCoins = (value) => Math.round(value * 100) / 100;
+export const retirementAge = (career) => CAREERS[career]?.retireAt ?? 65;
+export const careerGrowth = (career) => CAREER_GROWTH[CAREERS[career]?.growth ?? 'stable'];
 
 export function newPath(sex = null) {
   return { sex, dreams: [], school: null, diploma: false, program: null, degree: null, training: false,
@@ -106,8 +111,15 @@ function spouseContribution(life) {
   return Math.max(1, Math.floor(base * 0.7) + growth);
 }
 
-export const retirementPayout = (savings) => Math.floor(Math.max(0, savings?.balance ?? 0) / RETIREMENT_YEARS);
-export const retirementTax = (savings) => Math.max(0, savings?.balance ?? 0) % RETIREMENT_YEARS;
+// 게임 속 세금 규칙: 일시금 25%, 10년 연금 5%. 연금은 소수 첫째 자리까지 지급합니다.
+export const retirementLumpSum = (savings) =>
+  Math.floor(Math.max(0, savings?.balance ?? 0) * (1 - LUMP_TAX) * 10) / 10;
+export const retirementPayout = (savings) =>
+  Math.floor(Math.max(0, savings?.balance ?? 0) * (1 - PENSION_TAX) * 10 / RETIREMENT_YEARS) / 10;
+export const retirementTax = (savings, mode = savings?.payoutMode === 'lump' ? 'lump' : 'pension') => {
+  const balance = Math.max(0, savings?.balance ?? 0);
+  return roundCoins(balance - (mode === 'lump' ? retirementLumpSum(savings) : retirementPayout(savings) * RETIREMENT_YEARS));
+};
 const scene = (title, detail, choices, after = '') => ({ title, detail, choices, after });
 const rest = (title = '쉬어 가기', detail = '잠시 숨을 고르고 쉬어요.', effect = { health: 3, joy: 1 }) => pick('rest', title, detail, 'leaf', effect);
 const option = (id, title, detail, mark, effect, kind, value, after, extra = {}) =>
@@ -395,7 +407,9 @@ function careerPlan(life, path) {
     current ? `지금의 직업인 ${current.title} 일을 이어가요.` : '나중에 일자리를 다시 살펴볼 수 있어요.', {})];
   const dream = mostRecentDream(path);
   for (const [career, job] of Object.entries(CAREERS)) {
-    if (career === life.career || life.age > (job.latestStart ?? Infinity)) continue;
+    if (career === life.career || life.age > (job.latestStart ?? Infinity) ||
+      life.age >= retirementAge(career) ||
+      (career === 'coach' && (path.workYears?.athlete ?? 0) < 3)) continue;
     const fields = jobFields(job);
     const credential = job.education && { label: CAREER_CREDENTIALS[job.education], met: credentials[job.education] };
     const explored = interests.some((field) => fields.includes(field)) || (career === 'athlete' && path.sportYears > 0);
@@ -606,6 +620,33 @@ function housing(life, path) {
     first ? '내가 살 곳을 골라요.' : moving ? '일터나 가족 가까이 갈지 생각해요.' : '집값과 모아 둔 돈을 살펴봐요.', choices);
 }
 
+function retirementScene(life, mandatory) {
+  const job = CAREERS[life.career];
+  const age = retirementAge(life.career);
+  const options = [
+    option('retire', mandatory ? '정년 퇴직하기' : '조기 은퇴하기',
+      '직장 수입이 끝나고 기본 은퇴 수입을 받아요. 모아 둔 노후 저축의 수령 방식은 은퇴 후 선택해요.',
+      'leaf', { health: 4, joy: 4 }, 'retire', true,
+      '오랫동안 일했던 곳에 마지막 인사를 건넸어요.',
+      { narration: '마지막 일을 마치고 후배들에게 인사를 전했어요.' }),
+  ];
+  if (life.career === 'athlete' && (life.path.workYears?.athlete ?? 0) >= 3) {
+    options.push(pick('coach-transition', '운동 지도자로 전직하기',
+      '선수 경험을 살려 다른 사람을 가르쳐요. 운동 지도자는 65세까지 일할 수 있어요.',
+      'flag', { bond: 3, joy: 4 },
+      { career: 'coach', need: { health: 45, bond: 28 },
+        narration: '선수로 뛰던 곳에서 이제는 후배들을 지도하기 시작했어요.' }));
+  }
+  if (!mandatory) {
+    options.push(pick('mentor-work', '일을 계속하기',
+      `${age}세에는 정년이 되어 퇴직하게 돼요. 지금은 일을 계속해요.`,
+      'book', { learning: 2, bond: 3 }));
+  }
+  return scene(mandatory ? `${job.title} 정년의 날` : '일을 그만둘 때가 올까?',
+    mandatory ? `${job.title}으로 일할 수 있는 정년인 ${age}세가 되었어요. 은퇴하거나 다른 일을 시작할 준비를 해요.`
+      : '노후 자금과 체력을 살피고 앞으로의 일을 골라요.', options);
+}
+
 function laterLife(life, path) {
   const age = life.age;
   if (age === 45 || age === 53) {
@@ -617,14 +658,21 @@ function laterLife(life, path) {
       rest('전화 한 통 더 하기', '어떻게 지내는지 물어요.'),
     ]);
   }
-  if ([60, 65].includes(age) && life.career && path.retired === null) {
-    return scene('일을 그만둘 때가 올까?', '처음 일을 배운 곳에서 이제는 내가 후배를 가르쳐요.', [
-      option('retire', '은퇴하기', '일을 그만두고 쉬는 시간을 늘려요.', 'leaf', { health: 4, joy: 4 },
-        'retire', true, '마지막 날 문을 평소처럼 닫았어요. 돌아보니 불이 아직 환했어요.',
-        { narration: '오래 일하던 곳에서 마지막 인사를 하고 천천히 집으로 걸었어요.' }),
-      pick('mentor-work', '일하면서 후배 돕기', '처음 일을 배울 때 듣고 싶던 말을 해 줘요.', 'book', { learning: 3, bond: 5, health: -2 }),
-      rest('조금 천천히 일하기', '무리하지 않고 지금 일을 해요.'),
-    ]);
+  if (life.career && path.retired === null &&
+    ([55, 60, 65].includes(age) || (life.career === 'athlete' && age === 35))) {
+    if (age < retirementAge(life.career)) return retirementScene(life, false);
+  }
+  if ([52, 62, 72, 80, 88].includes(age)) {
+    const senior = age >= 72;
+    const cost = age >= 80 ? 18 : age >= 62 ? 12 : 8;
+    return scene(senior ? '노후를 더 편안하게 보내려면' : '앞으로의 생활에 투자할까?',
+      '살기 편한 환경과 건강에 돈을 쓸 수도 있고 지금처럼 지낼 수도 있어요.', [
+        pick('age-health', '건강 관리에 투자하기',
+          '검진과 관리를 받으며 몸을 돌봐요.', 'heart', { money: -cost, health: senior ? 10 : 7, joy: 2 }),
+        pick('age-comfort', senior ? '집을 안전하게 고치기' : '생활 공간 정비하기',
+          '더 편안하게 살 수 있도록 환경을 바꿔요.', 'house', { money: -Math.max(5, cost - 4), joy: 7, health: 3 }),
+        rest('지금 생활 유지하기', '큰돈을 쓰지 않고 무리하지 않아요.', { health: 2, joy: 1 }),
+      ]);
   }
   if ([70, 82, 93].includes(age)) {
     const first = path.dreams.find((entry) => entry.field !== 'explore');
@@ -655,13 +703,28 @@ function dateActivities(life) {
 
 function savingsOffer(life) {
   return scene('노후 저축을 시작할까요?',
-    '일하는 동안 해마다 돈을 모아요. 은퇴하면 적립한 돈을 10년간 나눠 받고, 10으로 나눈 나머지는 세금이 돼요.', [
+    '매년 4% 복리 이자로 자라요. 은퇴하면 일시금(세금 25%) 또는 10년 연금(세금 5%) 중 수령 방식을 선택해요.', [
       option('save-none', '저금하지 않기', '당장은 돈을 더 쓸 수 있지만 은퇴 뒤 저축 수입은 없어요.',
         'leaf', {}, 'saving', 0, '이번에는 따로 노후 저축을 하지 않기로 했어요.'),
       ...[1, 2, 4].map((amount) =>
         option(`save-${amount}`, `매년 ${amount}코인 저금`,
-          `일하는 해마다 ${amount}코인을 따로 모아요. 은퇴 후 10년 동안 나눠 받아요.`,
+          `일할 때 해마다 ${amount}코인을 모으고 연 4% 복리 이자가 붙어요.`,
           'coin', {}, 'saving', amount, `매년 ${amount}코인씩 저축하기로 했어요.`)),
+    ]);
+}
+
+function retirementPaymentChoice(life) {
+  const account = pathOf(life).savings;
+  const lump = retirementLumpSum(account);
+  const annuity = retirementPayout(account);
+  return scene('모아 둔 노후 저축을 어떻게 받을까?',
+    `총 ${roundCoins(account.balance)}코인이 모였어요. 일시금은 세금 25%, 연금은 세금 5%가 적용돼요.`, [
+      option('savings-lump', '한꺼번에 받기',
+        `지금 ${lump}코인 수령 · 세금 등 ${retirementTax(account, 'lump')}코인 공제`,
+        'coin', { money: lump }, 'savings-payout', 'lump', '모은 돈을 한 번에 찾아 앞으로의 생활을 준비했어요.'),
+      option('savings-pension', '10년 동안 나눠 받기',
+        `앞으로 10년간 매년 ${annuity}코인 · 세금 및 단수 조정 ${retirementTax(account, 'pension')}코인`,
+        'coin', {}, 'savings-payout', 'pension', '노후 저축을 10년 동안 나누어 받기로 했어요.'),
     ]);
 }
 
@@ -669,6 +732,10 @@ export function bonusScene(life, done) {
   const age = life.age;
   const path = pathOf(life);
   if (path.illness && !done.includes('illness')) return { ...illnessCare(path), key: 'illness', fallback: 'rest' };
+  if (path.retired !== null && path.savings?.balance > 0 &&
+    !path.savings.payoutMode && !done.includes('savings-payout')) {
+    return { ...retirementPaymentChoice(life), key: 'savings-payout', fallback: 'savings-pension' };
+  }
   if ([10, 14, 17].includes(age) && !path.dreams.some((entry) => entry.age === age)) {
     return { ...dreamSurvey(life), key: 'dream', fallback: 'rest' };
   }
@@ -715,6 +782,9 @@ export function bonusScene(life, done) {
 export function annualScene(life) {
   const age = life.age;
   const path = pathOf(life);
+  if (life.career && path.retired === null && age >= retirementAge(life.career)) {
+    return retirementScene(life, true);
+  }
   if (age < CHILDHOOD.length) return CHILDHOOD[age];
   if (age < 19) {
     const school = schoolYear(life, path);
@@ -773,7 +843,13 @@ export function applyPath(life, age, choice) {
       }
       break;
     case 'marry': path.married = age; break;
-    case 'saving': path.savings = { annual: action.value, balance: 0, chosenAt: age }; break;
+    case 'saving': path.savings = { annual: action.value, balance: 0, chosenAt: age, interestRate: SAVINGS_RATE }; break;
+    case 'savings-payout':
+      if (path.savings && !path.savings.payoutMode) {
+        path.savings.payoutMode = action.value;
+        path.savings.payoutStart = age;
+      }
+      break;
     case 'child': path.children.push(age); break;
     case 'retire': path.retired = age; break;
     case 'move':
@@ -816,13 +892,20 @@ export function careerPay(life) {
   if (!job) return null;
   const path = pathOf(life);
   const years = path.workYears?.[life.career] ?? 0;
-  const experience = EXPERIENCE_STEPS.filter((step) => years >= step).length;
+  // 연관 분야로 이직하면 이전 직장의 가장 긴 경력 중 절반(최대 10년)을 인정합니다.
+  const fields = jobFields(job);
+  const previous = Object.entries(path.workYears ?? {}).filter(([id]) =>
+    id !== life.career && jobFields(CAREERS[id]).some((field) => fields.includes(field)));
+  const transfer = Math.min(10, Math.floor(Math.max(0, ...previous.map(([, value]) => value)) / 2));
+  const effectiveYears = years + transfer;
+  const track = careerGrowth(life.career);
+  const experience = track.steps.filter((step) => effectiveYears >= step).length * track.raise;
   const stat = job.payStat ?? 'learning';
   const skillBase = Math.max(job.need?.[stat] ?? 0, stat === 'health' ? 60 : 30);
   const skill = Math.max(0, Math.min(2, Math.floor((life.stats[stat] - skillBase) / 20)));
-  const fields = jobFields(job);
   const education = degreesOf(path).some(({ kind, field }) => kind === 'graduate' && fields.includes(field)) ? 2 : 0;
-  return { base: job.wage, years, experience, stat, skill, education, total: job.wage + experience + skill + education };
+  return { base: job.wage, years, transfer, track: track.label, experience, stat, skill, education,
+    total: job.wage + experience + skill + education };
 }
 
 export function creditWorkYear(life) {
@@ -867,20 +950,27 @@ export function yearlySources(life) {
       sources.push({ id: 'retirement-saving', label: '노후 저축', term: '은퇴할 때까지', effect: { money: -path.savings.annual } });
     }
   }
-  if (path.retired !== null && path.savings?.annual > 0 && age > path.retired &&
-    age <= path.retired + RETIREMENT_YEARS) {
-    const payout = retirementPayout(path.savings);
-    if (payout > 0) sources.push({ id: 'retirement-payout', label: '모아 둔 노후 저축 받기',
-      term: `은퇴 후 ${age - path.retired}/10년차`, years: RETIREMENT_YEARS - (age - path.retired) + 1,
-      effect: { money: payout } });
+  if (path.retired !== null && path.savings?.payoutMode === 'pension') {
+    const start = path.savings.payoutStart ?? path.retired + 1;
+    if (age >= start && age < start + RETIREMENT_YEARS) {
+      const payout = retirementPayout(path.savings);
+      if (payout > 0) sources.push({ id: 'retirement-payout', label: '모아 둔 노후 저축 연금',
+        term: `${age - start + 1}/10년차`, years: start + RETIREMENT_YEARS - age, effect: { money: payout } });
+    }
   }
   if (!serving && path.program) {
     const { kind, remaining } = path.program;
     sources.push({ id: `study-${kind}`, label: `${PROGRAMS[kind].label}에서 배우기`, years: remaining,
       effect: { learning: kind === 'graduate' || kind === 'medicine' ? 2 : 1 } });
   }
+  const livingCost = age >= 85 ? 4 : age >= 75 ? 3 : age >= 65 ? 2 : age >= 50 ? 1 : 0;
+  if (livingCost) sources.push({ id: 'age-living', label: '나이가 들며 늘어나는 생활비',
+    effect: { money: -livingCost } });
   if (path.home?.kind === 'rent') {
     sources.push({ id: 'rent', label: '월세', term: '이 집에 사는 동안', effect: { money: -2 } });
+  } else if (path.home?.kind === 'own' && age >= 55) {
+    sources.push({ id: 'home-maintenance', label: '오래된 집 관리비', term: '55세부터',
+      effect: { money: age >= 75 ? -2 : -1 } });
   }
   if (path.married !== null) {
     sources.push({ id: 'married', label: '배우자와 지내기', effect: { bond: 1 } });
@@ -973,9 +1063,9 @@ export function pathNotes(life) {
     path.home && `${path.home.at}살에 ${HOME_NAMES[path.home.kind]}`,
     path.partner !== null && path.romance && `${path.partner}살에 ${path.romance.name}와 연애 시작`,
     path.married !== null && `${path.married}살에 ${path.romance?.name ?? '배우자'}와 결혼`,
-    path.savings && (path.savings.annual ? `노후 저축 · 매년 ${path.savings.annual}코인, 누적 ${path.savings.balance}코인` : '노후 저축 선택하지 않음'),
-    path.retired !== null && path.savings?.annual > 0 &&
-      `은퇴 후 10년간 매년 ${retirementPayout(path.savings)}코인 수령 · 잔액 ${retirementTax(path.savings)}코인 세금`,
+    path.savings && (path.savings.annual ? `노후 저축 · 연 4% 복리, 매년 ${path.savings.annual}코인, 누적 ${roundCoins(path.savings.balance)}코인` : '노후 저축 선택하지 않음'),
+    path.savings?.payoutMode === 'lump' && `노후 저축 일시금 ${retirementLumpSum(path.savings)}코인 수령`,
+    path.savings?.payoutMode === 'pension' && `노후 저축 연금 · 10년간 매년 ${retirementPayout(path.savings)}코인`,
     ...path.children.map((age) => `${age}살에 아이를 맞이함`),
   ].filter(Boolean);
 }

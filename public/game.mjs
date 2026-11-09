@@ -8,7 +8,7 @@ import {
 import { fallIll, illnessDeathRisk, settleHealth } from './health.mjs';
 
 export const CAPACITY = 20;
-export const RULE_VERSION = 8;
+export const RULE_VERSION = 9;
 export const DEFAULTS = { years: 1, seconds: 0, maxAge: 100, pace: 'personal' };
 const EXTRA_SECONDS = 12;
 export const PASS = { id: 'pass', title: '이번에는 기다리기', detail: '잠시 쉬며 친구들의 이야기를 지켜봐요.', effect: {} };
@@ -91,7 +91,7 @@ export function stageAt(age) {
   return STAGES.findLastIndex((stage) => age >= stage.min);
 }
 
-const YEARLY_ACTIONS = new Set(['study', 'service', 'move', 'marry', 'child', 'retire', 'care', 'saving']);
+const YEARLY_ACTIONS = new Set(['study', 'service', 'move', 'marry', 'child', 'retire', 'care', 'saving', 'savings-payout']);
 
 function projectedSources(life, option, bonus) {
   const next = { ...life, path: structuredClone(pathOf(life)) };
@@ -200,8 +200,10 @@ function applyEffects(life, effects) {
   const changes = {};
   for (const [stat, delta] of Object.entries(effects)) {
     const before = life.stats[stat];
-    life.stats[stat] = Math.max(1, before + delta);
-    if (life.stats[stat] !== before) changes[stat] = life.stats[stat] - before;
+    life.stats[stat] = stat === 'money' ? Math.round(Math.max(1, before + delta) * 100) / 100 :
+      Math.max(1, before + delta);
+    if (life.stats[stat] !== before) changes[stat] = stat === 'money'
+      ? Math.round((life.stats[stat] - before) * 100) / 100 : life.stats[stat] - before;
   }
   return changes;
 }
@@ -258,7 +260,11 @@ function changeLife(room, player, year, option, after) {
     Math.max(0, life.stats.money + (ordinaryEffects.money ?? 0) - 1)) : 0;
   const effects = deposit ? { ...ordinaryEffects, money: (ordinaryEffects.money ?? 0) - deposit } : ordinaryEffects;
   const changes = applyEffects(life, effects);
-  if (deposit && life.path.savings) life.path.savings.balance += deposit;
+  if (life.path.savings?.annual > 0 && life.path.retired === null) {
+    const savings = life.path.savings;
+    const rate = savings.interestRate ?? 0.04;
+    savings.balance = Math.round(((savings.balance ?? 0) * (1 + rate) + deposit) * 100) / 100;
+  }
   if (salary) creditWorkYear(life);
   const affectionBefore = pathOf(life).romance?.affection;
   const decision = applyDecision(life, age, option);
@@ -407,6 +413,14 @@ export function updateRoomRules(room, now) {
           player.choice = null;
           player.bonuses.length -= skipped.length;
         }
+      }
+    }
+    if (previous === 8 && room.phase === 'play') {
+      for (const player of room.players) {
+        if (!player.choice || player.afterlifeDone || player.mode !== 'alive') continue;
+        const entry = choicesFor(room, player);
+        const selected = findChoice(entry, player.choice);
+        if (entry.bonus || !selected || selected.locked) player.choice = null;
       }
     }
     return true;
