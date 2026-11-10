@@ -1,80 +1,84 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CAREERS, CAREER_PROMOTIONS, LEGACY_PERFORMANCE_PROMOTIONS, PERFORMANCE_BONUSES } from '../public/content.mjs';
+import { CAREERS, CAREER_PROMOTIONS, LEGACY_PERFORMANCE_PROMOTIONS } from '../public/content.mjs';
 import { addPlayer, newRoom, selectChoice, stateFor, teacherAction, updateRoomRules } from '../public/game.mjs';
-import { bonusScene, careerPay, newPath, performanceBonus, performanceProfile, yearlySources } from '../public/life.mjs';
+import { careerPay, newPath, yearlySources, careerGoals } from '../public/life.mjs';
 import { gameMenuView, roomView } from '../public/views.mjs';
 
-const BASE_STATS = { money: 100, health: 75, learning: 70, bond: 75, art: 75, joy: 65 };
-function life(career, age = 38, years = 10) {
+const BASE_STATS = { money: 100, health: 80, learning: 90, bond: 75, art: 85, joy: 60 };
+const previouslyBonused = ['farmer', 'studio', 'sales', 'creator', 'shop', 'athlete'];
+function life(career, age = 39, years = 10) {
   const path = newPath('female');
-  path.romanceSeed = 153876;
   path.workYears[career] = years;
   return { age, career, stats: { ...BASE_STATS }, path, history: [] };
 }
-const performanceCareers = ['farmer', 'studio', 'sales', 'creator', 'shop', 'athlete'];
 
-test('자영업·창작·영업·운동선수는 성장과 기존 성과 보너스를 함께 받는다', () => {
-  assert.deepEqual(Object.keys(PERFORMANCE_BONUSES), performanceCareers);
-  for (const career of performanceCareers) {
-    const profile = performanceProfile(career);
-    assert.ok(profile);
-    assert.equal(profile.root, career);
-    assert.ok(profile.max >= 4 && profile.max <= 6);
-    assert.ok(Object.values(CAREER_PROMOTIONS).some(({ from }) => from === career),
-      `${career}에 성장 단계가 있어야 함`);
-    const person = life(career);
-    const result = performanceBonus(person);
-    assert.ok(Number.isInteger(result.money) && result.money >= 0 && result.money <= profile.max);
-    const source = yearlySources(person).find(({ id }) => id === `performance-${career}`);
-    assert.equal(source.effect.money, result.money);
-    assert.match(source.label, /보너스|수당|수입|상금/);
+test('농부·창작자·영업·자영업·선수 모두 승급 경로가 있고 성과 보너스가 사라졌다', () => {
+  for (const career of previouslyBonused) {
+    assert.ok(Object.values(CAREER_PROMOTIONS).some(({ from }) => from === career), career);
+    const person = life(career, career === 'athlete' ? 35 : 39);
+    const salary = careerPay(person).total;
+    const sources = yearlySources(person);
+    assert.equal(sources.filter(({ id }) => id.startsWith('performance-')).length, 0);
+    assert.equal(sources.filter(({ id }) => id.startsWith('job-')).length, 1);
+    assert.equal(sources.find(({ id }) => id === `job-${career}`).effect.money, salary);
+    assert.ok(careerGoals(person).length >= 1);
   }
 });
 
-test('교사·간호사·공무원·개발자 승진과 운동선수 지도자 전직은 유지한다', () => {
-  for (const career of ['teacher', 'nurse', 'civil', 'developer', 'coach']) {
+test('직업의 연봉은 경력과 능력치에 따라 정해지고 같은 상태에선 항상 같다', () => {
+  for (const career of previouslyBonused) {
+    const person = life(career, 39, 5);
+    const first = careerPay(person).total;
+    const clone = structuredClone(person);
+    assert.equal(careerPay(clone).total, first);
+    person.age = 40;
+    assert.equal(careerPay(person).total, first, '나이가 변해도 같은 경력과 능력치면 같은 연봉');
+    person.path.workYears[career] = 20;
+    assert.ok(careerPay(person).total >= first, career);
+    assert.equal(yearlySources(person).filter(({ id }) => id.startsWith('performance-')).length, 0);
+  }
+});
+
+test('종전 직업의 연봉 계산에서도 별도 성과 수입 없이 기본 연봉만 지급된다', () => {
+  const room = newRoom({ code: 'ABC234', seed: 'career-base-only', name: '수입검증',
+    settings: { pace: 'personal', maxAge: 110 } });
+  const player = addPlayer(room, { id: 'hero', name: '농부', avatar: 0, sex: 'female' });
+  player.life.age = 39;
+  player.life.career = 'farmer';
+  player.life.path.workYears.farmer = 10;
+  player.life.stats.money = 150;
+  teacherAction(room, 'start', {}, 1000);
+  const scene = stateFor(room, 'hero').me.scene;
+  assert.equal(scene.key, 'year');
+  assert.equal(scene.base.money, careerPay(player.life).total);
+  const html = roomView({ role: 'player' }, stateFor(room, 'hero'), { pane: 'play', rank: 'money' });
+  assert.doesNotMatch(html, /농작물 수확 보너스|올해 성과/);
+  const before = player.life.stats.money;
+  const choice = scene.choices.find(({ id }) => id === 'rest');
+  assert.ok(choice);
+  selectChoice(room, 'hero', { round: stateFor(room, 'hero').turn.number,
+    scene: 'year', choice: 'rest' }, 1000);
+  assert.equal(player.life.stats.money - before, careerPay({ ...player.life, age: 39,
+    path: { ...player.life.path, workYears: { farmer: 10 } } }).total);
+});
+
+test('승진·전직과 기존 성과형 직업의 경력 성장은 그대로 유지한다', () => {
+  for (const career of ['teacher', 'nurse', 'civil', 'developer', 'coach', ...previouslyBonused]) {
     assert.ok(Object.values(CAREER_PROMOTIONS).some(({ from }) => from === career), career);
-    assert.equal(performanceBonus(life(career)), null);
   }
   assert.equal(CAREERS.vicePrincipal.promotionFrom, 'teacher');
   assert.equal(CAREERS.principal.promotionFrom, 'vicePrincipal');
   assert.equal(CAREERS.coach.promotionFrom, undefined);
 });
 
-test('성과 보너스는 같은 상황·나이에선 같고 연도별로 변동한다', () => {
-  for (const career of performanceCareers) {
-    const person = life(career, 30, 5);
-    const first = performanceBonus(person).money;
-    const second = performanceBonus(structuredClone(person)).money;
-    assert.equal(first, second);
-    const years = new Set(Array.from({ length: 25 }, (_, i) =>
-      performanceBonus({ ...person, age: 30 + i }).money));
-    assert.ok(years.size >= 2, `${career} 보너스가 25년 동안 고정되면 안 됨`);
-  }
-});
-
-test('높은 능력치와 숙련 경력은 낮은 값과 비교해 보너스를 올리거나 유지한다', () => {
-  for (const career of performanceCareers) {
-    const weak = life(career, 36, 1);
-    weak.stats[PERFORMANCE_BONUSES[career].stat] = 15;
-    const strong = structuredClone(weak);
-    strong.stats[PERFORMANCE_BONUSES[career].stat] = 120;
-    strong.path.workYears[career] = 15;
-    const x = performanceBonus(weak).money;
-    const y = performanceBonus(strong).money;
-    assert.ok(y >= x, `${career}: ${x} > ${y}`);
-  }
-});
-
-test('이전 승진 캐릭터는 데이터를 보존하지만 신규 승진·직업 안내에 노출하지 않는다', () => {
+test('과거 저장용 직위 10개는 취업 목록에 노출하지 않고 기존 급여는 유지한다', () => {
   assert.equal(Object.keys(LEGACY_PERFORMANCE_PROMOTIONS).length, 10);
-  for (const role of Object.keys(LEGACY_PERFORMANCE_PROMOTIONS)) {
-    assert.equal(CAREERS[role].legacyPromotion, true);
-    assert.ok(!Object.hasOwn(CAREER_PROMOTIONS, role));
-    assert.ok(performanceProfile(role));
-    assert.ok(careerPay(life(role)));
-    assert.ok(!gameMenuView('jobs', life()).includes(`<h3>${CAREERS[role].title}</h3>`));
+  for (const id of Object.keys(LEGACY_PERFORMANCE_PROMOTIONS)) {
+    assert.equal(CAREERS[id].legacyPromotion, true);
+    assert.ok(!Object.hasOwn(CAREER_PROMOTIONS, id));
+    assert.ok(careerPay(life(id)).total > 0);
+    assert.ok(!gameMenuView('jobs', life()).includes(`class="job-guide-title">${CAREERS[id].title}`));
   }
   const room = newRoom({ code: 'ABC123', seed: 'legacy-performance', name: '기록', settings: { pace: 'personal', maxAge: 110 } });
   const player = addPlayer(room, { id: 'old', name: '옛 농장', avatar: 0, sex: 'female' });
@@ -86,60 +90,31 @@ test('이전 승진 캐릭터는 데이터를 보존하지만 신규 승진·직
   room.rules = 10;
   assert.equal(updateRoomRules(room, 1001), false);
   assert.ok(careerPay(player.life).total > 0);
-  assert.ok(yearlySources(player.life).some(({ id }) => id === 'performance-farmer'));
+  assert.ok(!yearlySources(player.life).some(({ id }) => id.startsWith('performance-')));
   const scene = stateFor(room, 'old').me.scene;
   assert.equal(scene.key, 'career');
   assert.ok(!scene.choices.some(({ id }) => id === 'work-farmDirector'));
 });
 
-test('성과 수입은 정규 연봉과 별도 지급되고 실제 1년 진행에 반영된다', () => {
-  // 무작위 일반 사건의 개입을 피하기 위해 명시적으로 사건이 없는 방 시드를 택합니다.
-  function hash(value) {
-    let result = 2166136261;
-    for (const char of value) result = Math.imul(result ^ char.charCodeAt(0), 16777619);
-    return result >>> 0;
-  }
-  let seed = 'bonustest';
-  while (hash(`${seed}:hero:1:39:event`) % 7 === 0) seed += 'x';
-  const room = newRoom({ code: 'ABC234', seed, name: '실전', settings: { pace: 'personal', maxAge: 110 } });
-  const player = addPlayer(room, { id: 'hero', name: '농부', avatar: 0, sex: 'female' });
-  player.life.age = 39;
-  player.life.career = 'farmer';
-  player.life.path.workYears.farmer = 10;
-  player.life.stats.money = 150;
-  teacherAction(room, 'start', {}, 1000);
-  const before = player.life.stats.money;
-  const scene = stateFor(room, 'hero').me.scene;
-  assert.equal(scene.key, 'year');
-  const payout = performanceBonus(player.life).money;
-  assert.equal(scene.base.money, careerPay(player.life).total + payout);
-  assert.match(roomView({ role: 'player' }, stateFor(room, 'hero'), { pane: 'play', rank: 'money' }),
-    /농작물 수확 보너스/);
-  const option = scene.choices.find(({ id }) => id === 'rest');
-  assert.ok(option);
-  selectChoice(room, 'hero', { round: stateFor(room, 'hero').turn.number, scene: 'year', choice: 'rest' }, 1000);
-  assert.equal(player.life.stats.money - before, careerPay({ ...player.life, age: 39,
-    path: { ...player.life.path, workYears: { farmer: 10 } } }).total + payout);
-});
-
-test('성과형 직업에도 성장 카드와 기존 일 계속하기·다른 직업 보기가 표시된다', () => {
-  const room = newRoom({ code: 'PERF42', seed: 'performance-career-ui', name: '성과 직업', settings: { pace: 'personal', maxAge: 110 } });
+test('기존 성과형 직업도 직업 선택 화면에서 승급할 수 있다', () => {
+  const room = newRoom({ code: 'PERF42', seed: 'performance-career-ui', name: '직업 성장',
+    settings: { pace: 'personal', maxAge: 110 } });
   const player = addPlayer(room, { id: 'artist', name: '창작자', avatar: 0, sex: 'female' });
   player.life.age = 42;
   player.life.career = 'studio';
   player.life.path.workYears.studio = 12;
   player.life.stats.art = 90;
   teacherAction(room, 'start', {}, 1000);
-  const current = stateFor(room, 'artist');
-  assert.equal(current.me.scene.key, 'career');
-  assert.ok(current.me.scene.choices.some(({ careerGroup }) => careerGroup === 'advancement'));
-  const html = roomView({ role: 'player' }, current, { pane: 'play', rank: 'money' });
+  const snapshot = stateFor(room, 'artist');
+  assert.equal(snapshot.me.scene.key, 'career');
+  assert.ok(snapshot.me.scene.choices.some(({ careerGroup }) => careerGroup === 'advancement'));
+  const html = roomView({ role: 'player' }, snapshot, { pane: 'play', rank: 'money' });
   assert.match(html, /지금 일 계속하기/);
   assert.match(html, /다른 직업 보기/);
-  assert.match(html, /<h3>승진·전직 기회<\/h3>/);
+  assert.doesNotMatch(html, /성과 보너스|성과 수입/);
 });
 
-test('은퇴 또는 군복무 중에는 성과 보너스를 지급하지 않는다', () => {
+test('은퇴와 군복무 중에도 연간 성과 보너스 항목은 없다', () => {
   const person = life('athlete', 35);
   person.path.retired = 34;
   assert.ok(!yearlySources(person).some(({ id }) => id.startsWith('performance-')));

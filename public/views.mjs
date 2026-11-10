@@ -1,7 +1,7 @@
 import { AVATARS, CAREER_CREDENTIALS, CAREER_GROUPS, CAREER_PROMOTIONS, CAREERS, STAGES, STATS } from './content.mjs';
 import { CAPACITY, MODES, PASS, RANKS, stageAt } from './game.mjs';
 import { SEXES, careerGoals, careerGrowth, careerPay, chanceDiscount, lifeBadges, pathNotes, pathOf,
-  performanceProfile, retirementAge, retirementLumpSum, retirementPayout, retirementTax } from './life.mjs';
+  retirementAge, retirementLumpSum, retirementPayout, retirementTax } from './life.mjs';
 import { avatar, changes, escapeHtml as h, icon, numeral, statGrid } from './ui.mjs';
 
 const rankInfo = { ...STATS, age: { label: '장수', mark: 'clock', color: 'mint', unit: '살' } };
@@ -57,11 +57,10 @@ function jobGuide(life) {
     current.experience && `경력 +${current.experience}`, current.skill && `${STATS[current.stat].label} +${current.skill}`,
     current.education && `대학원 +${current.education}`,
   ].filter(Boolean).join(' · ');
-  const currentBonus = life?.career && performanceProfile(life.career);
   const baseCareers = Object.entries(CAREERS).filter(([, job]) => !job.promotionFrom && !job.legacyPromotion);
   return `
     ${current ? `<section class="current-pay"><strong>${h(CAREERS[life.career].title)} · 연봉 ${current.total}코인</strong>
-      <p class="field-note">${h(payParts)}${currentBonus ? ` · 성과 보너스 매년 0~${currentBonus.max}코인` : ''}</p></section>` : ''}
+      <p class="field-note">${h(payParts)}</p></section>` : ''}
     <label class="job-search-label">직업 찾기<input id="job-search" type="search" placeholder="직업명이나 승진 직급 검색" autocomplete="off"></label>
     <p class="field-note job-guide-intro">${baseCareers.length}개 직업 · 누르면 승진 경로와 조건을 볼 수 있어요.</p>
     <p class="field-note" id="job-no-match" role="status" hidden>찾는 직업이 없어요.</p>
@@ -75,9 +74,8 @@ function jobGuide(life) {
       const summaryRequirements = requirements.length > 2
         ? `${requirements.slice(0, 2).join(' · ')} 외 ${requirements.length - 2}개`
         : requirementText;
-      const performance = performanceProfile(id);
       const routeIds = careerPromotionRoute(id);
-      const route = id === 'athlete' ? ['coach', ...careerPromotionRoute('coach')] : routeIds;
+      const route = id === 'athlete' ? [...routeIds, 'coach', ...careerPromotionRoute('coach')] : routeIds;
       let familyId = life?.career;
       while (familyId && CAREERS[familyId]?.promotionFrom) familyId = CAREERS[familyId].promotionFrom;
       const inFamily = familyId === id;
@@ -98,8 +96,8 @@ function jobGuide(life) {
           </li>`;
         }).join('')}
       </ol>` : `<div class="job-no-promotion">
-        <strong>별도 승진 단계 없음</strong>
-        <p>${performance ? '경력을 쌓고 좋은 성과를 내면 추가 보너스를 받을 수 있어요.' : '현재 직업에서 경력과 능력치를 키우거나 다른 직업으로 이직할 수 있어요.'}</p>
+        <strong>현재 직위의 다음 단계는 없어요</strong>
+        <p>경력과 능력치를 쌓거나 다른 직업을 알아볼 수 있어요.</p>
       </div>`;
       return `<li class="job-guide-entry">
         <details class="job-guide-card">
@@ -123,8 +121,6 @@ function jobGuide(life) {
               <span><b>정년</b> ${retirementAge(id)}세</span>
               <span><b>체력 소모</b> ${job.fatigue ? `매년 -${job.fatigue}점` : '기본 소모 없음'}</span>
             </div>
-            ${performance ? `<div class="job-performance-info"><strong>성과 수입: 매년 0~${performance.max}코인</strong>
-              <p><b>${h(performance.label)}</b> · ${h(performance.description)}</p></div>` : ''}
             <section class="job-promotion-detail">
               <h4>${route.length ? '승진·전직 경로와 필요 조건' : '성장 방식'}</h4>
               ${routeHtml}
@@ -144,9 +140,9 @@ export function gameMenuView(page, life) {
   </nav>
   ${jobs ? jobGuide(life) : `<ul class="help-list">
     <li><b>한 해씩 성장</b><p>일상 선택으로 한 살 자라요. 진학·치료·저축은 같은 나이에 추가로 선택해요.</p></li>
-    <li><b>직업과 승진</b><p>꿈과 전공에 맞는 일을 찾고, 경력과 조건을 쌓아 승진해요. 성과형 직업은 추가 보너스를 받아요.</p></li>
+    <li><b>직업과 성장</b><p>모든 직업에서 경력과 조건을 채워 다음 단계에 도전할 수 있어요.</p></li>
     <li><b>돈과 건강</b><p>‘올해 변화’에서 수입과 생활비를 확인해요. 체력이 낮으면 병에 걸릴 위험이 커져요.</p></li>
-    <li><b>노후 준비</b><p>적금에는 연 4% 복리가 붙어요. 은퇴할 때 일시금 또는 10년 연금 중 선택해요.</p></li>
+    <li><b>노후 준비</b><p>적금에는 연 4% 복리가 붙어요. 중·노년에는 국채·펀드·주식 투자도 선택할 수 있어요.</p></li>
     <li><b>다음 세대</b><p>삶을 마친 뒤 자녀나 다음 세대로 이어 살거나, 영혼이 되어 이야기를 남길 수 있어요.</p></li>
   </ul>`}`;
 }

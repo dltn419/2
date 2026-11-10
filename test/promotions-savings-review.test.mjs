@@ -29,6 +29,7 @@ function choose(room, id) {
   selectChoice(room, 'hero', { round: snapshot.turn.number, scene: entry.key, choice: id }, 1000);
 }
 function clearEducation(room) {
+  if (state(room).me.scene.key === 'investment') choose(room, 'rest');
   if (state(room).me.scene.key === 'education') choose(room, 'rest');
 }
 
@@ -101,6 +102,7 @@ test('연봉 인상 후 가입·증액 선택지가 나오고 기존 적금 잔�
   const { room, life } = setup('crew', 40, 1);
   life.path.savings = { annual: 1, balance: 100, chosenAt: 24, interestRate: 0.04 };
   const previousSalary = careerPay(life).total;
+  if (state(room).me.scene.key === 'investment') choose(room, 'rest');
   assert.equal(state(room).me.scene.key, 'year');
   const regular = state(room).me.scene.choices.find(({ id }) => id === 'rest') ??
     state(room).me.scene.choices[0];
@@ -119,6 +121,7 @@ test('연봉 인상 후 가입·증액 선택지가 나오고 기존 적금 잔�
 test('저축 미가입자도 연봉 인상 후 다시 가입할 수 있다', () => {
   const { room, life } = setup('crew', 40, 1);
   life.path.savings = { annual: 0, balance: 0, chosenAt: 22, interestRate: 0.04 };
+  if (state(room).me.scene.key === 'investment') choose(room, 'rest');
   choose(room, 'rest');
   assert.equal(state(room).me.scene.key, 'saving');
   assert.deepEqual(state(room).me.scene.choices.map(({ id }) => id),
