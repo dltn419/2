@@ -275,6 +275,10 @@ function changeLife(room, player, year, option, after) {
     Math.floor(Math.max(0, life.stats.money + (ordinaryEffects.money ?? 0) - 1))) : 0;
   const effects = deposit ? { ...ordinaryEffects, money: (ordinaryEffects.money ?? 0) - deposit } : ordinaryEffects;
   const changes = applyEffects(life, effects);
+  // 올해 만기 지급은 매년 정산 과정에서 단 한 번만 반영합니다.
+  for (const investment of life.path.investments ?? []) {
+    if (!investment.settledAt && age >= investment.maturityAge) investment.settledAt = age;
+  }
   if (life.path.savings && life.path.retired === null) {
     const account = life.path.savings;
     const balance = Math.floor(Math.max(0, account.balance ?? 0));
