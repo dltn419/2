@@ -510,7 +510,7 @@ test('게임 메뉴에는 팁과 모든 직업의 조건 및 연봉이 있다', 
   life.career = 'crew';
   life.path.workYears.crew = 3;
   assert.match(topView({ role: 'player' }, stateFor(room, '학생')), /<span>메뉴<\/span>/);
-  assert.match(gameMenuView('tips', life), /직업과 승진/);
+  assert.match(gameMenuView('tips', life), /직업과 성장/);
   const guide = gameMenuView('jobs', life);
   assert.equal([...guide.matchAll(/class="job-guide-entry"/g)].length,
     Object.values(CAREERS).filter((job) => !job.promotionFrom && !job.legacyPromotion).length);
