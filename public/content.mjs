@@ -1,3 +1,5 @@
+import { CAREER_GROUPS, NEW_CAREERS, EXTRA_ROUTES, SPECIAL_BRANCHES } from './career-expansion.mjs';
+
 export const STATS = {
   health: { label: '체력', mark: 'heart', color: 'rose' },
   learning: { label: '배움', mark: 'book', color: 'blue' },
@@ -27,6 +29,8 @@ export const CAREER_CREDENTIALS = {
   nursing: '간호학과 졸업과 간호사 면허',
   caregiving: '돌봄 교육과 자격 시험',
   sports: '운동부나 운동팀 훈련 2회 이상',
+  pharmacy: '약학과 졸업 및 약사 면허',
+  dentistry: '치의학과 졸업 및 치과의사 면허',
 };
 
 export const CAREER_GROWTH = {
@@ -70,7 +74,7 @@ export const CAREERS = {
     field: 'media', related: ['art'], specialty: true, payStat: 'art', need: { art: 35, bond: 24, money: 10 }, startup: 8 },
   civil: { growth: 'stable', title: '공무원', detail: '시험을 보고 주민을 돕는 일을 시작해요.', place: '전에 일하던 주민센터', mark: 'house', wage: 4,
     field: 'public', related: ['office'], education: 'school', need: { learning: 53, bond: 24 } },
-  teacher: { growth: 'stable', title: '초등교사', detail: '교실에서 아이들을 만나고 가르쳐요.', place: '전에 일하던 초등학교', mark: 'board', wage: 5,
+  teacher: { growth: 'stable', title: '교사', detail: '학교에서 학생들을 만나고 가르쳐요.', place: '전에 일하던 초등학교', mark: 'board', wage: 5,
     field: 'education', related: ['people'], education: 'teaching', specialty: true, need: { learning: 59, bond: 29 } },
   athlete: { growth: 'athlete', retireAt: 38, title: '운동선수', detail: '팀에서 훈련하고 경기에 나가요.', place: '전에 뛰던 경기장', mark: 'flag', wage: 6, fatigue: 2,
     field: 'sports', education: 'sports', specialty: true, latestStart: 30, payStat: 'health', need: { health: 77 } },
@@ -92,6 +96,29 @@ export const CAREERS = {
     field: 'sports', related: ['education'], payStat: 'bond', need: { health: 45, bond: 28 }, specialty: true },
 };
 
+ 
+// 기존 직업 ID는 유지하고, 새 직업 34개와 입직 경로를 추가합니다.
+Object.assign(CAREERS, NEW_CAREERS);
+// 직업군인은 한 계열로 안내하지만 실제 취업은 부사관/장교 중 고릅니다.
+// 여성과 남성 모두 동일한 자격 조건으로 진입할 수 있습니다.
+CAREERS.soldierNco = {
+  ...CAREERS.soldier, title: '직업군인 · 하사', wage: 5,
+  entryVariant: true, entryFamily: 'soldier', education: 'school',
+  need: { health: 55, learning: 35, bond: 30 },
+};
+CAREERS.soldierOfficer = {
+  ...CAREERS.soldier, title: '직업군인 · 소위', wage: 7,
+  entryVariant: true, entryFamily: 'soldier', education: 'bachelor',
+  need: { health: 55, learning: 65, bond: 40 },
+};
+for (const [category, info] of Object.entries(CAREER_GROUPS)) {
+  for (const id of info.ids) {
+    if (!CAREERS[id]) throw new Error(`직업군 미등록 직업: ${category}/${id}`);
+    CAREERS[id].category = category;
+  }
+}
+for (const variant of ['soldierNco', 'soldierOfficer']) CAREERS[variant].category = 'public';
+
 
 /*
  * 경력 승진 경로. 실제 채용·승진 요건을 복제한 것이 아니라 교실 게임용 간략 조건입니다.
@@ -111,6 +138,16 @@ export const PERFORMANCE_BONUSES = {
     description: '손님이 늘고 매출이 좋은 해에 순이익 보너스를 받아요.' },
   athlete: { label: '대회 성적 상금', stat: 'health', threshold: 80, max: 5,
     description: '경기 성적과 대회 결과에 따라 상금이 달라져요.' },
+  idol: { label: '공연·활동 보너스', stat: 'art', threshold: 66, max: 5,
+    description: '무대 활동에 따라 보너스 수입을 얻어요.' },
+  actor: { label: '출연 보너스', stat: 'art', threshold: 63, max: 5,
+    description: '출연 활동과 성과로 추가 수입을 얻어요.' },
+  singer: { label: '음원·공연 보너스', stat: 'art', threshold: 68, max: 5,
+    description: '음악 활동이 활발한 해에는 보너스가 생겨요.' },
+  webtoon: { label: '연재 성과 보너스', stat: 'art', threshold: 68, max: 5,
+    description: '웹툰 연재 성과에 따라 추가 수입을 얻어요.' },
+  photographer: { label: '촬영 의뢰 보너스', stat: 'art', threshold: 61, max: 4,
+    description: '촬영 의뢰가 많을 때 추가 수입이 생겨요.' },
 };
 
 export const CAREER_PROMOTIONS = {
@@ -157,6 +194,31 @@ export const CAREER_PROMOTIONS = {
   hospitalDirector: { from: 'clinicalProfessor', title: '병원장', wage: 16, minYears: 7, need: { learning: 114, bond: 82 } },
 };
 
+// 기존 승진·전직 단계와 함께 새 직업들의 2단계 성장 경로를 생성합니다.
+// 직업별 역할에 맞게 원래의 관련 능력치만 요구하며 무관한 예술 능력은 추가하지 않습니다.
+for (const [startingCareer, route] of Object.entries(EXTRA_ROUTES)) {
+  let from = startingCareer;
+  const base = CAREERS[startingCareer];
+  if (!base) throw new Error(`성장 출발 직업 미등록: ${startingCareer}`);
+  for (const [i, [id, title]] of route.entries()) {
+    const level = i + 1;
+    if (CAREER_PROMOTIONS[id]) throw new Error(`중복 성장 직위: ${id}`);
+    const primary = Object.entries(base.need ?? {});
+    const stats = primary.length ? primary : [[base.payStat ?? 'learning', 25]];
+    const need = Object.fromEntries(stats.map(([stat, threshold]) =>
+      [stat, threshold + (level === 1 ? 12 : 25)]));
+    CAREER_PROMOTIONS[id] = {
+      from, title, wage: base.wage + level * 2,
+      minYears: level === 1 ? 4 : 6, need,
+      type: ['farmer', 'shop', 'livestock'].includes(startingCareer) ? '사업 성장'
+        : ['studio', 'creator', 'sales', 'athlete', 'idol', 'actor', 'singer', 'webtoon', 'photographer'].includes(startingCareer)
+          ? '활동 성장' : '경력 성장',
+    };
+    from = id;
+  }
+}
+Object.assign(CAREER_PROMOTIONS, SPECIAL_BRANCHES);
+
 // 이전 버전에서 이미 진급한 캐릭터의 기록을 보존하기 위한 직위입니다.
 // 새 게임에서는 해당 직위로 승진할 수 없으며, 직업 메뉴에도 보이지 않습니다.
 export const LEGACY_PERFORMANCE_PROMOTIONS = {
@@ -192,6 +254,9 @@ for (const [id, position] of Object.entries({ ...CAREER_PROMOTIONS, ...LEGACY_PE
     legacyPromotion: Object.hasOwn(LEGACY_PERFORMANCE_PROMOTIONS, id),
     minYears: position.minYears,
     requiresGraduate: position.requiresGraduate ?? false,
+    requiresNursingTrack: position.requiresNursingTrack ?? false,
+    requiresSchoolNurseExam: position.requiresSchoolNurseExam ?? false,
+    branchType: position.type ?? '승진',
     need: position.need,
   };
 }
