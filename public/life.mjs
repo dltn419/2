@@ -925,8 +925,14 @@ export function bonusScene(life, done) {
       examChoice(), rest('조금 더 공부하기', '시험은 나중에 볼 수 있어요.', {}),
     ]), key: 'education', fallback: 'rest' };
   }
-  if (path.program?.kind === 'university' && !path.militaryRoute &&
-    !path.militaryTraining && age >= 20 && age <= 24 &&
+  if (path.sex === 'male' && !CAREERS[life.career]?.militaryProfessional &&
+    !path.militaryTraining && !path.militaryRoute && !['academy', 'academy3'].includes(path.program?.kind) &&
+    age >= 20 && age <= SERVICE_LIMIT && !done.includes('military') &&
+    (!path.service || (path.service.status === 'planned' && age >= Math.min(path.service.at, SERVICE_LIMIT)))) {
+    return { ...militaryPlan(life, path), key: 'military' };
+  }
+  if (path.program?.kind === 'university' && path.service?.status !== 'serving' &&
+    !path.militaryRoute && !path.militaryTraining && age >= 20 && age <= 24 &&
     [2, 3].includes(path.program.remaining) && !done.includes('rotc')) {
     return { ...scene('학군사관(ROTC) 지원',
       '대학 1~2학년 때 지원하고, 선발되면 대학 공부와 군사교육을 병행해 졸업 후 소위로 임관해요.', [
@@ -938,8 +944,8 @@ export function bonusScene(life, done) {
         rest('이번에는 지원하지 않기', '나중에 학군사관에 다시 도전할 수 있어요.', {}),
       ]), key: 'rotc', fallback: 'rest' };
   }
-  if (path.program?.kind === 'university' && !path.militaryRoute &&
-    !path.militaryTraining && age >= 21 && age <= 24 &&
+  if (path.program?.kind === 'university' && path.service?.status !== 'serving' &&
+    !path.militaryRoute && !path.militaryTraining && age >= 21 && age <= 24 &&
     path.program.remaining === 2 && !done.includes('academy3-transfer')) {
     return { ...scene('육군3사관학교 편입',
       '4년제 대학을 2년 정도 다닌 뒤 3사관학교에 지원할 수 있어요.', [
@@ -960,12 +966,6 @@ export function bonusScene(life, done) {
           { need: { health: 52, learning: 30 }, strictNeed: true }),
         rest('병 복무 마무리하기', '남은 병 복무를 마치고 전역하기로 해요.', {}),
       ]), key: 'military-nco', fallback: 'rest' };
-  }
-  if (path.sex === 'male' && !CAREERS[life.career]?.militaryProfessional &&
-    !path.militaryTraining && !path.militaryRoute && !['academy', 'academy3'].includes(path.program?.kind) &&
-    age >= 20 && age <= SERVICE_LIMIT && !done.includes('military') &&
-    (!path.service || (path.service.status === 'planned' && age >= Math.min(path.service.at, SERVICE_LIMIT)))) {
-    return { ...militaryPlan(life, path), key: 'military' };
   }
   const continuing = path.program || path.militaryTraining || path.service?.status === 'serving';
   // 첫 취업 후 1~3년 또는 연봉 인상 다음 해에 적금 가입·증액 기회를 엽니다.
