@@ -437,9 +437,6 @@ dialog::backdrop { background: #233e34a0; }
 .job-guide-details-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 12px; padding: 10px; background: #f8f6ec; border-radius: 4px; font-size: 12px; color: var(--muted); }
 .job-guide-details-meta span { min-width: 0; }
 .job-guide-details-meta b { color: var(--ink); margin-right: 4px; }
-.job-performance-info { padding: 10px 11px; margin-top: 10px; border: 1px solid #d6dfbe; background: #f4f7ed; border-radius: 4px; }
-.job-performance-info strong { font-size: 13px; color: var(--pine); }
-.job-performance-info p { margin: 3px 0 0; }
 .job-promotion-detail { margin-top: 14px; }
 .job-promotion-detail h4 { font-size: 14px; margin-bottom: 10px; }
 .job-promotion-route { display: grid; gap: 8px; padding: 0 0 0 12px; margin: 0; list-style: none; counter-reset: career-step; }
