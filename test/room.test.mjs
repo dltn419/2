@@ -136,7 +136,7 @@ test('20명이 동시에 선택하면 한 턴만 마감하고 서버 재시작 �
       me = rested.body.me;
     }
     assert.equal(me.scene.key, 'dream');
-    return room.choose(player, schoolRound, 'dream-art', me.scene.key);
+    return room.choose(player, schoolRound, 'dream-creative', me.scene.key);
   }));
   assert.ok(surveys.every(({ status, body }) => status === 200 && body.year === 10 && !body.me.submitted &&
     body.me.age === 10 && body.me.scene.title === '우리 반 작은 전시'));
@@ -171,7 +171,7 @@ test('새 멀티 방은 학생마다 곧장 한 살씩 자라고 중복 요청�
     state = result.body;
   }
   assert.equal(state.me.scene.key, 'dream');
-  const dream = await room.choose(fast, state.turn.number, 'dream-sports', 'dream');
+  const dream = await room.choose(fast, state.turn.number, 'dream-creative', 'dream');
   assert.equal(dream.status, 200);
   assert.equal(dream.body.me.age, 10);
   assert.equal(dream.body.turn.number, state.turn.number);
