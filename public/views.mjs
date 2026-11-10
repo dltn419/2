@@ -65,7 +65,9 @@ function jobGuide(life) {
     <label class="job-search-label">직업 찾기<input id="job-search" type="search" placeholder="직업명이나 승진 직급 검색" autocomplete="off"></label>
     <p class="field-note job-guide-intro">${baseCareers.length}개 직업 · 누르면 승진 경로와 조건을 볼 수 있어요.</p>
     <p class="field-note" id="job-no-match" role="status" hidden>찾는 직업이 없어요.</p>
-    <ul class="job-guide-list">${baseCareers.map(([id, job]) => {
+    <div class="job-guide-categories">${CAREER_GROUPS.map((group) => `<details class="job-guide-category" data-job-category="${group.id}">
+      <summary>${h(group.title)} <span>${baseCareers.filter(([, job]) => job.group === group.id).length}개</span></summary>
+      <ul class="job-guide-list">${baseCareers.filter(([, job]) => job.group === group.id).map(([id, job]) => {
       const growth = careerGrowth(id);
       const growthLine = `${growth.steps.join('·')}년차 이후 +${growth.raise}코인씩`;
       const requirements = jobRequirementList(id, job, life);
@@ -131,7 +133,7 @@ function jobGuide(life) {
           </div>
         </details>
       </li>`;
-    }).join('')}</ul>`;
+    }).join('')}</ul></details>`).join('')}</div>`;
 }
 
 export function gameMenuView(page, life) {
