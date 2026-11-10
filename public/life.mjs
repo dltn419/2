@@ -495,10 +495,10 @@ function careerPlan(life, path) {
   for (const [career, job] of Object.entries(CAREERS)) {
     if (career === life.career || job.legacyPromotion || life.age > (job.latestStart ?? Infinity) ||
       life.age >= retirementAge(career) ||
-      (job.promotionFrom && job.promotionFrom !== life.career) ||
-      (career === 'coach' && life.career !== 'athlete')) continue;
+      (job.promotionFrom && job.promotionFrom !== life.career)) continue;
     const fields = jobFields(job);
-    const credential = job.education && { label: CAREER_CREDENTIALS[job.education], met: credentials[job.education] };
+    const credential = job.education && !(career === 'coach' && life.career === 'athlete') &&
+      { label: CAREER_CREDENTIALS[job.education], met: credentials[job.education] };
     const explored = interests.some((field) => fields.includes(field)) || (career === 'athlete' && path.sportYears > 0);
     const readyWithoutDegree = !credential && Object.entries(job.need ?? {}).every(([stat, minimum]) => life.stats[stat] >= minimum);
     const advancement = Boolean(job.promotionFrom) || (career === 'coach' && life.career === 'athlete');
