@@ -221,7 +221,7 @@ function applyDecision(life, age, option) {
     // 여성도 똑같이 지원하며 여성 캐릭터에게 별도 의무복무를 부여하지 않습니다.
     if (['soldierNco', 'soldierOfficer'].includes(option.career) &&
       life.path.sex === 'male' && !['complete', 'exempt'].includes(life.path.service?.status)) {
-      life.path.service = { status: 'complete', kind: 'professional', endedAt: age };
+      life.path.service = { status: 'complete', kind: 'professional' };
     }
     const newSalary = careerPay(life)?.total ?? 0;
     if (previousSalary > 0 && newSalary > previousSalary && life.path.retired === null) {
