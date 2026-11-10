@@ -397,6 +397,15 @@ dialog::backdrop { background: #233e34a0; }
 .job-guide-list { display: grid; gap: 9px; }
 .job-guide-entry { background: #fffdf6; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
 .job-guide-entry[hidden] { display: none; }
+.job-guide-group-title { list-style: none; grid-column: 1 / -1; padding: 11px 8px 5px;
+  border-bottom: 1px solid #dce5d2; color: var(--pine); font-size: 15px; font-weight: 900; }
+.job-guide-group-title[hidden] { display: none; }
+.choice-section[data-choice-section^="career-"] summary { font-size: 15px; }
+.choice-section[data-choice-section^="career-"] .choice-grid { max-height: min(65vh, 620px); overflow-y: auto; overscroll-behavior: contain; }
+.choice-section[data-choice-section^="career-"] .choice:disabled { opacity: .77; }
+@media (max-width: 540px) {
+  .choice-section[data-choice-section^="career-"] .choice-grid { max-height: 55vh; }
+}
 .job-guide-card > summary { list-style: none; cursor: pointer; padding: 12px 13px; min-height: 94px; }
 .job-guide-card > summary::-webkit-details-marker { display: none; }
 .job-guide-card > summary:focus-visible { outline: 3px solid var(--pine); outline-offset: -3px; }
