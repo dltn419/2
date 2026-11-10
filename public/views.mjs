@@ -75,7 +75,7 @@ function jobGuide(life) {
         ? `${requirements.slice(0, 2).join(' · ')} 외 ${requirements.length - 2}개`
         : requirementText;
       const routeIds = careerPromotionRoute(id);
-      const route = id === 'athlete' ? ['coach', ...careerPromotionRoute('coach')] : routeIds;
+      const route = id === 'athlete' ? [...routeIds, 'coach', ...careerPromotionRoute('coach')] : routeIds;
       let familyId = life?.career;
       while (familyId && CAREERS[familyId]?.promotionFrom) familyId = CAREERS[familyId].promotionFrom;
       const inFamily = familyId === id;
