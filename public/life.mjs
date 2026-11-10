@@ -432,7 +432,8 @@ export function careerGoals(life) {
   const years = path.workYears?.[life.career] ?? 0;
   const targets = Object.entries(CAREERS)
     .filter(([, job]) => job.promotionFrom === life.career && !job.legacyPromotion)
-    .map(([career, job]) => ({ career, job, type: job.routeType === '전직' ? '전직' : '승진',
+    .map(([career, job]) => ({ career, job,
+      type: job.routeType === '전직' ? '전직' : job.routeType === '성장' ? '성장' : '승진',
       minYears: job.minYears ?? 0 }));
   if (life.career === 'athlete' && life.age <= retirementAge('athlete')) {
     targets.push({ career: 'coach', job: CAREERS.coach, type: '전직', minYears: 3 });
