@@ -47,6 +47,8 @@ const PROGRAMS = {
   medicine: { label: '의대', years: 6, familyCopay: 4 },
   nursing: { label: '간호학과', years: 4, familyCopay: 2 },
   teaching: { label: '교육대', years: 4, familyCopay: 3 },
+  academy: { label: '육군사관학교', years: 4, familyCopay: 0 },
+  academy3: { label: '육군3사관학교', years: 2, familyCopay: 0 },
   training: { label: '직업훈련', years: 1, cost: 3 },
   caregiving: { label: '돌봄 교육', years: 1, cost: 4 },
 };
@@ -112,7 +114,7 @@ export function newPath(sex = null) {
   return { sex, dreams: [], school: null, diploma: false, program: null, degree: null, training: false,
     service: null, partner: null, romance: null, romanceSeed: 0, married: null, children: [],
     retired: null, savings: null, savingsReview: null, workYears: {}, home: null, illness: null, recoveredAt: null, habit: null,
-    nursingTeachingDecision: null };
+    nursingTeachingDecision: null, militaryRoute: null, militaryTraining: null };
 }
 
 const EMPTY_PATH = newPath();
@@ -366,7 +368,7 @@ function examChoice() {
 function universityChoice(kind, life, engineering = false) {
   const path = pathOf(life);
   const dream = mostRecentDream(path);
-  let field = { medicine: 'medical', nursing: 'medical', teaching: 'education', caregiving: 'people' }[kind]
+  let field = { medicine: 'medical', nursing: 'medical', teaching: 'education', caregiving: 'people', academy: 'public', academy3: 'public' }[kind]
     ?? (engineering ? 'tech' : studyFieldFor(dream));
   if (kind === 'graduate') {
     const major = undergraduate(degreesOf(path))?.field;
@@ -374,6 +376,7 @@ function universityChoice(kind, life, engineering = false) {
   }
   const data = PROGRAMS[kind];
   const title = { university: engineering ? '이공계 대학 가기' : '4년제 대학 가기', nursing: '간호학과 가기',
+    academy: '육군사관학교 지원하기', academy3: '육군3사관학교 지원하기',
     training: '일할 기술 배우기', caregiving: '돌봄 교육과 시험 준비하기' }[kind] ?? `${data.label} 가기`;
   const scienceSchool = path.school === 'gifted' ? 6 : path.school === 'science' ? 3 : 0;
   const need = {
@@ -381,6 +384,8 @@ function universityChoice(kind, life, engineering = false) {
     medicine: { learning: 63 - scienceSchool - (dreamIncludes(dream, 'medical') ? 4 : 0) },
     nursing: { learning: dreamIncludes(dream, 'medical') ? 33 : 38, bond: 20 },
     teaching: { learning: dreamIncludes(dream, 'education') ? 42 : 47, bond: 22 },
+    academy: { learning: 64, health: 55, bond: 30 },
+    academy3: { learning: 52, health: 55, bond: 30 },
   }[kind];
   const scholarship = kind === 'medicine' && life.stats.learning >= need.learning + 5;
   const familySupported = data.familyCopay !== undefined;
@@ -389,6 +394,8 @@ function universityChoice(kind, life, engineering = false) {
     : data.cost;
   const detail = kind === 'medicine' ? `6년을 배우고 의사 시험에 도전해요.${scholarship ? ' 장학금을 받아요.' : ''}`
     : { nursing: '4년 동안 간호를 배우고 간호사 시험을 준비해요.', teaching: '4년 동안 아이들을 가르치는 법을 배워요.',
+      academy: '4년간 생도교육과 군사훈련을 받고 졸업하면 소위로 임관해요.',
+      academy3: '전문대 졸업 뒤 2년간 생도교육을 받고 소위로 임관해요.',
       caregiving: '1년 동안 어르신을 돌보는 법을 배우고 시험을 봐요.' }[kind]
       ?? (field !== 'explore' && kind !== 'training' ? `${data.years}년 동안 ‘${fieldLabel(field)}’를 배워요.`
         : `${data.years}년 동안 새로 배우고 싶은 것을 공부해요.`);
@@ -400,6 +407,8 @@ function universityChoice(kind, life, engineering = false) {
     medicine: '의대에 들어가 사람의 몸을 배우는 첫 수업을 들었어요.',
     nursing: '간호학과에 들어가 아픈 사람을 돌보는 법을 배우기 시작했어요.',
     teaching: '교육대에 들어가 아이들에게 어떤 선생님이 될지 생각했어요.',
+    academy: '육군사관학교 선발에 합격해 생도 생활을 시작했어요.',
+    academy3: '육군3사관학교에 합격해 2년간 생도교육을 시작했어요.',
     training: '직업훈련을 시작하며 처음 쓸 도구를 하나씩 익혔어요.',
     caregiving: '돌봄 수업에 들어가 어르신의 하루를 돕는 법부터 배웠어요.',
   }[kind];
@@ -495,6 +504,8 @@ function careerPlan(life, path) {
     current ? `지금의 직업인 ${current.title} 일을 이어가요.` : '나중에 일자리를 다시 살펴볼 수 있어요.', {})];
   const dream = mostRecentDream(path);
   for (const [career, job] of Object.entries(CAREERS)) {
+    // 초임 간부는 일반 취업과 달리 선발·양성교육 경로를 먼저 거쳐야 합니다.
+    if (['militaryNco', 'militaryOfficer'].includes(career)) continue;
     if (career === life.career || job.legacyPromotion || life.age > (job.latestStart ?? Infinity) ||
       life.age >= retirementAge(career) ||
       (job.promotionFrom && job.promotionFrom !== life.career)) continue;
@@ -533,6 +544,30 @@ function careerPlan(life, path) {
         : `${job.title} 일을 시작했어요. 첫날은 누구나 떨려요.`,
     }));
   }
+  if (!CAREERS[life.career]?.militaryProfessional && !path.militaryTraining && !path.program) {
+    if (life.age >= 19 && life.age <= 26) {
+      choices.push(pick('apply-military-nco', '육군 민간부사관 지원',
+        '고졸 이상 · 남녀 지원 가능 · 체력·학습 조건을 통과하고 1년의 양성교육을 거쳐 하사로 임관해요.',
+        'flag', {}, {
+          action: { kind: 'military-recruit', value: 'nco-public' },
+          need: { health: 55, learning: 30 }, strictNeed: true, careerGroup: 'other',
+          conditions: [{ label: '고졸 또는 검정고시', met: finishedSchool(path) }],
+          narration: '부사관 선발에 합격해 양성교육에 들어갔어요.',
+        }));
+    }
+    const bachelorForOfficer = degrees.some(({ kind }) =>
+      ['university', 'teaching', 'nursing', 'medicine', 'academy', 'graduate'].includes(kind));
+    if (life.age >= 20 && life.age <= 28) {
+      choices.push(pick('apply-military-ocs', '육군 학사사관 지원',
+        '4년제 대학 졸업 이상 · 남녀 지원 가능 · 선발과 양성교육을 거쳐 소위로 임관해요.',
+        'flag', {}, {
+          action: { kind: 'military-recruit', value: 'officer-ocs' },
+          need: { health: 55, learning: 50, bond: 30 }, strictNeed: true, careerGroup: 'other',
+          conditions: [{ label: '4년제 대학 졸업', met: bachelorForOfficer }],
+          narration: '학사사관 선발에 합격해 장교 양성교육을 받기로 했어요.',
+        }));
+    }
+  }
   const performance = current && performanceProfile(life.career);
   return scene(current ? (performance ? '올해도 이 일을 계속할까요?' : '승진하거나 다른 직업을 찾을까요?') : '어떤 일을 할까요?',
     current ? (performance
@@ -552,6 +587,11 @@ function educationPlan(life, path) {
     if (!completed('college')) options.push(universityChoice('college', life));
     if (!isStem(dream)) options.push(universityChoice('university', life, true));
   } else if (!eligible) options.push(examChoice());
+  if (eligible && life.age === 19 && !life.career) options.push(universityChoice('academy', life));
+  if (eligible && life.age >= 21 && life.age <= 24 &&
+    degrees.some(({ kind }) => kind === 'college') && !life.career) {
+    options.push(universityChoice('academy3', life));
+  }
   if (eligible && life.age <= 38 && !completed('medicine') &&
     (dreamIncludes(dream, 'medical') || path.school === 'science' || path.school === 'gifted' || life.stats.learning >= 50)) {
     options.push(universityChoice('medicine', life));
@@ -885,12 +925,49 @@ export function bonusScene(life, done) {
       examChoice(), rest('조금 더 공부하기', '시험은 나중에 볼 수 있어요.', {}),
     ]), key: 'education', fallback: 'rest' };
   }
+  if (path.program?.kind === 'university' && !path.militaryRoute &&
+    !path.militaryTraining && age >= 20 && age <= 24 &&
+    [2, 3].includes(path.program.remaining) && !done.includes('rotc')) {
+    return { ...scene('학군사관(ROTC) 지원',
+      '대학 1~2학년 때 지원하고, 선발되면 대학 공부와 군사교육을 병행해 졸업 후 소위로 임관해요.', [
+        option('rotc-apply', 'ROTC 선발에 도전하기',
+          '남녀 모두 지원 가능 · 체력과 학업성적, 리더십 조건을 확인해요.', 'flag', {},
+          'rotc', true, '대학 수업과 ROTC 후보생 훈련을 병행하기로 했어요.',
+          { need: { health: 52, learning: 40, bond: 28 }, strictNeed: true,
+            narration: '학군사관 후보생으로 선발됐어요.' }),
+        rest('이번에는 지원하지 않기', '나중에 학군사관에 다시 도전할 수 있어요.', {}),
+      ]), key: 'rotc', fallback: 'rest' };
+  }
+  if (path.program?.kind === 'university' && !path.militaryRoute &&
+    !path.militaryTraining && age >= 21 && age <= 24 &&
+    path.program.remaining === 2 && !done.includes('academy3-transfer')) {
+    return { ...scene('육군3사관학교 편입',
+      '4년제 대학을 2년 정도 다닌 뒤 3사관학교에 지원할 수 있어요.', [
+        option('academy3-transfer', '육군3사관학교 지원하기',
+          '2년간 생도교육을 마치면 소위로 임관해요.', 'flag', {},
+          'academy3-transfer', true, '육군3사관학교로 진학했어요.',
+          { need: { health: 55, learning: 52, bond: 30 }, strictNeed: true }),
+        rest('현재 대학교 계속 다니기', '4년제 대학 과정을 이어가요.', {}),
+      ]), key: 'academy3-transfer', fallback: 'rest' };
+  }
+  if (path.service?.status === 'serving' && path.service.kind === 'military' &&
+    age >= 21 && age <= 26 && !path.militaryTraining && !done.includes('military-nco')) {
+    return { ...scene('현역병에서 부사관으로 지원',
+      '병 복무 경험을 살려 부사관 선발에 도전해요. 임관하면 의무복무를 중복하지 않아요.', [
+        option('military-nco-service', '현역부사관 전환 지원',
+          '체력·학습 능력 조건을 갖추고 간부 양성교육을 받아요.', 'flag', {},
+          'military-recruit', 'nco-enlisted', '부사관 지원서를 내고 선발됐어요.',
+          { need: { health: 52, learning: 30 }, strictNeed: true }),
+        rest('병 복무 마무리하기', '남은 병 복무를 마치고 전역하기로 해요.', {}),
+      ]), key: 'military-nco', fallback: 'rest' };
+  }
   if (path.sex === 'male' && !CAREERS[life.career]?.militaryProfessional &&
+    !path.militaryTraining && !path.militaryRoute && !['academy', 'academy3'].includes(path.program?.kind) &&
     age >= 20 && age <= SERVICE_LIMIT && !done.includes('military') &&
     (!path.service || (path.service.status === 'planned' && age >= Math.min(path.service.at, SERVICE_LIMIT)))) {
     return { ...militaryPlan(life, path), key: 'military' };
   }
-  const continuing = path.program || path.service?.status === 'serving';
+  const continuing = path.program || path.militaryTraining || path.service?.status === 'serving';
   // 첫 취업 후 1~3년 또는 연봉 인상 다음 해에 적금 가입·증액 기회를 엽니다.
   const firstJob = path.firstJobAge;
   const offerAge = Number.isInteger(firstJob) ? firstJob + 1 + ((path.romanceSeed ?? 0) % 3) : Infinity;
@@ -941,6 +1018,12 @@ export function annualScene(life) {
     return { ...school, choices: [...school.choices, sport] };
   }
   if (path.service?.status === 'serving') return serving(life, path);
+  if (path.militaryTraining) return scene('군 간부 양성교육',
+    '지원에 합격했어요. 기본 군사교육과 리더십 훈련을 받은 뒤 임관해요.', [
+      pick('military-drill', '체력과 전술 훈련하기', '기초체력과 전술을 익혀요.', 'flag', { health: 3, learning: 1 }),
+      pick('military-lead', '지휘·리더십 배우기', '동료를 이끄는 방법을 배워요.', 'link', { learning: 2, bond: 2 }),
+      rest('훈련 중 휴식하기', '몸을 회복하며 다음 교육을 준비해요.', { health: 1, joy: 1 }),
+    ]);
   if (path.program && (age === 19 || path.service?.endedAt === age)) return studying(life, path);
   const milestone = relationships(life) ?? housing(life, path);
   if (milestone) return milestone;
@@ -970,6 +1053,17 @@ export function applyPath(life, age, choice) {
       break;
     case 'study':
       path.program = { kind: action.value, field: choice.studyField ?? mostRecentDream(path), remaining: PROGRAMS[action.value].years };
+      break;
+    case 'military-recruit':
+      path.militaryTraining = { route: action.value, readyAt: age + 1 };
+      // 양성교육 기간에는 기존 민간 직업의 연봉을 받지 않습니다.
+      life.career = null;
+      break;
+    case 'rotc':
+      path.militaryRoute = { kind: 'rotc', selectedAt: age };
+      break;
+    case 'academy3-transfer':
+      path.program = { kind: 'academy3', field: 'public', remaining: 2 };
       break;
     case 'nursing-teaching': path.nursingTeachingDecision = action.value; break;
     case 'license': path[LICENSES[action.value].record] = age; break;
@@ -1021,7 +1115,19 @@ export function advancePath(life) {
   if (path.service?.status === 'serving') {
     if (life.age < path.service.until) return '';
     path.service = { status: 'complete', kind: path.service.kind ?? 'military', endedAt: life.age };
-    return path.program ? '복무를 마쳤어요. 다니던 학교로 돌아가요.' : '복무를 마치고 집으로 돌아와요.';
+    if (!path.militaryTraining) {
+      return path.program ? '복무를 마쳤어요. 다니던 학교로 돌아가요.' : '복무를 마치고 집으로 돌아와요.';
+    }
+  }
+  if (path.militaryTraining) {
+    if (life.age < path.militaryTraining.readyAt) return '';
+    const route = path.militaryTraining.route;
+    path.militaryTraining = null;
+    path.militaryRoute = { kind: route, selectedAt: life.age - 1 };
+    life.career = route === 'officer-ocs' ? 'militaryOfficer' : 'militaryNco';
+    path.firstJobAge = life.age;
+    if (path.sex === 'male') path.service = { status: 'complete', kind: 'professional', endedAt: life.age };
+    return `${life.career === 'militaryOfficer' ? '소위' : '하사'}로 임관해 군 생활을 시작했어요.`;
   }
   if (!path.program) return '';
   path.program.remaining -= 1;
@@ -1037,6 +1143,15 @@ export function advancePath(life) {
     path.degree = { kind, field, age: life.age };
   }
   path.program = null;
+  if (kind === 'academy' || kind === 'academy3' ||
+    (kind === 'university' && path.militaryRoute?.kind === 'rotc')) {
+    const route = kind === 'university' ? 'rotc' : kind;
+    path.militaryRoute = { kind: route, commissionedAt: life.age };
+    life.career = 'militaryOfficer';
+    path.firstJobAge = life.age;
+    if (path.sex === 'male') path.service = { status: 'complete', kind: 'professional', endedAt: life.age };
+    return `${PROGRAMS[kind].label} 과정을 마치고 육군 소위로 임관했어요.`;
+  }
   if (kind === 'training') return '기술을 배우는 과정을 마쳤어요.';
   if (kind === 'caregiving') return '돌봄 교육과 시험을 마치고 요양보호사 자격을 얻었어요.';
   return `${PROGRAMS[kind].label}을 마쳤어요. 처음 메던 가방이 많이 해졌어요.`;
