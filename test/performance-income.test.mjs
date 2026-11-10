@@ -16,7 +16,7 @@ function life(career, age = 39, years = 10) {
 test('농부·창작자·영업·자영업·선수 모두 승급 경로가 있고 성과 보너스가 사라졌다', () => {
   for (const career of previouslyBonused) {
     assert.ok(Object.values(CAREER_PROMOTIONS).some(({ from }) => from === career), career);
-    const person = life(career);
+    const person = life(career, career === 'athlete' ? 35 : 39);
     const salary = careerPay(person).total;
     const sources = yearlySources(person);
     assert.equal(sources.filter(({ id }) => id.startsWith('performance-')).length, 0);
