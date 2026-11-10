@@ -34,7 +34,7 @@ export const CAREER_GROWTH = {
   stable: { label: '안정 성장', steps: [4, 9, 16], raise: 1 },
   skilled: { label: '숙련 성장', steps: [3, 7, 12, 18], raise: 1 },
   professional: { label: '전문 성장', steps: [4, 9, 15], raise: 1 },
-  performance: { label: '경력 성장', steps: [3, 7, 12], raise: 1 },
+  performance: { label: '경력 성장', steps: [3, 7, 12], raise: 2 },
   athlete: { label: '선수 성장', steps: [2, 4, 7], raise: 2 },
 };
 
