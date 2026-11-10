@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CAREER_GROUPS, CAREER_PROMOTIONS, CAREERS, PERFORMANCE_BONUSES } from '../public/content.mjs';
+import { CAREER_GROUPS, CAREER_PROMOTIONS, CAREERS } from '../public/content.mjs';
 import { addPlayer, newRoom, selectChoice, stateFor, teacherAction } from '../public/game.mjs';
-import { bonusScene, careerGoals, newPath, pathNotes, performanceBonus } from '../public/life.mjs';
+import { bonusScene, careerGoals, careerPay, newPath, pathNotes, yearlySources } from '../public/life.mjs';
 import { gameMenuView, roomView } from '../public/views.mjs';
 
 function roomFor({ age = 42, sex = 'female', career = null } = {}) {
@@ -200,7 +200,7 @@ test('진학과 직업 선택은 다섯 분야별로 펼치고 기존 뒤로가�
   assert.equal([...guide.matchAll(/class="job-guide-category"/g)].length, 5);
 });
 
-test('기존 보너스 직업은 성장 단계가 생겨도 성과 보너스 계산을 유지한다', () => {
+test('기존 성과 직업도 성장 단계와 정규 연봉만으로 소득을 얻는다', () => {
   for (const id of ['farmer', 'studio', 'sales', 'creator', 'shop', 'athlete']) {
     assert.ok(Object.values(CAREERS).some((job) => job.promotionFrom === id));
     const path = newPath('female');
@@ -208,7 +208,8 @@ test('기존 보너스 직업은 성장 단계가 생겨도 성과 보너스 계
     const person = { age: 35, career: id, history: [], path, stats: {
       health: 100, learning: 100, money: 150, joy: 60, bond: 100, art: 100,
     } };
-    const p = performanceBonus(person);
-    assert.ok(p && p.money >= 0 && p.money <= PERFORMANCE_BONUSES[id].max);
+    const expected = careerPay(person).total;
+    assert.equal(yearlySources(person).find(({ id: source }) => source === `job-${id}`).effect.money, expected);
+    assert.ok(!yearlySources(person).some(({ id: source }) => source.startsWith('performance-')));
   }
 });
