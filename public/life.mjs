@@ -1,4 +1,4 @@
-import { CAREER_CREDENTIALS, CAREER_GROWTH, CAREERS, HABITS, PERFORMANCE_BONUSES, STATS, pick } from './content.mjs';
+import { CAREER_CREDENTIALS, CAREER_GROWTH, CAREERS, HABITS, STATS, pick } from './content.mjs';
 import { finishCare, illnessCare } from './health.mjs';
 
 export const SEXES = { male: '남자', female: '여자' };
@@ -74,44 +74,29 @@ export const retirementAge = (career) => {
 };
 export const careerGrowth = (career) => CAREER_GROWTH[CAREERS[career]?.growth ?? 'stable'];
 
-// 자영업·창작·판매·운동선수는 직급 대신 해마다 달라지는 성과 수입을 받습니다.
-// 게임 참여자별 고정 시드 + 나이 + 직업으로 계산해 화면을 다시 열어도 결과가 바뀌지 않습니다.
-export function performanceProfile(career) {
-  let root = career;
-  for (let i = 0; i < 6 && CAREERS[root]?.promotionFrom; i++) {
-    root = CAREERS[root].promotionFrom;
-  }
-  return PERFORMANCE_BONUSES[root] ? { ...PERFORMANCE_BONUSES[root], root } : null;
+// 중·노년의 단발성 투자. 직업 연봉과 기존 노후 적금은 이 상품들에 영향받지 않습니다.
+// 동일한 캐릭터·투자 시기·상품이면 새로고침해도 결산 결과가 바뀌지 않습니다.
+const INVESTMENT_AGES = [40, 50, 60, 70, 76];
+const INVESTMENT_PRODUCTS = {
+  bond: { label: '안정형 국채', multipliers: [1.1] },
+  fund: { label: '분산형 펀드', multipliers: [0.75, 0.9, 1.1, 1.25, 1.45] },
+  stocks: { label: '성장주 투자', multipliers: [0.4, 0.65, 1.15, 1.6, 2] },
+};
+export function investmentPayout(investment, seed = 0) {
+  const product = INVESTMENT_PRODUCTS[investment?.kind];
+  if (!product || !Number.isFinite(investment?.amount) || investment.amount <= 0) return 0;
+  const key = `${seed}:${investment.boughtAt}:${investment.kind}`;
+  let hash = 2166136261;
+  for (const letter of key) hash = Math.imul(hash ^ letter.charCodeAt(0), 16777619);
+  const multiple = product.multipliers[(hash >>> 0) % product.multipliers.length];
+  return Math.max(0, Math.round(investment.amount * multiple));
 }
-
-export function performanceBonus(life) {
-  const profile = performanceProfile(life?.career);
-  if (!profile) return null;
-  const path = pathOf(life);
-  const baseSeed = path.romanceSeed >>> 0;
-  let value = (baseSeed ^ Math.imul(life.age + 1, 0x9e3779b1)) >>> 0;
-  for (const char of profile.root) value = Math.imul(value ^ char.charCodeAt(0), 16777619) >>> 0;
-  value ^= value >>> 16;
-  value = Math.imul(value, 0x7feb352d);
-  value ^= value >>> 15;
-  value = Math.imul(value, 0x846ca68b);
-  value ^= value >>> 16;
-  const roll = (value >>> 0) % 100;
-  const tier = roll < 25 ? 0 : roll < 54 ? 1 : roll < 81 ? 2 : roll < 95 ? 3 : 4;
-  const years = Object.entries(path.workYears ?? {})
-    .filter(([id]) => id === profile.root || performanceProfile(id)?.root === profile.root)
-    .reduce((sum, [, amount]) => sum + amount, 0);
-  const skill = (life.stats[profile.stat] ?? 0) >= profile.threshold ? 1 : 0;
-  const experience = years >= 8 ? 1 : 0;
-  const money = tier ? Math.min(profile.max, tier + skill + experience) : 0;
-  return { ...profile, money, tier, years, skill, experience };
-}
-
 
 export function newPath(sex = null) {
   return { sex, dreams: [], school: null, diploma: false, program: null, degree: null, training: false,
     service: null, partner: null, romance: null, romanceSeed: 0, married: null, children: [],
-    retired: null, savings: null, savingsReview: null, workYears: {}, home: null, illness: null, recoveredAt: null, habit: null,
+    retired: null, savings: null, savingsReview: null, investments: [],
+    workYears: {}, home: null, illness: null, recoveredAt: null, habit: null,
     nursingTeachingDecision: null };
 }
 
@@ -533,11 +518,8 @@ function careerPlan(life, path) {
         : `${job.title} 일을 시작했어요. 첫날은 누구나 떨려요.`,
     }));
   }
-  const performance = current && performanceProfile(life.career);
-  return scene(current ? (performance ? '올해도 이 일을 계속할까요?' : '승진하거나 다른 직업을 찾을까요?') : '어떤 일을 할까요?',
-    current ? (performance
-      ? `직급 승진보다는 해마다 ${performance.label}이 달라지는 일이에요. 실력과 경력을 키워 보너스를 늘리고, 원한다면 다른 직업으로 옮길 수 있어요.`
-      : '승진·전직 기회를 먼저 살펴보고, 다른 직업은 아래에서 펼쳐 볼 수 있어요.')
+  return scene(current ? '승진하거나 다른 직업을 찾을까요?' : '어떤 일을 할까요?',
+    current ? '직업 성장을 먼저 살펴보고, 다른 직업은 아래에서 펼쳐 볼 수 있어요.'
       : '지원 조건과 해마다 버는 돈을 보고 골라요. 꿈이나 전공과 맞으면 지원하기 쉬워요.', choices);
 }
 
@@ -814,6 +796,28 @@ function dateActivities(life) {
   ]);
 }
 
+function investmentOffer(life) {
+  const amount = life.age < 65 ? 12 : 8;
+  const options = [
+    option('invest-bond', '안정형 국채에 투자하기',
+      `${amount}코인 투자 · 2년 뒤 ${Math.round(amount * 1.1)}코인 수령 · 게임 내 원금 보장`,
+      'coin', { money: -amount }, 'investment', { kind: 'bond', amount },
+      '안정적인 투자를 선택하고 2년 뒤 받을 돈을 기다리기로 했어요.'),
+    option('invest-fund', '분산형 펀드에 투자하기',
+      `${amount}코인 투자 · 2년 뒤 ${Math.round(amount * 0.75)}~${Math.round(amount * 1.45)}코인 수령 · 손실 가능`,
+      'book', { money: -amount }, 'investment', { kind: 'fund', amount },
+      '여러 자산에 나누어 투자하고 2년 뒤 결과를 기다리기로 했어요.'),
+    option('invest-stocks', '성장주에 투자하기',
+      `${amount}코인 투자 · 2년 뒤 ${Math.round(amount * 0.4)}~${Math.round(amount * 2)}코인 수령 · 큰 손실도 가능`,
+      'spark', { money: -amount }, 'investment', { kind: 'stocks', amount },
+      '위험을 감수하고 성장주에 투자했어요. 2년 뒤 결과를 기다리기로 했어요.'),
+    option('rest', '현금으로 보유하기', '돈을 투자하지 않고 그대로 보유해요.',
+      'leaf', {}, 'investment', null, '당장 투자하지 않고 현금으로 남겨 두었어요.'),
+  ];
+  return scene(life.age < 65 ? '중년의 재테크 선택' : '노후 자금 관리하기',
+    '노후 저축과 별도로 2년만 투자해요. 수익이나 손실은 만기 때 자금에 반영돼요.', options);
+}
+
 function savingsOffer(life) {
   const path = pathOf(life);
   const current = Math.max(0, Math.floor(path.savings?.annual ?? 0));
@@ -902,6 +906,9 @@ export function bonusScene(life, done) {
     return { ...savingsOffer(life), key: 'saving',
       fallback: path.savings?.annual ? `save-${Math.floor(path.savings.annual)}` : 'save-none' };
   }
+  if (INVESTMENT_AGES.includes(age) && !done.includes('investment')) {
+    return { ...investmentOffer(life), key: 'investment', fallback: 'rest' };
+  }
   if (path.partner !== null && path.married === null && !done.includes('dating')) {
     return { ...dateActivities(life), key: 'dating', fallback: 'date-alone' };
   }
@@ -989,6 +996,15 @@ export function applyPath(life, age, choice) {
       }
       break;
     case 'marry': path.married = age; break;
+    case 'investment': {
+      if (action.value) {
+        (path.investments ??= []).push({
+          kind: action.value.kind, amount: action.value.amount,
+          boughtAt: age, maturityAge: age + 2,
+        });
+      }
+      break;
+    }
     case 'saving': {
       const annual = Math.max(0, Math.floor(action.value));
       path.savings = {
@@ -1103,12 +1119,6 @@ export function yearlySources(life) {
     const pay = careerPay(life);
     sources.push({ id: `job-${life.career}`, label: `${career.title} 수입${career.fatigue ? '과 피로' : ''}`, term: `경력 ${pay.years}년`,
       effect: { money: pay.total, ...(career.fatigue ? { health: -career.fatigue } : {}) } });
-    const result = performanceBonus(life);
-    if (result) {
-      sources.push({ id: `performance-${result.root}`, label: result.label,
-        term: result.money ? `올해 성과 +${result.money}코인` : '올해 성과 없음 · 0코인',
-        effect: { money: result.money } });
-    }
     if (path.savings?.annual > 0) {
       sources.push({ id: 'retirement-saving', label: '노후 저축', term: '은퇴할 때까지', effect: { money: -path.savings.annual } });
     }
@@ -1119,6 +1129,17 @@ export function yearlySources(life) {
       const payout = retirementPayout(path.savings, age - start);
       if (payout > 0) sources.push({ id: 'retirement-payout', label: '모아 둔 노후 저축 연금',
         term: `${age - start + 1}/10년차`, years: start + RETIREMENT_YEARS - age, effect: { money: payout } });
+    }
+  }
+  // 투자 원금은 선택 당시 차감됐으므로 결산 때에는 만기 수령액만 한 번 지급합니다.
+  for (const [index, investment] of (path.investments ?? []).entries()) {
+    if (!investment.settledAt && age >= investment.maturityAge) {
+      const payment = investmentPayout(investment, path.romanceSeed ?? 0);
+      const gain = payment - investment.amount;
+      sources.push({ id: `investment-${index}`,
+        label: `${INVESTMENT_PRODUCTS[investment.kind]?.label ?? '투자'} 만기`,
+        term: `원금 ${investment.amount}코인 · ${gain >= 0 ? '수익 +' : '손실 '}${gain}코인`,
+        effect: { money: payment } });
     }
   }
   if (!serving && path.program) {
@@ -1174,6 +1195,7 @@ export function upgradeLifePath(life, seed = 0) {
   if (!path.romanceSeed) path.romanceSeed = seed;
   path.savings ??= null;
   path.savingsReview ??= null;
+  path.investments ??= [];
   if (path.savings) {
     path.savings.balance = savingsBalance(path.savings);
     path.savings.annual = Math.floor(Math.max(0, path.savings.annual ?? 0));
@@ -1224,6 +1246,13 @@ export function pathNotes(life) {
     ...degreesOf(path).map(({ age, kind }) => `${age}살에 ${PROGRAMS[kind].label} 마침`),
     ...Object.values(LICENSES).filter(({ record }) => Number.isInteger(path[record]))
       .map(({ record, title }) => `${path[record]}살에 ${title} 면허 취득`),
+    ...(path.investments ?? []).map((investment) => {
+      const name = INVESTMENT_PRODUCTS[investment.kind]?.label ?? '재테크';
+      const payment = investmentPayout(investment, path.romanceSeed ?? 0);
+      return investment.settledAt
+        ? `${investment.boughtAt}살 ${name} ${investment.amount}코인 투자 · ${investment.settledAt}살에 ${payment}코인 수령`
+        : `${investment.boughtAt}살 ${name} ${investment.amount}코인 투자 · ${investment.maturityAge}살 만기 예정`;
+    }),
     path.training && '직업훈련 수료',
     Number.isInteger(path.caregivingAge) && `${path.caregivingAge}살에 요양보호사 자격 취득`,
     path.nursingTeachingDecision === true && '간호학과 교직이수 수료',
