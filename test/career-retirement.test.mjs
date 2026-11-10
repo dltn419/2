@@ -87,6 +87,7 @@ test('복리 4%는 실제 적립에만 적용하고 이자까지 원금에 포�
   life.path.savings = { annual: 4, chosenAt: 28, balance: 100, interestRate: 0.04 };
   const source = yearlySources(life);
   assert.equal(source.find(({ id }) => id === 'retirement-saving').effect.money, -4);
+  if (state(room).me.scene.key === 'investment') choose(room, 'rest');
   const entry = state(room).me.scene;
   assert.equal(entry.key, 'year');
   choose(room, 'rest');
