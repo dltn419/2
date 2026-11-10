@@ -142,16 +142,6 @@ export const PERFORMANCE_BONUSES = {
     description: '손님이 늘고 매출이 좋은 해에 순이익 보너스를 받아요.' },
   athlete: { label: '대회 성적 상금', stat: 'health', threshold: 80, max: 5,
     description: '경기 성적과 대회 결과에 따라 상금이 달라져요.' },
-  idol: { label: '공연·활동 보너스', stat: 'art', threshold: 66, max: 5,
-    description: '무대 활동에 따라 보너스 수입을 얻어요.' },
-  actor: { label: '출연 보너스', stat: 'art', threshold: 63, max: 5,
-    description: '출연 활동과 성과로 추가 수입을 얻어요.' },
-  singer: { label: '음원·공연 보너스', stat: 'art', threshold: 68, max: 5,
-    description: '음악 활동이 활발한 해에는 보너스가 생겨요.' },
-  webtoon: { label: '연재 성과 보너스', stat: 'art', threshold: 68, max: 5,
-    description: '웹툰 연재 성과에 따라 추가 수입을 얻어요.' },
-  photographer: { label: '촬영 의뢰 보너스', stat: 'art', threshold: 61, max: 4,
-    description: '촬영 의뢰가 많을 때 추가 수입이 생겨요.' },
 };
 
 export const CAREER_PROMOTIONS = {
