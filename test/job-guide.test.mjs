@@ -4,7 +4,7 @@ import { CAREERS, CAREER_PROMOTIONS } from '../public/content.mjs';
 import { gameMenuView } from '../public/views.mjs';
 
 const guide = () => gameMenuView('jobs', null);
-const baseCareers = Object.entries(CAREERS).filter(([, job]) => !job.promotionFrom && !job.legacyPromotion);
+const baseCareers = Object.entries(CAREERS).filter(([, job]) => !job.promotionFrom && !job.legacyPromotion && !job.entryVariant);
 
 test('직업 안내 기본 목록에는 초기 직업만 표시하고 요약은 접혀 있다', () => {
   const html = guide();
@@ -20,14 +20,14 @@ test('직업 안내 기본 목록에는 초기 직업만 표시하고 요약은 
 
 test('교사를 누르면 교감·교장 승진 단계와 조건을 순서대로 보여준다', () => {
   const html = guide();
-  const part = html.slice(html.indexOf('class="job-guide-title">초등교사'), html.indexOf('</details>', html.indexOf('class="job-guide-title">초등교사')));
+  const part = html.slice(html.indexOf('class="job-guide-title">교사'), html.indexOf('</details>', html.indexOf('class="job-guide-title">교사')));
   assert.ok(part);
-  const a = part.indexOf('class="job-guide-title">초등교사');
+  const a = part.indexOf('class="job-guide-title">교사');
   const b = part.indexOf('<strong>교감</strong>');
   const c = part.indexOf('<strong>교장</strong>');
   assert.ok(a >= 0 && b > a && c > b);
   assert.match(part, /교육대 졸업/);
-  assert.match(part, /초등교사 경력 12년 이상/);
+  assert.match(part, /교사 경력 12년 이상/);
   assert.match(part, /배움 74점/);
   assert.match(part, /관계 60점/);
   assert.match(part, /교감 경력 6년 이상/);
@@ -48,14 +48,14 @@ test('의사 경로는 대학원 수료 조건과 높은 연봉까지 설명한�
   assert.match(part, /임상교수 경력 7년 이상/);
 });
 
-test('성과형 직업은 보너스 정보가 나오되 불필요한 승진 경로가 없다', () => {
+test('성과형 직업도 보너스와 2단계 성장 경로를 모두 보여준다', () => {
   const html = guide();
   for (const [title, bonus] of [['농부', '농작물 수확'], ['가게 주인', '가게 매출'],
     ['영상 크리에이터', '콘텐츠 광고·후원']]) {
     const start = html.indexOf(`class="job-guide-title">${title}`);
     const part = html.slice(start, html.indexOf('</details>', start));
     assert.ok(start >= 0);
-    assert.match(part, /별도 승진 단계 없음/);
+    assert.match(part, /승진·전직 경로와 필요 조건/);
     assert.match(part, /성과 수입: 매년 0~/);
     assert.match(part, new RegExp(bonus));
   }
