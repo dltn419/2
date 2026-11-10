@@ -5,12 +5,12 @@ import { addPlayer, newRoom, selectChoice, stateFor, teacherAction, updateRoomRu
 import { careerPay, newPath, yearlySources, careerGoals } from '../public/life.mjs';
 import { gameMenuView, roomView } from '../public/views.mjs';
 
-const STATS = { money: 100, health: 80, learning: 90, bond: 75, art: 85, joy: 60 };
+const BASE_STATS = { money: 100, health: 80, learning: 90, bond: 75, art: 85, joy: 60 };
 const previouslyBonused = ['farmer', 'studio', 'sales', 'creator', 'shop', 'athlete'];
 function life(career, age = 39, years = 10) {
   const path = newPath('female');
   path.workYears[career] = years;
-  return { age, career, stats: { ...STATS }, path, history: [] };
+  return { age, career, stats: { ...BASE_STATS }, path, history: [] };
 }
 
 test('농부·창작자·영업·자영업·선수 모두 승급 경로가 있고 성과 보너스가 사라졌다', () => {
