@@ -444,12 +444,12 @@ function careerCategoryList(key, title, options, me, bonus) {
   return `<details class="choice-section career-category-list" data-choice-section="${key}">
     <summary data-focus="section-${key}">${h(title)} <span>${options.length}개</span></summary>
     <div class="choice-section-navigation"><button type="button" class="choice-back"
-      data-action="choice-back" data-id="${key}">← 이전 선택지로</button></div>
+      data-action="choice-back" data-id="${key}" aria-label="${h(title)} 목록 닫고 이전 선택지로 돌아가기">← 이전 선택지로</button></div>
     <div class="career-category-grid">${CAREER_GROUPS.map((group) =>
       choiceSection(`${key}-${group.id}`, group.title,
         options.filter(({ career }) => CAREERS[career]?.group === group.id), me, bonus)).join('')}</div>
     <div class="choice-section-navigation bottom"><button type="button" class="choice-back"
-      data-action="choice-back" data-id="${key}">← 이전 선택지로</button></div>
+      data-action="choice-back" data-id="${key}" aria-label="${h(title)} 목록 닫고 이전 선택지로 돌아가기">← 이전 선택지로</button></div>
   </details>`;
 }
 
