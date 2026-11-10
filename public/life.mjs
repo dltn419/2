@@ -109,7 +109,8 @@ export function performanceBonus(life) {
 export function newPath(sex = null) {
   return { sex, dreams: [], school: null, diploma: false, program: null, degree: null, training: false,
     service: null, partner: null, romance: null, romanceSeed: 0, married: null, children: [],
-    retired: null, savings: null, savingsReview: null, workYears: {}, home: null, illness: null, recoveredAt: null, habit: null };
+    retired: null, savings: null, savingsReview: null, workYears: {}, home: null, illness: null, recoveredAt: null, habit: null,
+    nursingTeachingDecision: null };
 }
 
 const EMPTY_PATH = newPath();
@@ -431,7 +432,7 @@ export function careerGoals(life) {
   const years = path.workYears?.[life.career] ?? 0;
   const targets = Object.entries(CAREERS)
     .filter(([, job]) => job.promotionFrom === life.career && !job.legacyPromotion)
-    .map(([career, job]) => ({ career, job, type: '승진',
+    .map(([career, job]) => ({ career, job, type: job.routeType === '전직' ? '전직' : '승진',
       minYears: job.minYears ?? 0 }));
   if (life.career === 'athlete' && life.age <= retirementAge('athlete')) {
     targets.push({ career: 'coach', job: CAREERS.coach, type: '전직', minYears: 3 });
@@ -448,6 +449,12 @@ export function careerGoals(life) {
       const fields = jobFields(job);
       const graduated = degreesOf(path).some(({ kind, field }) => kind === 'graduate' && fields.includes(field));
       checks.push({ id: 'graduate', label: '관련 대학원 수료', met: graduated });
+    }
+    if (job.requiresNursingTeaching) {
+      checks.push({ id: 'nursingTeaching', label: '간호학과 교직이수', met: path.nursingTeachingDecision === true });
+    }
+    if (job.requiresNurseLicense) {
+      checks.push({ id: 'nursingLicense', label: '간호사 면허', met: Number.isInteger(path.nursingLicenseAge) });
     }
     return { career, title: job.title, type, checks,
       met: checks.filter((item) => item.met).length, total: checks.length,
@@ -505,14 +512,20 @@ function careerPlan(life, path) {
         label: '관련 대학원 수료',
         met: degreesOf(path).some(({ kind, field }) => kind === 'graduate' && fields.includes(field)),
       }] : []),
+      ...(job.requiresNursingTeaching ? [{
+        label: '간호학과 교직이수 수료', met: path.nursingTeachingDecision === true,
+      }] : []),
+      ...(job.requiresNurseLicense ? [{
+        label: '간호사 면허', met: Number.isInteger(path.nursingLicenseAge),
+      }] : []),
     ];
     choices.push(pick(`work-${career}`, job.title, job.detail, job.mark, job.startup ? { money: -job.startup } : {}, {
       career, need: job.need, opportunity: Boolean(followsDream), careerGroup: advancement ? 'advancement' : 'other',
       strictNeed: advancement, conditions,
-      narration: advancement ? `그동안의 경력을 인정받아 ${job.title}(으)로 승진했어요.`
+      narration: advancement ? `경력과 준비를 인정받아 ${job.title}(으)로 새로운 단계를 시작했어요.`
         : followsDream ? `어릴 적 꿈을 떠올리며 ${job.title} 일을 시작했어요.`
         : `${job.title} 일을 시작하고 새 일터에서 첫날을 보냈어요.`,
-      after: advancement ? `이전 일터에서 쌓은 경력을 살려 ${job.title}(으)로 승진했어요.`
+      after: advancement ? `그동안 쌓은 경력을 살려 ${job.title}(으)로 성장했어요.`
         : followsDream ? `어릴 때 고른 꿈을 떠올리며 ${job.title} 일을 시작했어요.`
         : `${job.title} 일을 시작했어요. 첫날은 누구나 떨려요.`,
     }));
@@ -845,6 +858,21 @@ export function bonusScene(life, done) {
     !path.savings.payoutMode && !done.includes('savings-payout')) {
     return { ...retirementPaymentChoice(life), key: 'savings-payout', fallback: 'savings-pension' };
   }
+  // 간호학과 재학 중 한 번만 교직이수 선발에 도전할 수 있습니다.
+  // 졸업 후 새로 조건을 충족해도 당시 교직이수를 소급 취득할 수 없습니다.
+  if (path.program?.kind === 'nursing' && path.program.remaining <= 3 &&
+    path.nursingTeachingDecision !== true && path.nursingTeachingDecision !== false &&
+    !done.includes('nursing-teaching')) {
+    return { ...scene('간호학과 교직이수 신청', '재학 중 교직과정을 이수하면 나중에 보건교사에 지원할 수 있어요.', [
+      option('nursing-teaching-apply', '교직이수 신청하기',
+        '배움 65점 이상 · 학업과 교직과정을 함께 준비해요.', 'board', {}, 'nursing-teaching', true,
+        '교직이수에 선발되어 수업과 실습을 병행했어요.', {
+          need: { learning: 65 }, conditions: [], narration: '교직과정을 이수하며 보건교사의 꿈을 준비했어요.',
+        }),
+      option('rest', '간호 전공에 집중하기', '교직이수 없이 간호사 진로에 집중해요.', 'book', {},
+        'nursing-teaching', false, '병원 간호 분야에 집중하기로 했어요.'),
+    ]), key: 'nursing-teaching', fallback: 'rest' };
+  }
   if ([10, 14, 17].includes(age) && !path.dreams.some((entry) => entry.age === age)) {
     return { ...dreamSurvey(life), key: 'dream', fallback: 'rest' };
   }
@@ -854,7 +882,8 @@ export function bonusScene(life, done) {
       examChoice(), rest('조금 더 공부하기', '시험은 나중에 볼 수 있어요.', {}),
     ]), key: 'education', fallback: 'rest' };
   }
-  if (path.sex === 'male' && age >= 20 && age <= SERVICE_LIMIT && !done.includes('military') &&
+  if (path.sex === 'male' && !CAREERS[life.career]?.militaryProfessional &&
+    age >= 20 && age <= SERVICE_LIMIT && !done.includes('military') &&
     (!path.service || (path.service.status === 'planned' && age >= Math.min(path.service.at, SERVICE_LIMIT)))) {
     return { ...militaryPlan(life, path), key: 'military' };
   }
@@ -939,6 +968,7 @@ export function applyPath(life, age, choice) {
     case 'study':
       path.program = { kind: action.value, field: choice.studyField ?? mostRecentDream(path), remaining: PROGRAMS[action.value].years };
       break;
+    case 'nursing-teaching': path.nursingTeachingDecision = action.value; break;
     case 'license': path[LICENSES[action.value].record] = age; break;
     case 'sport': path.sportYears = (path.sportYears ?? 0) + action.value; break;
     case 'service':
@@ -1193,6 +1223,8 @@ export function pathNotes(life) {
       .map(({ record, title }) => `${path[record]}살에 ${title} 면허 취득`),
     path.training && '직업훈련 수료',
     Number.isInteger(path.caregivingAge) && `${path.caregivingAge}살에 요양보호사 자격 취득`,
+    path.nursingTeachingDecision === true && '간호학과 교직이수 수료',
+    path.nursingTeachingDecision === false && '간호학과에서 교직이수를 선택하지 않음',
     path.sportYears && `운동부·운동팀 훈련 ${path.sportYears}년`,
     path.service?.status === 'complete' && `${path.service.endedAt}살에 복무 마침`,
     path.service?.status === 'exempt' && '건강 사유로 복무 면제',
