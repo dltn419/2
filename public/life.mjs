@@ -128,6 +128,9 @@ const isStem = (field) => ['science', 'tech', 'stem'].includes(field);
 const degreesOf = (path) => [...(path.previousDegrees ?? []), ...(path.degree ? [path.degree] : [])];
 const undergraduate = (degrees) => degrees.findLast(({ kind }) => kind !== 'college' && kind !== 'graduate');
 const jobFields = (job) => [job?.field, ...(job?.related ?? [])].filter(Boolean);
+const athleteCareers = new Set(['athlete', 'startingAthlete', 'starAthlete']);
+const athleteExperience = (path) => [...athleteCareers].reduce((total, career) =>
+  total + (path.workYears?.[career] ?? 0), 0);
 const promotionTenure = (path, career) => {
   const parent = CAREERS[career]?.promotionFrom;
   return (path.workYears?.[career] ?? 0) + (parent ? promotionTenure(path, parent) : 0);
@@ -443,15 +446,16 @@ export function careerGoals(life) {
   const years = path.workYears?.[life.career] ?? 0;
   const targets = Object.entries(CAREERS)
     .filter(([, job]) => job.promotionFrom === life.career && !job.legacyPromotion)
-    .map(([career, job]) => ({ career, job, type: '승진',
+    .map(([career, job]) => ({ career, job, type: job.branchType ?? '승진',
       minYears: job.minYears ?? 0 }));
-  if (life.career === 'athlete' && life.age <= retirementAge('athlete')) {
+  if (athleteCareers.has(life.career) && life.age <= retirementAge('athlete')) {
     targets.push({ career: 'coach', job: CAREERS.coach, type: '전직', minYears: 3 });
   }
   return targets.filter(({ career }) => life.age < retirementAge(career)).map(({ career, job, type, minYears }) => {
     const checks = [{
-      id: 'years', label: `${current.title} 경력`, current: years, required: minYears,
-      unit: '년', met: years >= minYears,
+      id: 'years', label: `${career === 'coach' ? '운동선수 전체' : current.title} 경력`,
+      current: career === 'coach' ? athleteExperience(path) : years, required: minYears,
+      unit: '년', met: (career === 'coach' ? athleteExperience(path) : years) >= minYears,
     }, ...Object.entries(job.need ?? {}).map(([stat, minimum]) => ({
       id: stat, label: STATS[stat].label, current: life.stats[stat] ?? 0,
       required: minimum, unit: STATS[stat].unit ?? '점', met: (life.stats[stat] ?? 0) >= minimum,
@@ -510,19 +514,20 @@ function careerPlan(life, path) {
     if (career === life.career || job.entryOnlyFamily || job.legacyPromotion || life.age > (job.latestStart ?? Infinity) ||
       life.age >= retirementAge(career) ||
       (job.promotionFrom && job.promotionFrom !== life.career) ||
-      (career === 'coach' && life.career !== 'athlete')) continue;
+      (career === 'coach' && !athleteCareers.has(life.career))) continue;
     const fields = jobFields(job);
     const credential = job.education && { label: CAREER_CREDENTIALS[job.education], met: credentials[job.education] };
     const explored = interests.some((field) => fields.includes(field)) || (career === 'athlete' && path.sportYears > 0);
     const readyWithoutDegree = !credential && Object.entries(job.need ?? {}).every(([stat, minimum]) => life.stats[stat] >= minimum);
-    const advancement = Boolean(job.promotionFrom) || (career === 'coach' && life.career === 'athlete');
+    const advancement = Boolean(job.promotionFrom) || (career === 'coach' && athleteCareers.has(life.career));
     if (job.specialty && !advancement && !credential?.met && !explored && !readyWithoutDegree) continue;
     const followsDream = fields.some((field) => dreamIncludes(dream, field));
     const prerequisiteYears = job.minYears ?? (career === 'coach' ? 3 : 0);
     const conditions = [
       ...(credential ? [credential] : []),
-      ...(advancement ? [{ label: `${current.title} 경력 ${prerequisiteYears}년 이상`,
-        met: (path.workYears?.[life.career] ?? 0) >= prerequisiteYears }] : []),
+      ...(advancement ? [{ label: `${career === 'coach' ? '운동선수 전체' : current.title} 경력 ${prerequisiteYears}년 이상`,
+        met: (career === 'coach' ? athleteExperience(path) :
+          (path.workYears?.[life.career] ?? 0)) >= prerequisiteYears }] : []),
       ...(job.requiresGraduate ? [{
         label: '관련 대학원 수료',
         met: degreesOf(path).some(({ kind, field }) => kind === 'graduate' && fields.includes(field)),
@@ -760,7 +765,7 @@ function retirementScene(life, mandatory) {
       '오랫동안 일했던 곳에 마지막 인사를 건넸어요.',
       { narration: '마지막 일을 마치고 후배들에게 인사를 전했어요.' }),
   ];
-  if (life.career === 'athlete' && (life.path.workYears?.athlete ?? 0) >= 3) {
+  if (athleteCareers.has(life.career) && athleteExperience(pathOf(life)) >= 3) {
     options.push(pick('coach-transition', '운동 지도자로 전직하기',
       '선수 경험을 살려 다른 사람을 가르쳐요. 운동 지도자는 65세까지 일할 수 있어요.',
       'flag', { bond: 3, joy: 4 },
