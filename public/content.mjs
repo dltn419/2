@@ -197,7 +197,8 @@ export const CAREER_PROMOTIONS = {
 // 기존 승진·전직 단계와 함께 새 직업들의 2단계 성장 경로를 생성합니다.
 // 직업별 역할에 맞게 원래의 관련 능력치만 요구하며 무관한 예술 능력은 추가하지 않습니다.
 for (const [startingCareer, route] of Object.entries(EXTRA_ROUTES)) {
-  let from = startingCareer;
+  // 운동 지도자는 기존 '운동팀 감독' 뒤에 한 단계 더 성장합니다.
+  let from = startingCareer === 'coach' ? 'headCoach' : startingCareer;
   const base = CAREERS[startingCareer];
   if (!base) throw new Error(`성장 출발 직업 미등록: ${startingCareer}`);
   for (const [i, [id, title]] of route.entries()) {
@@ -251,6 +252,7 @@ for (const [id, position] of Object.entries({ ...CAREER_PROMOTIONS, ...LEGACY_PE
     field: parent.field,
     related: parent.related,
     promotionFrom: position.from,
+    category: parent.category,
     legacyPromotion: Object.hasOwn(LEGACY_PERFORMANCE_PROMOTIONS, id),
     minYears: position.minYears,
     requiresGraduate: position.requiresGraduate ?? false,
