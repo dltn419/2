@@ -168,6 +168,4 @@ export const SPECIAL_BRANCHES = {
     need: { art: 82, learning: 49 }, type: '전직' },
   soloArtist: { from: 'popularIdol', title: '솔로 아티스트', minYears: 3, wage: 9,
     need: { art: 85, bond: 60 }, type: '전직' },
-  sportsCoach: { from: 'starAthlete', title: '스포츠 코치', minYears: 2, wage: 7,
-    need: { health: 56, bond: 45 }, type: '전직' },
 };
