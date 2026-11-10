@@ -37,6 +37,8 @@ export const DREAM_OPTIONS = {
 const SERVICE_LIMIT = 28;
 const COMMUNITY_HEALTH = 40;
 const CAREER_BY_TITLE = new Map(Object.entries(CAREERS).map(([id, job]) => [job.title, id]));
+// 저장된 이전 버전의 학급 연대기에 있는 명칭도 같은 교사 직업으로 복구합니다.
+CAREER_BY_TITLE.set('초등교사', 'teacher');
 
 const PROGRAMS = {
   college: { label: '전문대', years: 2, familyCopay: 1 },
