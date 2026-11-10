@@ -1,22 +1,9 @@
-import { attachDatabasePool, ipAddress } from '@vercel/functions';
-import pg from 'pg';
+import { ipAddress } from '@vercel/functions';
 import { makeGameApi } from '../server/game-api.mjs';
-import { postgresRooms } from '../server/postgres-rooms.mjs';
+import { blobRooms } from '../server/blob-rooms.mjs';
 
-const databaseUrl = process.env.DATABASE_URL;
-const pool = databaseUrl ? new pg.Pool({
-  connectionString: databaseUrl,
-  max: 8,
-  idleTimeoutMillis: 5000,
-  connectionTimeoutMillis: 4500,
-  statement_timeout: 7000,
-  enableChannelBinding: true,
-}) : null;
-if (pool) {
-  pool.on('error', (error) => console.error('100nyeon idle database connection failed', error.code ?? error.name));
-  attachDatabasePool(pool);
-}
-const api = makeGameApi({ store: pool && postgresRooms(pool), requireRoomPassword: true });
+// Do not connect to the suspended Neon project; new rooms use private Vercel Blob.
+const api = makeGameApi({ store: blobRooms(), requireRoomPassword: true });
 
 export default {
   fetch(request) {
