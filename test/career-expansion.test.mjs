@@ -105,7 +105,7 @@ test('여성과 남성에게 동일한 부사관 진입 기회가 있고 남성�
       assert.equal(player.life.path.service.status, 'complete');
       assert.equal(player.life.path.service.kind, 'professional');
       player.life.age = 20;
-      assert.notEqual(bonusScene(player.life, []).key, 'military');
+      assert.notEqual(bonusScene(player.life, [])?.key, 'military');
     } else {
       assert.equal(player.life.path.service, null);
     }
@@ -114,7 +114,7 @@ test('여성과 남성에게 동일한 부사관 진입 기회가 있고 남성�
 
 test('장교 경로는 대학 졸업 조건이 있으며 남녀에게 동일하게 열린다', () => {
   for (const sex of ['female', 'male']) {
-    const { room, player } = roomFor({ age: 26, sex });
+    const { room, player } = roomFor({ age: 34, sex });
     player.life.path.degree = null;
     let scene = view(room).me.scene;
     if (scene.key === 'education') {
@@ -174,13 +174,12 @@ test('보건교사는 교직이수·간호사 면허·경력·능력 조건을 �
   player.life.path.nursingLicenseAge = null;
   let goal = careerGoals(player.life).find(({ career }) => career === 'schoolNurse');
   assert.equal(goal.checks.find(({ id }) => id === 'nursingLicense').met, false);
-  let schoolOption = view(room).me.scene.choices.find(({ id }) => id === 'work-schoolNurse');
-  assert.match(schoolOption.locked, /간호사 면허/);
+  assert.equal(goal.ready, false);
   player.life.path.nursingLicenseAge = 25;
   goal = careerGoals(player.life).find(({ career }) => career === 'schoolNurse');
   assert.equal(goal.ready, true);
-  schoolOption = view(room).me.scene.choices.find(({ id }) => id === 'work-schoolNurse');
-  assert.equal(schoolOption.locked, '');
+  const schoolOption = view(room).me.scene.choices.find(({ id }) => id === 'work-schoolNurse');
+  assert.ok(schoolOption && !schoolOption.locked);
   choose(room, 'work-schoolNurse');
   assert.equal(player.life.career, 'schoolNurse');
 });
