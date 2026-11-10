@@ -42,11 +42,11 @@ test('대학 선택 후 직업 선택 목록에서도 뒤로가기가 나타난�
   }, 1000);
   assert.equal(state(room).me.scene.key, 'career');
   const markup = html(room);
-  assert.match(markup, /data-choice-section="career-other"/);
-  assert.match(markup, /data-action="choice-back"\s+data-id="career-other"/);
-  assert.match(markup, /다른 직업 보기 목록 닫고 이전 선택지로 돌아가기/);
-  assert.match(markup, /data-choice-section="career-locked"/);
-  assert.match(markup, /data-action="choice-back"\s+data-id="career-locked"/);
+  assert.match(markup, /data-choice-section="career-service"/);
+  assert.match(markup, /data-action="choice-back"\s+data-id="career-service"/);
+  assert.match(markup, /생활·서비스·자영업 목록 닫고 이전 선택지로 돌아가기/);
+  assert.match(markup, /data-choice-section="career-industry"/);
+  assert.match(markup, /data-action="choice-back"\s+data-id="career-industry"/);
   assert.equal(room.players[0].life.career, 'crew');
 });
 
@@ -60,7 +60,7 @@ test('직업·대학 목록은 위쪽에 뒤로가기가 있고 길면 아래에
   const scene = state(workRoom);
   selectChoice(workRoom, 'student', { round: scene.turn.number, scene: 'education', choice: 'rest' }, 1000);
   const work = html(workRoom);
-  const others = work.slice(work.indexOf('data-choice-section="career-other"'));
+  const others = work.slice(work.indexOf('data-choice-section="career-service"'));
   const section = others.slice(0, others.indexOf('</details>'));
   const buttons = [...section.matchAll(/data-action="choice-back"/g)];
   assert.ok(buttons.length >= 1);
