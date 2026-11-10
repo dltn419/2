@@ -14,15 +14,15 @@ function life(career, age = 38, years = 10) {
 }
 const performanceCareers = ['farmer', 'studio', 'sales', 'creator', 'shop', 'athlete'];
 
-test('자영업·창작·영업·운동선수는 승진 대신 성과 보너스가 적용된다', () => {
+test('자영업·창작·영업·운동선수는 성장과 기존 성과 보너스를 함께 받는다', () => {
   assert.deepEqual(Object.keys(PERFORMANCE_BONUSES), performanceCareers);
   for (const career of performanceCareers) {
     const profile = performanceProfile(career);
     assert.ok(profile);
     assert.equal(profile.root, career);
     assert.ok(profile.max >= 4 && profile.max <= 6);
-    assert.ok(!Object.values(CAREER_PROMOTIONS).some(({ from }) => from === career),
-      `${career}에 일반 승진 단계가 남아 있으면 안 됨`);
+    assert.ok(Object.values(CAREER_PROMOTIONS).some(({ from }) => from === career),
+      `${career}에 성장 단계가 있어야 함`);
     const person = life(career);
     const result = performanceBonus(person);
     assert.ok(Number.isInteger(result.money) && result.money >= 0 && result.money <= profile.max);
@@ -122,7 +122,7 @@ test('성과 수입은 정규 연봉과 별도 지급되고 실제 1년 진행�
     path: { ...player.life.path, workYears: { farmer: 10 } } }).total + payout);
 });
 
-test('성과형 직업에는 승진 카드 없이 계속 일하기와 다른 직업 보기가 표시된다', () => {
+test('성과형 직업에도 성장 카드와 기존 일 계속하기·다른 직업 보기가 표시된다', () => {
   const room = newRoom({ code: 'PERF42', seed: 'performance-career-ui', name: '성과 직업', settings: { pace: 'personal', maxAge: 110 } });
   const player = addPlayer(room, { id: 'artist', name: '창작자', avatar: 0, sex: 'female' });
   player.life.age = 42;
@@ -132,11 +132,11 @@ test('성과형 직업에는 승진 카드 없이 계속 일하기와 다른 직
   teacherAction(room, 'start', {}, 1000);
   const current = stateFor(room, 'artist');
   assert.equal(current.me.scene.key, 'career');
-  assert.ok(!current.me.scene.choices.some(({ careerGroup }) => careerGroup === 'advancement'));
+  assert.ok(current.me.scene.choices.some(({ careerGroup }) => careerGroup === 'advancement'));
   const html = roomView({ role: 'player' }, current, { pane: 'play', rank: 'money' });
   assert.match(html, /지금 일 계속하기/);
   assert.match(html, /다른 직업 보기/);
-  assert.doesNotMatch(html, /<h3>승진·전직 기회<\/h3>/);
+  assert.match(html, /<h3>승진·전직 기회<\/h3>/);
 });
 
 test('은퇴 또는 군복무 중에는 성과 보너스를 지급하지 않는다', () => {
