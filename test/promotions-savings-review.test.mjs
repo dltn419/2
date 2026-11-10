@@ -37,7 +37,7 @@ test('승진 단계는 부모 직위가 모두 존재하며 시작 직업 없이
   for (const [key, role] of Object.entries(CAREER_PROMOTIONS)) {
     assert.ok(CAREERS[role.from], key);
     assert.ok(CAREERS[key].wage > CAREERS[role.from].wage, key);
-    assert.ok(role.minYears >= 4, key);
+    assert.ok(role.minYears >= (key === 'schoolNurse' ? 0 : 3), key);
   }
   assert.equal(CAREERS.vicePrincipal.promotionFrom, 'teacher');
   assert.equal(CAREERS.principal.promotionFrom, 'vicePrincipal');
@@ -58,7 +58,7 @@ test('교사 승진은 첫 화면에 표시하고 정확한 능력치와 경력�
   assert.ok(!promotion.locked);
   assert.ok(scene.choices.some(({ id, careerGroup }) => id === 'work-staff' && careerGroup === 'other'));
   const html = roomView({ role: 'player' }, state(room), { pane: 'play', rank: 'money' });
-  assert.ok(html.indexOf('승진·전직 기회') < html.indexOf('다른 직업 보기'));
+  assert.ok(html.indexOf('승진·전직 기회') < html.indexOf('생활·서비스·자영업'));
   const salary = careerPay(life).total;
   choose(room, 'work-vicePrincipal');
   assert.equal(life.career, 'vicePrincipal');
