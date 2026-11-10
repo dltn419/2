@@ -119,7 +119,12 @@ test('장교 학사사관은 남녀 모두 4년제 대학 졸업 후 양성교�
   for (const sex of ['female', 'male']) {
     const { room, player } = roomFor({ age: 26, sex });
     player.life.path.degree = null;
-    if (view(room).me.scene.key === 'education') choose(room, 'rest');
+    for (let i = 0; i < 5 && view(room).me.scene.key !== 'career'; i++) {
+      const scene = view(room).me.scene;
+      assert.ok(scene.bonus, scene.key);
+      choose(room, scene.fallback);
+    }
+    assert.equal(view(room).me.scene.key, 'career');
     const before = view(room).me.scene.choices.find(({ id }) => id === 'apply-military-ocs');
     assert.ok(before);
     assert.match(before.locked, /4년제 대학 졸업/);
