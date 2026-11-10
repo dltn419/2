@@ -615,6 +615,18 @@ function militaryPlan(life, path) {
     'service', 'exempt', '몸을 돌보며 지금의 생활을 이어가기로 했어요.',
     { conditions: [{ label: '체력 20점 이하', met: life.stats.health <= 20 }],
       narration: '몸을 돌보며 익숙한 일상을 이어가기로 했어요.' }));
+  // 남학생의 병역 선택에서도 바로 직업군인 선발에 지원할 수 있습니다.
+  // 여학생은 일반 취업 화면에서 동일한 부사관·장교 지원 기회를 얻습니다.
+  const bachelor = degreesOf(path).some(({ kind }) => !['college', 'training', 'caregiving'].includes(kind));
+  for (const [career, educationMet] of [['soldierNco', finishedSchool(path)], ['soldierOfficer', bachelor]]) {
+    const job = CAREERS[career];
+    choices.push(pick(`service-professional-${career}`, `${job.title} 지원하기`,
+      job.detail, 'flag', {}, {
+        career, need: job.need, strictNeed: true,
+        conditions: [{ label: CAREER_CREDENTIALS[job.education], met: educationMet }],
+        narration: `${job.title} 선발을 통과해 직업군인으로 복무를 시작했어요.`,
+      }));
+  }
   const graduation = age + (path.program?.remaining ?? 0);
   if (graduation > age + 1 && graduation <= SERVICE_LIMIT) {
     choices.push(option('service-after-study', '졸업하고 복무하기', '지금 다니는 학교를 마치고 복무해요.', 'book', {},
