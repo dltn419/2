@@ -89,7 +89,7 @@ export const CAREERS = {
   doctor: { growth: 'professional', retireAt: 68, title: '의사', detail: '병원에서 환자의 몸 상태를 살피고 치료해요.', place: '전에 일하던 병원', mark: 'heart', wage: 11, fatigue: 2,
     field: 'medical', education: 'doctor', specialty: true, need: { learning: 96 } },
   coach: { growth: 'stable', title: '운동 지도자', detail: '운동 경험을 살려 선수와 학생을 지도해요.', place: '지역 스포츠센터', mark: 'flag', wage: 5,
-    field: 'sports', related: ['education'], payStat: 'bond', need: { health: 45, bond: 28 }, specialty: true },
+    field: 'sports', related: ['education'], payStat: 'bond', education: 'sports', need: { health: 45, bond: 28 }, specialty: true },
   cafe: { title: '카페 직원', detail: '카페 직원으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'early', field: 'food', mark: 'sun', wage: 3, need: {"bond":20,"art":20} },
   baker: { title: '제과제빵사', detail: '제과제빵사으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'skilled', field: 'food', mark: 'sun', wage: 4, need: {"learning":25,"art":30}, education: 'skill' },
   hairdresser: { title: '미용사', detail: '미용사으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'skilled', field: 'art', mark: 'spark', wage: 4, need: {"art":35,"bond":24}, education: 'skill' },
