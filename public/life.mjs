@@ -1138,7 +1138,7 @@ export function yearlySources(life) {
       const gain = payment - investment.amount;
       sources.push({ id: `investment-${index}`,
         label: `${INVESTMENT_PRODUCTS[investment.kind]?.label ?? '투자'} 만기`,
-        term: `원금 ${investment.amount}코인 · ${gain >= 0 ? '수익 +' : '손실 '}${gain}코인`,
+        term: `원금 ${investment.amount}코인 · ${gain >= 0 ? `수익 +${gain}` : `손실 ${Math.abs(gain)}`}코인`,
         effect: { money: payment } });
     }
   }
