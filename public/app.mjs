@@ -607,4 +607,4 @@ const saved = read(sessionStorage, storedSession);
 if (saved && (!invitedCode || invitedCode === saved.code)) void run(() => recover(saved));
 else if (invitedCode) document.querySelector('#join').scrollIntoView();
 setInterval(updateClock, 250);
-setInterval(() => void poll(), 1200);
+setInterval(() => void poll(), 3500);
