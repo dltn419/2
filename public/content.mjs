@@ -34,7 +34,7 @@ export const CAREER_GROWTH = {
   stable: { label: '안정 성장', steps: [4, 9, 16], raise: 1 },
   skilled: { label: '숙련 성장', steps: [3, 7, 12, 18], raise: 1 },
   professional: { label: '전문 성장', steps: [4, 9, 15], raise: 1 },
-  performance: { label: '성과 성장', steps: [3, 7, 12], raise: 1 },
+  performance: { label: '경력 성장', steps: [3, 7, 12], raise: 1 },
   athlete: { label: '선수 성장', steps: [2, 4, 7], raise: 2 },
 };
 
@@ -161,21 +161,6 @@ for (const [group, ids] of Object.entries(CAREER_GROUP_MEMBERS)) {
  * from: 직전 직위, minYears: 그 직위에서 요구하는 근무연수.
  * 직전 직위로 일한 상태에서만 승진 지원이 가능합니다.
  */
-export const PERFORMANCE_BONUSES = {
-  farmer: { label: '농작물 수확 보너스', stat: 'health', threshold: 55, max: 5,
-    description: '건강한 농사와 작황에 따라 수확 소득이 달라져요.' },
-  studio: { label: '작품 판매 보너스', stat: 'art', threshold: 60, max: 5,
-    description: '그림과 작품 판매 성과로 추가 수입을 얻어요.' },
-  sales: { label: '판매 실적 수당', stat: 'bond', threshold: 55, max: 5,
-    description: '거래 성사와 고객 관계에 따라 실적 수당을 받아요.' },
-  creator: { label: '콘텐츠 광고·후원 수입', stat: 'art', threshold: 60, max: 6,
-    description: '콘텐츠의 조회수와 인기도에 따라 광고·후원 수입이 생겨요.' },
-  shop: { label: '가게 매출 보너스', stat: 'bond', threshold: 55, max: 6,
-    description: '손님이 늘고 매출이 좋은 해에 순이익 보너스를 받아요.' },
-  athlete: { label: '대회 성적 상금', stat: 'health', threshold: 80, max: 5,
-    description: '경기 성적과 대회 결과에 따라 상금이 달라져요.' },
-};
-
 export const CAREER_PROMOTIONS = {
   storeLead: { from: 'crew', title: '매장 매니저', wage: 4, minYears: 4, need: { bond: 40, learning: 30 } },
   storeManager: { from: 'storeLead', title: '매장 점장', wage: 6, minYears: 5, need: { bond: 55, learning: 42 } },
