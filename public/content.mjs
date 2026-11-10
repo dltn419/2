@@ -70,7 +70,7 @@ export const CAREERS = {
     field: 'media', related: ['art'], specialty: true, payStat: 'art', need: { art: 35, bond: 24, money: 10 }, startup: 8 },
   civil: { growth: 'stable', title: '공무원', detail: '시험을 보고 주민을 돕는 일을 시작해요.', place: '전에 일하던 주민센터', mark: 'house', wage: 4,
     field: 'public', related: ['office'], education: 'school', need: { learning: 53, bond: 24 } },
-  teacher: { growth: 'stable', title: '초등교사', detail: '교실에서 아이들을 만나고 가르쳐요.', place: '전에 일하던 초등학교', mark: 'board', wage: 5,
+  teacher: { growth: 'stable', title: '교사', detail: '학교에서 학생들을 만나고 가르쳐요.', place: '전에 일하던 초등학교', mark: 'board', wage: 5,
     field: 'education', related: ['people'], education: 'teaching', specialty: true, need: { learning: 59, bond: 29 } },
   athlete: { growth: 'athlete', retireAt: 38, title: '운동선수', detail: '팀에서 훈련하고 경기에 나가요.', place: '전에 뛰던 경기장', mark: 'flag', wage: 6, fatigue: 2,
     field: 'sports', education: 'sports', specialty: true, latestStart: 30, payStat: 'health', need: { health: 77 } },
