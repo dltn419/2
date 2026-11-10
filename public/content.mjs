@@ -105,12 +105,14 @@ Object.assign(CAREERS, NEW_CAREERS);
 // 여성과 남성 모두 동일한 자격 조건으로 진입할 수 있습니다.
 CAREERS.soldierNco = {
   ...CAREERS.soldier, title: '직업군인 · 하사', wage: 5,
-  entryVariant: true, entryFamily: 'soldier', education: 'school',
+  detail: '부사관 선발에 합격해 하사로 전문 복무해요.',
+  entryVariant: true, entryOnlyFamily: false, entryFamily: 'soldier', education: 'school',
   need: { health: 55, learning: 35, bond: 30 },
 };
 CAREERS.soldierOfficer = {
   ...CAREERS.soldier, title: '직업군인 · 소위', wage: 7,
-  entryVariant: true, entryFamily: 'soldier', education: 'bachelor',
+  detail: '대학 졸업 후 장교 선발에 합격해 소위로 복무해요.',
+  entryVariant: true, entryOnlyFamily: false, entryFamily: 'soldier', education: 'bachelor',
   need: { health: 55, learning: 65, bond: 40 },
 };
 for (const [category, info] of Object.entries(CAREER_GROUPS)) {
