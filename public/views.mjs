@@ -1,4 +1,4 @@
-import { AVATARS, CAREER_CREDENTIALS, CAREER_PROMOTIONS, CAREERS, STAGES, STATS } from './content.mjs';
+import { AVATARS, CAREER_CREDENTIALS, CAREER_GROUPS, CAREER_PROMOTIONS, CAREERS, STAGES, STATS } from './content.mjs';
 import { CAPACITY, MODES, PASS, RANKS, stageAt } from './game.mjs';
 import { SEXES, careerGoals, careerGrowth, careerPay, chanceDiscount, lifeBadges, pathNotes, pathOf,
   performanceProfile, retirementAge, retirementLumpSum, retirementPayout, retirementTax } from './life.mjs';
@@ -36,6 +36,8 @@ function jobRequirementList(id, job, life) {
     CAREER_CREDENTIALS[job.education],
     ...need,
     job.requiresGraduate && '관련 대학원 수료',
+    job.requiresNursingTrack && '간호학과 교직이수 수료',
+    job.requiresSchoolNurseExam && '보건교사 임용시험 합격',
     job.latestStart && `${job.latestStart}살까지 지원`,
     job.startup && `시작 비용 ${job.startup}코인`,
   ].filter(Boolean);
@@ -56,7 +58,10 @@ function jobGuide(life) {
     current.education && `대학원 +${current.education}`,
   ].filter(Boolean).join(' · ');
   const currentBonus = life?.career && performanceProfile(life.career);
-  const baseCareers = Object.entries(CAREERS).filter(([, job]) => !job.promotionFrom && !job.legacyPromotion);
+  const baseCareers = Object.entries(CAREERS)
+    .filter(([, job]) => !job.promotionFrom && !job.legacyPromotion && !job.entryVariant)
+    .sort(([a, ja], [b, jb]) => Object.keys(CAREER_GROUPS).indexOf(ja.category) -
+      Object.keys(CAREER_GROUPS).indexOf(jb.category));
   return `
     ${current ? `<section class="current-pay"><strong>${h(CAREERS[life.career].title)} · 연봉 ${current.total}코인</strong>
       <p class="field-note">${h(payParts)}${currentBonus ? ` · 성과 보너스 매년 0~${currentBonus.max}코인` : ''}</p></section>` : ''}
@@ -73,7 +78,9 @@ function jobGuide(life) {
         : requirementText;
       const performance = performanceProfile(id);
       const routeIds = careerPromotionRoute(id);
-      const route = id === 'athlete' ? ['coach', ...careerPromotionRoute('coach')] : routeIds;
+      const route = id === 'athlete' ? [...routeIds, 'coach', ...careerPromotionRoute('coach')]
+        : id === 'soldier' ? ['soldierNco', ...careerPromotionRoute('soldierNco'),
+          'soldierOfficer', ...careerPromotionRoute('soldierOfficer')] : routeIds;
       let familyId = life?.career;
       while (familyId && CAREERS[familyId]?.promotionFrom) familyId = CAREERS[familyId].promotionFrom;
       const inFamily = familyId === id;
@@ -90,14 +97,18 @@ function jobGuide(life) {
             : info;
           return `<li class="job-promotion-step">
             <div><strong>${h(position.title)}</strong><span>기본 연봉 ${position.wage}코인</span></div>
-            <p>${positionId === 'coach' ? '전직' : '승진'} · ${h(conditions.join(' · ') || '별도 조건 없음')}</p>
+            <p>${position.entryVariant ? '지원 경로' : position.branchType ?? (positionId === 'coach' ? '전직' : '성장')} · ${h(conditions.join(' · ') || '별도 조건 없음')}</p>
           </li>`;
         }).join('')}
       </ol>` : `<div class="job-no-promotion">
         <strong>별도 승진 단계 없음</strong>
         <p>${performance ? '경력을 쌓고 좋은 성과를 내면 추가 보너스를 받을 수 있어요.' : '현재 직업에서 경력과 능력치를 키우거나 다른 직업으로 이직할 수 있어요.'}</p>
       </div>`;
-      return `<li class="job-guide-entry">
+      const previous = baseCareers[baseCareers.findIndex(([candidate]) => candidate === id) - 1]?.[1];
+      const group = CAREER_GROUPS[job.category];
+      return `${(!previous || previous.category !== job.category)
+        ? `<li class="job-guide-group-title" data-job-group="${h(job.category)}">${h(group?.title ?? '기타 직업')}</li>` : ''}
+      <li class="job-guide-entry" data-job-category="${h(job.category)}">
         <details class="job-guide-card">
           <summary class="job-guide-trigger">
             <span class="job-guide-heading">
