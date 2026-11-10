@@ -48,14 +48,14 @@ test('의사 경로는 대학원 수료 조건과 높은 연봉까지 설명한�
   assert.match(part, /임상교수 경력 7년 이상/);
 });
 
-test('성과형 직업은 보너스 정보가 나오되 불필요한 승진 경로가 없다', () => {
+test('성과형 직업은 성과 수입과 경력 성장 경로를 함께 보여준다', () => {
   const html = guide();
   for (const [title, bonus] of [['농부', '농작물 수확'], ['가게 주인', '가게 매출'],
     ['영상 크리에이터', '콘텐츠 광고·후원']]) {
     const start = html.indexOf(`class="job-guide-title">${title}`);
     const part = html.slice(start, html.indexOf('</details>', start));
     assert.ok(start >= 0);
-    assert.match(part, /별도 승진 단계 없음/);
+    assert.match(part, /승진·전직 경로와 필요 조건/);
     assert.match(part, /성과 수입: 매년 0~/);
     assert.match(part, new RegExp(bonus));
   }
