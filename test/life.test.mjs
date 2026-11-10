@@ -412,7 +412,7 @@ test('직업마다 학력과 능력치가 다르고 선택해야 고정 수입�
   life.stats.money = 41;
   assert.match(optionAt(room, '학생', 'work-shop').locked, /자금 42코인/);
   life.stats.money = 57;
-  assert.match(roomView({ role: 'player' }, stateFor(room, '학생'), { pane: 'play', rank: 'age' }), /조건이 필요한 직업/);
+  assert.match(roomView({ role: 'player' }, stateFor(room, '학생'), { pane: 'play', rank: 'age' }), /생활·서비스·자영업/);
   assert.throws(() => pick(room, '학생', 'career', 'work-chip'), /선택을 할 수 없어요/);
   life.stats.bond = 37;
   assert.deepEqual(optionAt(room, '학생', 'work-sales').recurring.starts[0].effect, { money: 5, health: -1 });
@@ -513,7 +513,7 @@ test('게임 메뉴에는 팁과 모든 직업의 조건 및 연봉이 있다', 
   assert.match(gameMenuView('tips', life), /직업과 승진/);
   const guide = gameMenuView('jobs', life);
   assert.equal([...guide.matchAll(/class="job-guide-entry"/g)].length,
-    Object.values(CAREERS).filter((job) => !job.promotionFrom && !job.legacyPromotion).length);
+    Object.values(CAREERS).filter((job) => !job.promotionFrom && !job.legacyPromotion && !job.entryVariant).length);
   assert.match(guide, /매장 직원 · 연봉 3코인/);
   assert.match(guide, /초기 연봉 11코인/);
   assert.doesNotMatch(guide, /월급|월 약|12개월/);
