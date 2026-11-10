@@ -1,5 +1,5 @@
 import {
-  AVATARS, IDLE, LIFE_EVENTS, OPPORTUNITIES, SPIRIT_SCENES, STAGES, STATS, STORIES, pick, spiritChoices,
+  AVATARS, CAREERS, IDLE, LIFE_EVENTS, OPPORTUNITIES, SPIRIT_SCENES, STAGES, STATS, STORIES, pick, spiritChoices,
 } from './content.mjs';
 import {
   SEXES, advancePath, annualScene, applyPath, bonusScene, careerPay, chanceDiscount, creditWorkYear,
@@ -8,7 +8,7 @@ import {
 import { fallIll, illnessDeathRisk, settleHealth } from './health.mjs';
 
 export const CAPACITY = 20;
-export const RULE_VERSION = 10;
+export const RULE_VERSION = 11;
 export const DEFAULTS = { years: 1, seconds: 0, maxAge: 100, pace: 'personal' };
 const EXTRA_SECONDS = 12;
 export const PASS = { id: 'pass', title: '이번에는 기다리기', detail: '잠시 쉬며 친구들의 이야기를 지켜봐요.', effect: {} };
@@ -217,6 +217,12 @@ function applyDecision(life, age, option) {
     const previousSalary = life.career && life.path.retired === null ? careerPay(life)?.total : 0;
     if (!life.career) life.path.firstJobAge = age;
     life.career = option.career;
+    // 부사관·장교로 전문 복무를 시작한 남성은 의무복무와 중복되지 않습니다.
+    // 여성도 똑같이 지원하며 여성 캐릭터에게 별도 의무복무를 부여하지 않습니다.
+    if (['soldierNco', 'soldierOfficer'].includes(option.career) &&
+      life.path.sex === 'male' && !['complete', 'exempt'].includes(life.path.service?.status)) {
+      life.path.service = { status: 'complete', kind: 'professional', endedAt: age };
+    }
     const newSalary = careerPay(life)?.total ?? 0;
     if (previousSalary > 0 && newSalary > previousSalary && life.path.retired === null) {
       life.path.savingsReview = { at: age + 1, from: previousSalary, to: newSalary };
