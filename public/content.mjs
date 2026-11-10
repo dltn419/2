@@ -1,4 +1,6 @@
 import { CAREER_GROUPS, NEW_CAREERS, EXTRA_ROUTES, SPECIAL_BRANCHES } from './career-expansion.mjs';
+export { CAREER_GROUPS };
+
 
 export const STATS = {
   health: { label: '체력', mark: 'heart', color: 'rose' },
