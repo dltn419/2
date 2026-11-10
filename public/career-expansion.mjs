@@ -148,6 +148,14 @@ export const EXTRA_ROUTES = {
 };
 
 export const SPECIAL_BRANCHES = {
+  doctorSpecialist: { from: 'doctor', title: '전문의', minYears: 5, wage: 13,
+    need: { learning: 103, bond: 35 }, type: '전문 성장' },
+  departmentChief: { from: 'doctorSpecialist', title: '진료과장', minYears: 7, wage: 16,
+    need: { learning: 114, bond: 65 }, type: '전문 성장' },
+  responsibleResearcher: { from: 'seniorResearcher', title: '책임연구원', minYears: 5, wage: 10,
+    need: { learning: 90 }, type: '전문 성장' },
+  principalDeveloper: { from: 'seniorDeveloper', title: '수석 개발자', minYears: 6, wage: 12,
+    need: { learning: 91 }, type: '전문 성장' },
   seniorTeacher: { from: 'teacher', title: '수석교사', minYears: 12, wage: 8,
     need: { learning: 84, bond: 65 }, type: '전문 성장' },
   professor: { from: 'seniorResearcher', title: '대학교수', minYears: 5, wage: 11,
