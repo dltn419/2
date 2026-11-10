@@ -81,16 +81,18 @@ test('교도관은 독립 직업이며 교정직 내부 2단계 성장 경로가
 test('성별에 관계없이 부사관과 장교의 지원 조건이 동일하고 학력별로 달라진다', () => {
   for (const sex of ['female', 'male']) {
     const { room, player } = classroom(sex);
-    let view = findCareerScene(room);
-    assert.equal(view.me.scene.key, 'career');
-    const nco = view.me.scene.choices.find(({ id }) => id === 'work-soldierNco');
-    const officer = view.me.scene.choices.find(({ id }) => id === 'work-soldierOfficer');
+    let view = sex === 'male' ? stateFor(room, 'p1') : findCareerScene(room);
+    const ncoId = sex === 'male' ? 'service-professional-soldierNco' : 'work-soldierNco';
+    const officerId = sex === 'male' ? 'service-professional-soldierOfficer' : 'work-soldierOfficer';
+    assert.equal(view.me.scene.key, sex === 'male' ? 'military' : 'career');
+    const nco = view.me.scene.choices.find(({ id }) => id === ncoId);
+    const officer = view.me.scene.choices.find(({ id }) => id === officerId);
     assert.ok(nco && !nco.locked, sex);
     assert.match(officer.locked, /4년제 대학 졸업/);
     player.life.path.degree = { kind: 'university', field: 'science', age: 24 };
-    view = findCareerScene(room);
-    assert.ok(!view.me.scene.choices.find(({ id }) => id === 'work-soldierOfficer').locked);
-    selectChoice(room, 'p1', { round: view.turn.number, scene: 'career', choice: 'work-soldierOfficer' }, 1000);
+    view = stateFor(room, 'p1');
+    assert.ok(!view.me.scene.choices.find(({ id }) => id === officerId).locked);
+    selectChoice(room, 'p1', { round: view.turn.number, scene: view.me.scene.key, choice: officerId }, 1000);
     assert.equal(player.life.career, 'soldierOfficer');
     if (sex === 'male') assert.equal(player.life.path.service.status, 'complete');
     else assert.equal(player.life.path.service, null);
@@ -99,9 +101,11 @@ test('성별에 관계없이 부사관과 장교의 지원 조건이 동일하�
 
 test('부사관은 고졸부터 가능하고 남성 선택 시 의무복무가 중복되지 않는다', () => {
   const { room, player } = classroom('male');
-  const view = findCareerScene(room);
-  assert.ok(!view.me.scene.choices.find(({ id }) => id === 'work-soldierNco').locked);
-  selectChoice(room, 'p1', { round: view.turn.number, scene: 'career', choice: 'work-soldierNco' }, 1000);
+  const view = stateFor(room, 'p1');
+  assert.equal(view.me.scene.key, 'military');
+  assert.ok(!view.me.scene.choices.find(({ id }) => id === 'service-professional-soldierNco').locked);
+  selectChoice(room, 'p1', { round: view.turn.number, scene: 'military',
+    choice: 'service-professional-soldierNco' }, 1000);
   assert.equal(player.life.path.service.status, 'complete');
   assert.equal(player.life.career, 'soldierNco');
 });
