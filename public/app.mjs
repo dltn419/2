@@ -533,6 +533,16 @@ document.addEventListener('input', (event) => {
     job.hidden = !job.textContent.toLowerCase().includes(search);
     if (!job.hidden) found = true;
   }
+  // 검색 결과가 없는 직업군 제목은 함께 숨겨서 빈 구분선이 남지 않게 합니다.
+  for (const heading of dialog.querySelectorAll('.job-guide-group-title')) {
+    let next = heading.nextElementSibling;
+    let hasVisible = false;
+    while (next && !next.classList.contains('job-guide-group-title')) {
+      if (next.classList.contains('job-guide-entry') && !next.hidden) hasVisible = true;
+      next = next.nextElementSibling;
+    }
+    heading.hidden = !hasVisible;
+  }
   dialog.querySelector('#job-no-match').hidden = found;
 });
 
