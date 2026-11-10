@@ -211,8 +211,9 @@ for (const [startingCareer, route] of Object.entries(EXTRA_ROUTES)) {
     const need = Object.fromEntries(stats.map(([stat, threshold]) =>
       [stat, threshold + (level === 1 ? 12 : 25)]));
     CAREER_PROMOTIONS[id] = {
-      from, title, wage: base.wage + level * 2,
-      minYears: level === 1 ? 4 : 6, need,
+      from, title, wage: startingCareer === 'coach' ? 9 : base.wage + level * 2,
+      minYears: startingCareer === 'coach' ? 6 : (level === 1 ? 4 : 6),
+      need: startingCareer === 'coach' ? { learning: 70, bond: 75 } : need,
       type: ['farmer', 'shop', 'livestock'].includes(startingCareer) ? '사업 성장'
         : ['studio', 'creator', 'sales', 'athlete', 'idol', 'actor', 'singer', 'webtoon', 'photographer'].includes(startingCareer)
           ? '활동 성장' : '경력 성장',
