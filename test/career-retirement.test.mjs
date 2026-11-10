@@ -35,7 +35,7 @@ test('직업 유형마다 서로 다른 경력 보너스와 정년이 적용된�
   assert.equal(careerPay(person('crew', 40, 10)).experience, 3);
   assert.equal(careerPay(person('staff', 40, 10)).experience, 2);
   assert.equal(careerPay(person('tech', 40, 10)).experience, 2);
-  assert.equal(careerPay(person('shop', 40, 10)).experience, 2);
+  assert.equal(careerPay(person('shop', 40, 10)).experience, 4);
   assert.equal(careerPay(person('chip', 40, 10)).experience, 2);
   assert.equal(retirementAge('athlete'), 38);
   assert.equal(retirementAge('factory'), 60);
