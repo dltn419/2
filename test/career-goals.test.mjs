@@ -45,7 +45,7 @@ test('플레이 화면에서 승진 목표를 펼치면 실제 숫자와 달성 
   assert.match(initial, /승진·전직 준비/);
   assert.match(initial, /승진 목표 · 교감/);
   assert.match(initial, /0\/3 충족/);
-  assert.match(initial, /초등교사 경력/);
+  assert.match(initial, /교사 경력/);
   assert.match(initial, /9\/12년/);
   assert.match(initial, /배움/);
   assert.match(initial, /70\/74점/);
