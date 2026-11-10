@@ -217,6 +217,12 @@ function applyDecision(life, age, option) {
     const previousSalary = life.career && life.path.retired === null ? careerPay(life)?.total : 0;
     if (!life.career) life.path.firstJobAge = age;
     life.career = option.career;
+    // 남녀 모두 동일한 직업군인 채용 경로를 이용합니다. 남성의 의무복무 이벤트가
+    // 직업군인 근무와 중복되지 않도록 게임에서는 군 간부 복무로 인정합니다.
+    if (life.path.sex === 'male' && CAREERS[option.career]?.militaryProfessional &&
+      life.path.service?.status !== 'complete') {
+      life.path.service = { status: 'complete', kind: 'professional', endedAt: age };
+    }
     const newSalary = careerPay(life)?.total ?? 0;
     if (previousSalary > 0 && newSalary > previousSalary && life.path.retired === null) {
       life.path.savingsReview = { at: age + 1, from: previousSalary, to: newSalary };
