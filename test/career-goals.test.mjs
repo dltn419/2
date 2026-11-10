@@ -93,23 +93,24 @@ test('운동선수의 지도자 전직은 경력·체력·관계 조건을 제�
   const athlete = life('athlete', 35, 2);
   athlete.stats.health = 60;
   athlete.stats.bond = 40;
-  const goal = careerGoals(athlete)[0];
+  const goal = careerGoals(athlete).find(({ career }) => career === 'coach');
   assert.equal(goal.title, '운동 지도자');
   assert.equal(goal.type, '전직');
   assert.equal(goal.checks[0].required, 3);
   assert.equal(goal.ready, false);
   athlete.path.workYears.athlete = 3;
-  assert.equal(careerGoals(athlete)[0].ready, true);
+  assert.equal(careerGoals(athlete).find(({ career }) => career === 'coach').ready, true);
   athlete.age = 38;
-  assert.equal(careerGoals(athlete)[0].ready, true);
+  assert.equal(careerGoals(athlete).find(({ career }) => career === 'coach').ready, true);
   athlete.age = 39;
   assert.equal(careerGoals(athlete).length, 0);
 });
 
-test('성과형 직업·최종 직급·은퇴 후에는 승진 목표를 표시하지 않는다', () => {
-  for (const career of ['farmer', 'studio', 'sales', 'creator', 'shop', 'principal']) {
-    assert.deepEqual(careerGoals(life(career, 40, 12)), []);
+test('성과형 직업에도 성장 목표가 나오고 최종 직급·은퇴 후에는 사라진다', () => {
+  for (const career of ['farmer', 'studio', 'sales', 'creator', 'shop']) {
+    assert.ok(careerGoals(life(career, 40, 12)).length > 0, career);
   }
+  assert.deepEqual(careerGoals(life('principal', 40, 12)), []);
   const teacher = life('teacher', 66, 30);
   assert.deepEqual(careerGoals(teacher), []);
   teacher.age = 60;
@@ -117,7 +118,7 @@ test('성과형 직업·최종 직급·은퇴 후에는 승진 목표를 표시�
   assert.deepEqual(careerGoals(teacher), []);
   const { room } = setup('farmer', 42, 12);
   const html = roomView({ role: 'player' }, stateFor(room, 'p1'), { pane: 'play', rank: 'money' });
-  assert.doesNotMatch(html, /class="career-goals"/);
+  assert.match(html, /class="career-goals"/);
 });
 
 test('직업 선택 시점의 실제 승진 제한과 목표 표시가 일치한다', () => {
