@@ -20,14 +20,14 @@ test('직업 안내 기본 목록에는 초기 직업만 표시하고 요약은 
 
 test('교사를 누르면 교감·교장 승진 단계와 조건을 순서대로 보여준다', () => {
   const html = guide();
-  const part = html.slice(html.indexOf('class="job-guide-title">초등교사'), html.indexOf('</details>', html.indexOf('class="job-guide-title">초등교사')));
+  const part = html.slice(html.indexOf('class="job-guide-title">교사'), html.indexOf('</details>', html.indexOf('class="job-guide-title">교사')));
   assert.ok(part);
-  const a = part.indexOf('class="job-guide-title">초등교사');
+  const a = part.indexOf('class="job-guide-title">교사');
   const b = part.indexOf('<strong>교감</strong>');
   const c = part.indexOf('<strong>교장</strong>');
   assert.ok(a >= 0 && b > a && c > b);
   assert.match(part, /교육대 졸업/);
-  assert.match(part, /초등교사 경력 12년 이상/);
+  assert.match(part, /교사 경력 12년 이상/);
   assert.match(part, /배움 74점/);
   assert.match(part, /관계 60점/);
   assert.match(part, /교감 경력 6년 이상/);
