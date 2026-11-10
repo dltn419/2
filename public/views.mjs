@@ -1,4 +1,4 @@
-import { AVATARS, CAREER_CREDENTIALS, CAREER_PROMOTIONS, CAREERS, STAGES, STATS } from './content.mjs';
+import { AVATARS, CAREER_CREDENTIALS, CAREER_GROUPS, CAREER_PROMOTIONS, CAREERS, STAGES, STATS } from './content.mjs';
 import { CAPACITY, MODES, PASS, RANKS, stageAt } from './game.mjs';
 import { SEXES, careerGoals, careerGrowth, careerPay, chanceDiscount, lifeBadges, pathNotes, pathOf,
   performanceProfile, retirementAge, retirementLumpSum, retirementPayout, retirementTax } from './life.mjs';
@@ -36,6 +36,8 @@ function jobRequirementList(id, job, life) {
     CAREER_CREDENTIALS[job.education],
     ...need,
     job.requiresGraduate && '관련 대학원 수료',
+    job.requiresNursingTeaching && '간호학과 재학 중 교직이수',
+    job.requiresNurseLicense && '간호사 면허',
     job.latestStart && `${job.latestStart}살까지 지원`,
     job.startup && `시작 비용 ${job.startup}코인`,
   ].filter(Boolean);
@@ -63,7 +65,9 @@ function jobGuide(life) {
     <label class="job-search-label">직업 찾기<input id="job-search" type="search" placeholder="직업명이나 승진 직급 검색" autocomplete="off"></label>
     <p class="field-note job-guide-intro">${baseCareers.length}개 직업 · 누르면 승진 경로와 조건을 볼 수 있어요.</p>
     <p class="field-note" id="job-no-match" role="status" hidden>찾는 직업이 없어요.</p>
-    <ul class="job-guide-list">${baseCareers.map(([id, job]) => {
+    <div class="job-guide-categories">${CAREER_GROUPS.map((group) => `<details class="job-guide-category" data-job-category="${group.id}">
+      <summary>${h(group.title)} <span>${baseCareers.filter(([, job]) => job.group === group.id).length}개</span></summary>
+      <ul class="job-guide-list">${baseCareers.filter(([, job]) => job.group === group.id).map(([id, job]) => {
       const growth = careerGrowth(id);
       const growthLine = `${growth.steps.join('·')}년차 이후 +${growth.raise}코인씩`;
       const requirements = jobRequirementList(id, job, life);
@@ -90,7 +94,7 @@ function jobGuide(life) {
             : info;
           return `<li class="job-promotion-step">
             <div><strong>${h(position.title)}</strong><span>기본 연봉 ${position.wage}코인</span></div>
-            <p>${positionId === 'coach' ? '전직' : '승진'} · ${h(conditions.join(' · ') || '별도 조건 없음')}</p>
+            <p>${positionId === 'coach' || position.routeType === '전직' ? '전직' : position.routeType === '성장' ? '성장' : '승진'} · ${h(conditions.join(' · ') || '별도 조건 없음')}</p>
           </li>`;
         }).join('')}
       </ol>` : `<div class="job-no-promotion">
@@ -129,7 +133,7 @@ function jobGuide(life) {
           </div>
         </details>
       </li>`;
-    }).join('')}</ul>`;
+    }).join('')}</ul></details>`).join('')}</div>`;
 }
 
 export function gameMenuView(page, life) {
@@ -436,6 +440,21 @@ function choiceSection(key, title, options, me, bonus, note = '') {
   </details>`;
 }
 
+// 시작 직업 60개와 조건 부족 직업을 분야별 접이식 목록으로 탐색합니다.
+function careerCategoryList(key, title, options, me, bonus) {
+  if (!options.length) return '';
+  return `<details class="choice-section career-category-list" data-choice-section="${key}">
+    <summary data-focus="section-${key}">${h(title)} <span>${options.length}개</span></summary>
+    <div class="choice-section-navigation"><button type="button" class="choice-back"
+      data-action="choice-back" data-id="${key}" aria-label="${h(title)} 목록 닫고 이전 선택지로 돌아가기">← 이전 선택지로</button></div>
+    <div class="career-category-grid">${CAREER_GROUPS.map((group) =>
+      choiceSection(`${key}-${group.id}`, group.title,
+        options.filter(({ career }) => CAREERS[career]?.group === group.id), me, bonus)).join('')}</div>
+    <div class="choice-section-navigation bottom"><button type="button" class="choice-back"
+      data-action="choice-back" data-id="${key}" aria-label="${h(title)} 목록 닫고 이전 선택지로 돌아가기">← 이전 선택지로</button></div>
+  </details>`;
+}
+
 function latestView(latest) {
   if (!latest?.text || latest.text === latest.line) return '';
   return `<details class="latest" data-result="${h(latest.year + '-' + latest.type + '-' + latest.title)}">
@@ -529,6 +548,9 @@ function playerView(session, state, rank) {
     const currentJob = careerScene && me.life.career;
     const otherJobs = currentJob ? scene.choices.filter(({ careerGroup, locked }) =>
       careerGroup === 'other' && !locked) : [];
+    const starterJobs = careerScene && !currentJob
+      ? scene.choices.filter(({ careerGroup, locked }) => careerGroup === 'other' && !locked)
+      : [];
     const lockedJobs = careerScene ? scene.choices.filter(({ locked, careerGroup }) =>
       locked && careerGroup !== 'advancement') : [];
     const college = scene.key === 'education' ? scene.choices.filter(({ educationGroup }) => educationGroup === 'college') : [];
@@ -550,10 +572,11 @@ function playerView(session, state, rank) {
         <div class="section-heading"><h3>승진·전직 기회</h3><span class="small-badge mint">${advancing.length}개</span></div>
         <div class="choice-grid">${advancing.map((item) => choiceCard(item, me, scene.bonus)).join('')}</div>
       </section>` : ''}
-      ${choiceSection('career-other', '다른 직업 보기', otherJobs, me, scene.bonus)}
+      ${careerCategoryList('career-start', '직업 분야 고르기', starterJobs, me, scene.bonus)}
+      ${careerCategoryList('career-other', '다른 직업 보기', otherJobs, me, scene.bonus)}
       ${choiceSection('college', '대학 진학', college, me, scene.bonus, '가족 지원을 뺀 본인 부담만 표시해요.')}
       ${choiceSection('further', '대학원·직업훈련', further, me, scene.bonus)}
-      ${choiceSection('career-locked', '조건이 필요한 직업', lockedJobs, me, scene.bonus)}
+      ${careerCategoryList('career-locked', '조건이 필요한 직업', lockedJobs, me, scene.bonus)}
       ${hint || canPass ? `<div class="choice-footer">${hint ? `<span>${hint}</span>` : ''}
         ${canPass ? button('choose', me.choice === 'pass' ? '기다리기를 골랐어요' : '이번엔 기다리기', 'clock', 'quiet', 'data-id="pass"') : ''}</div>` : ''}
       ${personal || session.role === 'demo' ? '' : `<div class="submission-note"><span>${icon('users')} ${progress}</span></div>`}

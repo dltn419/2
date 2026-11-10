@@ -533,6 +533,12 @@ document.addEventListener('input', (event) => {
     job.hidden = !job.textContent.toLowerCase().includes(search);
     if (!job.hidden) found = true;
   }
+  for (const group of dialog.querySelectorAll('.job-guide-category')) {
+    const matches = [...group.querySelectorAll('.job-guide-entry')].some((job) => !job.hidden);
+    group.hidden = !matches;
+    if (search && matches) group.open = true;
+    if (!search) group.open = false;
+  }
   dialog.querySelector('#job-no-match').hidden = found;
 });
 

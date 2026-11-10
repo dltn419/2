@@ -70,7 +70,7 @@ export const CAREERS = {
     field: 'media', related: ['art'], specialty: true, payStat: 'art', need: { art: 35, bond: 24, money: 10 }, startup: 8 },
   civil: { growth: 'stable', title: '공무원', detail: '시험을 보고 주민을 돕는 일을 시작해요.', place: '전에 일하던 주민센터', mark: 'house', wage: 4,
     field: 'public', related: ['office'], education: 'school', need: { learning: 53, bond: 24 } },
-  teacher: { growth: 'stable', title: '초등교사', detail: '교실에서 아이들을 만나고 가르쳐요.', place: '전에 일하던 초등학교', mark: 'board', wage: 5,
+  teacher: { growth: 'stable', title: '교사', detail: '학교에서 학생들을 만나고 가르쳐요.', place: '전에 일하던 초등학교', mark: 'board', wage: 5,
     field: 'education', related: ['people'], education: 'teaching', specialty: true, need: { learning: 59, bond: 29 } },
   athlete: { growth: 'athlete', retireAt: 38, title: '운동선수', detail: '팀에서 훈련하고 경기에 나가요.', place: '전에 뛰던 경기장', mark: 'flag', wage: 6, fatigue: 2,
     field: 'sports', education: 'sports', specialty: true, latestStart: 30, payStat: 'health', need: { health: 77 } },
@@ -89,8 +89,71 @@ export const CAREERS = {
   doctor: { growth: 'professional', retireAt: 68, title: '의사', detail: '병원에서 환자의 몸 상태를 살피고 치료해요.', place: '전에 일하던 병원', mark: 'heart', wage: 11, fatigue: 2,
     field: 'medical', education: 'doctor', specialty: true, need: { learning: 96 } },
   coach: { growth: 'stable', title: '운동 지도자', detail: '운동 경험을 살려 선수와 학생을 지도해요.', place: '지역 스포츠센터', mark: 'flag', wage: 5,
-    field: 'sports', related: ['education'], payStat: 'bond', need: { health: 45, bond: 28 }, specialty: true },
+    field: 'sports', related: ['education'], payStat: 'bond', education: 'sports', need: { health: 45, bond: 28 }, specialty: true },
+  cafe: { title: '카페 직원', detail: '카페 직원으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'early', field: 'food', mark: 'sun', wage: 3, need: {"bond":20,"art":20} },
+  baker: { title: '제과제빵사', detail: '제과제빵사으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'skilled', field: 'food', mark: 'sun', wage: 4, need: {"learning":25,"art":30}, education: 'skill' },
+  hairdresser: { title: '미용사', detail: '미용사으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'skilled', field: 'art', mark: 'spark', wage: 4, need: {"art":35,"bond":24}, education: 'skill' },
+  hotel: { title: '호텔 직원', detail: '호텔 직원으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'stable', field: 'sales', mark: 'house', wage: 4, need: {"bond":30,"learning":23}, education: 'school' },
+  realtor: { title: '부동산 중개사', detail: '부동산 중개사으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'professional', field: 'sales', mark: 'house', wage: 6, need: {"learning":45,"bond":38}, education: 'school' },
+  construction: { title: '건설 기술자', detail: '건설 기술자으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'skilled', field: 'tech', mark: 'settings', wage: 4, need: {"health":36,"learning":20} },
+  mechanic: { title: '자동차 정비사', detail: '자동차 정비사으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'skilled', field: 'tech', mark: 'settings', wage: 5, need: {"learning":35,"health":30}, education: 'skill' },
+  electrician: { title: '전기 기술자', detail: '전기 기술자으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'skilled', field: 'tech', mark: 'settings', wage: 5, need: {"learning":43}, education: 'skill' },
+  busDriver: { title: '버스 운전기사', detail: '버스 운전기사으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'stable', field: 'tech', mark: 'house', wage: 4, need: {"health":38,"bond":24}, education: 'school' },
+  freightDriver: { title: '화물차 운전기사', detail: '화물차 운전기사으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'skilled', field: 'tech', mark: 'house', wage: 5, need: {"health":44}, education: 'school' },
+  mechanicalEngineer: { title: '기계 엔지니어', detail: '기계 엔지니어으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'professional', field: 'tech', mark: 'settings', wage: 7, need: {"learning":65}, education: 'bachelor' },
+  architect: { title: '건축 설계사', detail: '건축 설계사으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'professional', field: 'art', mark: 'house', wage: 7, need: {"learning":58,"art":40}, education: 'bachelor' },
+  livestock: { title: '축산업 종사자', detail: '축산업 종사자으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'performance', field: 'farm', mark: 'sprout', wage: 4, need: {"health":36,"money":20}, payStat: 'art', fatigue: 1, payStat: 'health' },
+  banker: { title: '은행원', detail: '은행원으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'stable', field: 'office', mark: 'coin', wage: 5, need: {"learning":50,"bond":28}, education: 'bachelor' },
+  accountant: { title: '회계 사무원', detail: '회계 사무원으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'skilled', field: 'office', mark: 'book', wage: 4, need: {"learning":38}, education: 'school' },
+  hr: { title: '인사담당자', detail: '인사담당자으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'stable', field: 'people', mark: 'link', wage: 5, need: {"learning":45,"bond":38}, education: 'bachelor' },
+  tax: { title: '세무사', detail: '세무사으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'professional', field: 'office', mark: 'book', wage: 8, need: {"learning":85}, education: 'bachelor' },
+  police: { title: '경찰관', detail: '경찰관으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'stable', field: 'public', mark: 'flag', wage: 5, need: {"health":55,"learning":45,"bond":25}, education: 'school' },
+  firefighter: { title: '소방관', detail: '소방관으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'stable', field: 'public', mark: 'heart', wage: 5, need: {"health":63,"learning":35}, education: 'school' },
+  militaryNco: { title: '직업군인(부사관)', detail: '직업군인(부사관)으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'stable', field: 'public', mark: 'flag', wage: 5, need: {"health":58,"learning":35}, education: 'school', militaryProfessional: true },
+  militaryOfficer: { title: '직업군인(장교)', detail: '직업군인(장교)으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'stable', field: 'public', mark: 'flag', wage: 7, need: {"health":58,"learning":54,"bond":33}, education: 'bachelor', militaryProfessional: true },
+  prisonOfficer: { title: '교도관', detail: '교도관으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'stable', field: 'public', mark: 'house', wage: 5, need: {"health":55,"learning":45,"bond":25}, education: 'school' },
+  pharmacist: { title: '약사', detail: '약사으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'professional', field: 'medical', mark: 'heart', wage: 9, need: {"learning":87}, education: 'bachelor' },
+  dentist: { title: '치과의사', detail: '치과의사으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'professional', field: 'medical', mark: 'heart', wage: 11, need: {"learning":94}, education: 'bachelor' },
+  physicalTherapist: { title: '물리치료사', detail: '물리치료사으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'professional', field: 'medical', mark: 'heart', wage: 6, need: {"learning":55,"bond":30}, education: 'bachelor' },
+  counselor: { title: '상담사', detail: '상담사으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'professional', field: 'people', mark: 'link', wage: 5, need: {"learning":55,"bond":55}, education: 'bachelor' },
+  idol: { title: '아이돌 연습생', detail: '아이돌 연습생으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'performance', field: 'media', mark: 'spark', wage: 3, need: {"art":40,"health":35,"bond":25}, payStat: 'art', latestStart: 28 },
+  actor: { title: '배우', detail: '배우으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'performance', field: 'art', mark: 'spark', wage: 4, need: {"art":43,"bond":33}, payStat: 'art' },
+  singer: { title: '가수', detail: '가수으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'performance', field: 'art', mark: 'spark', wage: 4, need: {"art":50}, payStat: 'art' },
+  webtoon: { title: '웹툰 작가', detail: '웹툰 작가으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'performance', field: 'art', mark: 'spark', wage: 4, need: {"art":52,"learning":25}, payStat: 'art' },
+  photographer: { title: '사진작가', detail: '사진작가으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'performance', field: 'art', mark: 'spark', wage: 4, need: {"art":42}, payStat: 'art' },
+  designer: { title: '디자이너', detail: '디자이너으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'skilled', field: 'art', mark: 'spark', wage: 5, need: {"art":48,"learning":30}, education: 'skill' },
+  fitnessTrainer: { title: '피트니스 트레이너', detail: '피트니스 트레이너으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'skilled', field: 'sports', mark: 'flag', wage: 4, need: {"health":65,"bond":28} },
+  producer: { title: '방송 PD', detail: '방송 PD으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'professional', field: 'media', mark: 'play', wage: 6, need: {"learning":56,"art":42,"bond":33}, education: 'bachelor' },
 };
+
+
+// 직업 소개는 중복된 설명 대신 실제로 하는 일을 짧게 보여줍니다.
+for (const [id, [detail, place]] of Object.entries({"cafe":["음료를 만들고 주문을 받아 손님에게 건네요.","전에 일하던 카페"],"baker":["빵과 과자를 굽고 새로운 맛을 연구해요.","전에 일하던 제과점"],"hairdresser":["머리 모양을 디자인하고 손님을 관리해요.","전에 일하던 미용실"],"hotel":["호텔에서 투숙객을 안내하고 객실을 관리해요.","전에 일하던 호텔"],"realtor":["집과 가게를 찾는 손님에게 부동산을 안내해요.","전에 일하던 중개사무소"],"construction":["건설 현장에서 공사와 안전을 관리해요.","전에 일하던 건설 현장"],"mechanic":["자동차 고장 원인을 찾아 수리해요.","전에 일하던 정비소"],"electrician":["전기 설비를 설치하고 고장을 고쳐요.","전에 일하던 전기 작업장"],"busDriver":["정해진 길을 따라 승객을 안전하게 태워요.","전에 운행하던 버스"],"freightDriver":["화물을 싣고 여러 지역으로 운반해요.","전에 일하던 운송회사"],"mechanicalEngineer":["기계 장치를 설계하고 성능을 시험해요.","전에 일하던 설계실"],"architect":["건물의 형태와 공간을 계획하고 설계해요.","전에 일하던 건축사무소"],"livestock":["가축의 건강을 돌보고 축사를 관리해요.","전에 운영하던 축사"],"banker":["은행에서 고객의 예금과 대출 업무를 도와요.","전에 일하던 은행"],"accountant":["회계 장부와 지출 자료를 정리해요.","전에 일하던 회계팀"],"hr":["직원 채용과 교육·근무 환경을 기획해요.","전에 일하던 인사팀"],"tax":["세금 신고와 납세 관련 업무를 도와요.","전에 일하던 세무사무소"],"police":["주민을 보호하고 사건을 조사해요.","전에 근무하던 경찰서"],"firefighter":["화재를 진압하고 긴급 상황에서 사람을 구조해요.","전에 근무하던 소방서"],"militaryNco":["군 간부로 지원해 부대 운영과 병력 지도를 맡아요.","전에 근무하던 부대"],"militaryOfficer":["대학 졸업 후 장교로 지원해 부대를 지휘해요.","전에 근무하던 부대"],"prisonOfficer":["교정시설의 안전을 지키고 사회복귀를 도와요.","전에 근무하던 교정시설"],"pharmacist":["약을 조제하고 안전한 복용 방법을 안내해요.","전에 일하던 약국"],"dentist":["치아를 치료하고 구강 건강을 관리해요.","전에 일하던 치과"],"physicalTherapist":["운동과 재활 치료를 통해 회복을 도와요.","전에 일하던 재활센터"],"counselor":["고민을 듣고 마음의 어려움을 함께 해결해요.","전에 일하던 상담센터"],"idol":["노래와 춤을 연습해 무대 데뷔를 준비해요.","전에 연습하던 연습실"],"actor":["드라마와 공연에서 배역을 연기해요.","전에 서던 무대"],"singer":["노래를 녹음하고 무대에서 공연해요.","전에 공연하던 무대"],"webtoon":["이야기를 그림으로 만들어 연재해요.","전에 작업하던 스튜디오"],"photographer":["사람과 풍경을 촬영하고 사진을 편집해요.","전에 쓰던 사진 작업실"],"designer":["상품과 화면의 색·모양을 설계해요.","전에 일하던 디자인실"],"fitnessTrainer":["회원들의 운동 자세와 체력 훈련을 지도해요.","전에 일하던 체육관"],"producer":["방송의 주제와 촬영·편집을 기획해요.","전에 일하던 방송국"]})) {
+  CAREERS[id].detail = detail;
+  CAREERS[id].place = place;
+}
+
+// 시작 직업은 다섯 분야로 묶어 탐색하고, 성장 직위는 원래 분야를 물려받습니다.
+export const CAREER_GROUPS = [
+  { id: 'service', title: '생활·서비스·자영업' },
+  { id: 'industry', title: '기술·산업·농업' },
+  { id: 'public', title: '사무·금융·공공' },
+  { id: 'care', title: '교육·의료·연구·복지' },
+  { id: 'culture', title: '문화·예술·스포츠' },
+];
+const CAREER_GROUP_MEMBERS = {
+  service: 'crew restaurant cook cleaner delivery sales shop cafe baker hairdresser hotel realtor'.split(' '),
+  industry: 'factory tech developer construction mechanic electrician busDriver freightDriver mechanicalEngineer architect farmer livestock'.split(' '),
+  public: 'staff marketing civil banker accountant hr tax police firefighter militaryNco militaryOfficer prisonOfficer'.split(' '),
+  care: 'teacher doctor nurse caregiver care lab bio chip pharmacist dentist physicalTherapist counselor'.split(' '),
+  culture: 'studio creator athlete coach idol actor singer webtoon photographer designer fitnessTrainer producer'.split(' '),
+};
+for (const [group, ids] of Object.entries(CAREER_GROUP_MEMBERS)) {
+  for (const id of ids) {
+    if (!CAREERS[id]) throw new Error(`직업 분야에 없는 직업: ${id}`);
+    CAREERS[id].group = group;
+  }
+}
 
 
 /*
@@ -173,6 +236,109 @@ export const LEGACY_PERFORMANCE_PROMOTIONS = {
 };
 
 
+// 모든 직업에는 경력에 따른 두 단계 성장이 있으며, 일부는 별도의 진로를 선택할 수 있습니다.
+Object.assign(CAREER_PROMOTIONS, {
+  experiencedFarmer: { from: 'farmer', title: '숙련 농업인', wage: 8, minYears: 5, need: {"health":48,"money":30}, routeType: '성장' },
+  farmOwner: { from: 'experiencedFarmer', title: '농장 경영자', wage: 8, minYears: 6, need: {"health":58,"money":50}, routeType: '성장' },
+  fulltimeCreator: { from: 'studio', title: '전업 창작자', wage: 8, minYears: 4, need: {"art":52}, routeType: '성장' },
+  recognizedCreator: { from: 'fulltimeCreator', title: '유명 창작자', wage: 8, minYears: 6, need: {"art":72,"bond":35}, routeType: '성장' },
+  topSales: { from: 'sales', title: '우수 영업사원', wage: 8, minYears: 4, need: {"bond":50}, routeType: '성장' },
+  regionalSales: { from: 'topSales', title: '지역 영업책임자', wage: 8, minYears: 6, need: {"bond":66,"learning":40}, routeType: '성장' },
+  growingCreator: { from: 'creator', title: '성장 크리에이터', wage: 8, minYears: 4, need: {"art":50,"bond":34}, routeType: '성장' },
+  bigCreator: { from: 'growingCreator', title: '대형 크리에이터', wage: 8, minYears: 6, need: {"art":70,"bond":58}, routeType: '성장' },
+  successfulShop: { from: 'shop', title: '우수 점포 운영자', wage: 8, minYears: 5, need: {"bond":40,"money":54}, routeType: '성장' },
+  shopChain: { from: 'successfulShop', title: '다점포 운영자', wage: 8, minYears: 6, need: {"bond":58,"money":70}, routeType: '성장' },
+  startingAthlete: { from: 'athlete', title: '주전 선수', wage: 10, minYears: 4, need: {"health":82}, routeType: '성장' },
+  starAthlete: { from: 'startingAthlete', title: '스타 선수', wage: 12, minYears: 4, need: {"health":92,"bond":45}, routeType: '성장' },
+  chiefSportsDirector: { from: 'headCoach', title: '스포츠 총감독', wage: 11, minYears: 6, need: {"learning":65,"bond":70}, routeType: '성장' },
+  masterTeacher: { from: 'teacher', title: '수석교사', wage: 9, minYears: 12, need: {"learning":78,"bond":70}, routeType: '전직' },
+  specialistDoctor: { from: 'doctor', title: '전문의', wage: 15, minYears: 5, need: {"learning":102}, routeType: '성장' },
+  departmentDoctor: { from: 'specialistDoctor', title: '진료과장', wage: 8, minYears: 6, need: {"learning":110,"bond":62}, routeType: '성장' },
+  distinguishedDeveloper: { from: 'seniorDeveloper', title: '수석 개발자', wage: 13, minYears: 8, need: {"learning":95}, routeType: '성장' },
+  universityProfessor: { from: 'seniorResearcher', title: '대학교수', wage: 12, minYears: 7, need: {"learning":100,"bond":65}, requiresGraduate: true, routeType: '전직' },
+  schoolNurse: { from: 'nurse', title: '보건교사', wage: 10, minYears: 5, need: {"learning":70,"bond":40}, requiresNursingTeaching: true, requiresNurseLicense: true, routeType: '전직' },
+  productDesigner: { from: 'mechanicalEngineer', title: '제품 디자이너', wage: 9, minYears: 5, need: {"learning":70,"art":55}, routeType: '전직' },
+  gameDeveloper: { from: 'developer', title: '게임 개발자', wage: 11, minYears: 5, need: {"learning":70}, routeType: '전직' },
+  farmBrand: { from: 'farmer', title: '농산물 브랜드 운영자', wage: 8, minYears: 5, need: {"money":53,"art":46}, routeType: '전직' },
+  artTherapist: { from: 'counselor', title: '미술치료 전문가', wage: 7, minYears: 6, need: {"art":55,"learning":67,"bond":65}, routeType: '전직' },
+  soloArtist: { from: 'idol', title: '솔로 아티스트', wage: 5, minYears: 5, need: {"art":80,"bond":55}, routeType: '전직' },
+  barista: { from: 'cafe', title: '바리스타', wage: 5, minYears: 5, need: {"bond":32,"art":32}, routeType: '성장' },
+  cafeManager: { from: 'barista', title: '카페 매니저', wage: 7, minYears: 7, need: {"bond":47,"art":47}, routeType: '성장' },
+  seniorBaker: { from: 'baker', title: '선임 제빵사', wage: 6, minYears: 5, need: {"learning":37,"art":42}, routeType: '성장' },
+  masterBaker: { from: 'seniorBaker', title: '총괄 제빵사', wage: 8, minYears: 7, need: {"learning":52,"art":57}, routeType: '성장' },
+  seniorHairdresser: { from: 'hairdresser', title: '선임 디자이너', wage: 6, minYears: 5, need: {"art":47,"bond":36}, routeType: '성장' },
+  salonOwner: { from: 'seniorHairdresser', title: '미용실 원장', wage: 8, minYears: 7, need: {"art":62,"bond":51}, routeType: '성장' },
+  hotelManager: { from: 'hotel', title: '호텔 매니저', wage: 6, minYears: 5, need: {"bond":42,"learning":35}, routeType: '성장' },
+  hotelDirector: { from: 'hotelManager', title: '호텔 총지배인', wage: 8, minYears: 7, need: {"bond":57,"learning":50}, routeType: '성장' },
+  seniorRealtor: { from: 'realtor', title: '경력 중개사', wage: 8, minYears: 5, need: {"learning":57,"bond":50}, routeType: '성장' },
+  realtorDirector: { from: 'seniorRealtor', title: '중개법인 대표', wage: 10, minYears: 7, need: {"learning":72,"bond":65}, routeType: '성장' },
+  seniorConstruction: { from: 'construction', title: '선임 건설 기술자', wage: 6, minYears: 5, need: {"health":48,"learning":32}, routeType: '성장' },
+  constructionDirector: { from: 'seniorConstruction', title: '현장소장', wage: 8, minYears: 7, need: {"health":63,"learning":47}, routeType: '성장' },
+  seniorMechanic: { from: 'mechanic', title: '선임 정비사', wage: 7, minYears: 5, need: {"learning":47,"health":42}, routeType: '성장' },
+  mechanicDirector: { from: 'seniorMechanic', title: '정비소장', wage: 9, minYears: 7, need: {"learning":62,"health":57}, routeType: '성장' },
+  seniorElectrician: { from: 'electrician', title: '선임 전기 기술자', wage: 7, minYears: 5, need: {"learning":55}, routeType: '성장' },
+  electricityDirector: { from: 'seniorElectrician', title: '전기공사 책임자', wage: 9, minYears: 7, need: {"learning":70}, routeType: '성장' },
+  seniorBusDriver: { from: 'busDriver', title: '숙련 버스 기사', wage: 6, minYears: 5, need: {"health":50,"bond":36}, routeType: '성장' },
+  busDirector: { from: 'seniorBusDriver', title: '운행팀장', wage: 8, minYears: 7, need: {"health":65,"bond":51}, routeType: '성장' },
+  heavyFreightDriver: { from: 'freightDriver', title: '대형 화물기사', wage: 7, minYears: 5, need: {"health":56}, routeType: '성장' },
+  freightDirector: { from: 'heavyFreightDriver', title: '운송팀장', wage: 9, minYears: 7, need: {"health":71}, routeType: '성장' },
+  seniorMechanicalEngineer: { from: 'mechanicalEngineer', title: '선임 엔지니어', wage: 9, minYears: 5, need: {"learning":77}, routeType: '성장' },
+  principalMechanicalEngineer: { from: 'seniorMechanicalEngineer', title: '책임 엔지니어', wage: 11, minYears: 7, need: {"learning":92}, routeType: '성장' },
+  seniorArchitect: { from: 'architect', title: '선임 설계사', wage: 9, minYears: 5, need: {"learning":70,"art":52}, routeType: '성장' },
+  architectDirector: { from: 'seniorArchitect', title: '설계실장', wage: 11, minYears: 7, need: {"learning":85,"art":67}, routeType: '성장' },
+  experiencedLivestock: { from: 'livestock', title: '전문 축산인', wage: 6, minYears: 5, need: {"health":48}, routeType: '성장' },
+  livestockOwner: { from: 'experiencedLivestock', title: '목장 운영자', wage: 8, minYears: 7, need: {"health":63}, routeType: '성장' },
+  seniorBanker: { from: 'banker', title: '선임 은행원', wage: 7, minYears: 5, need: {"learning":62,"bond":40}, routeType: '성장' },
+  bankManager: { from: 'seniorBanker', title: '은행 지점장', wage: 9, minYears: 7, need: {"learning":77,"bond":55}, routeType: '성장' },
+  seniorAccountant: { from: 'accountant', title: '선임 회계담당자', wage: 6, minYears: 5, need: {"learning":50}, routeType: '성장' },
+  accountingManager: { from: 'seniorAccountant', title: '회계팀장', wage: 8, minYears: 7, need: {"learning":65}, routeType: '성장' },
+  seniorHr: { from: 'hr', title: '선임 인사담당자', wage: 7, minYears: 5, need: {"learning":57,"bond":50}, routeType: '성장' },
+  hrManager: { from: 'seniorHr', title: '인사팀장', wage: 9, minYears: 7, need: {"learning":72,"bond":65}, routeType: '성장' },
+  seniorTax: { from: 'tax', title: '경력 세무사', wage: 10, minYears: 5, need: {"learning":97}, routeType: '성장' },
+  taxDirector: { from: 'seniorTax', title: '세무법인 대표', wage: 12, minYears: 7, need: {"learning":112}, routeType: '성장' },
+  seniorPolice: { from: 'police', title: '선임 경찰관', wage: 7, minYears: 5, need: {"health":67,"learning":57,"bond":37}, routeType: '성장' },
+  policeLead: { from: 'seniorPolice', title: '수사팀장', wage: 9, minYears: 7, need: {"health":82,"learning":72,"bond":52}, routeType: '성장' },
+  seniorFirefighter: { from: 'firefighter', title: '선임 소방관', wage: 7, minYears: 5, need: {"health":75,"learning":47}, routeType: '성장' },
+  fireCommander: { from: 'seniorFirefighter', title: '현장지휘관', wage: 9, minYears: 7, need: {"health":90,"learning":62}, routeType: '성장' },
+  militarySergeant: { from: 'militaryNco', title: '중사', wage: 7, minYears: 5, need: {"health":70,"learning":47}, routeType: '성장' },
+  militaryMasterSergeant: { from: 'militarySergeant', title: '상사', wage: 9, minYears: 7, need: {"health":85,"learning":62}, routeType: '성장' },
+  militaryCaptain: { from: 'militaryOfficer', title: '대위', wage: 9, minYears: 5, need: {"health":70,"learning":66,"bond":45}, routeType: '성장' },
+  militaryMajor: { from: 'militaryCaptain', title: '소령', wage: 11, minYears: 7, need: {"health":85,"learning":81,"bond":60}, routeType: '성장' },
+  prisonTeacher: { from: 'prisonOfficer', title: '교사(교정직)', wage: 7, minYears: 5, need: {"health":67,"learning":57,"bond":37}, routeType: '성장' },
+  prisonCaptain: { from: 'prisonTeacher', title: '교위', wage: 9, minYears: 7, need: {"health":82,"learning":72,"bond":52}, routeType: '성장' },
+  seniorPharmacist: { from: 'pharmacist', title: '선임 약사', wage: 11, minYears: 5, need: {"learning":99}, routeType: '성장' },
+  pharmacyOwner: { from: 'seniorPharmacist', title: '약국장', wage: 13, minYears: 7, need: {"learning":114}, routeType: '성장' },
+  specializedDentist: { from: 'dentist', title: '전문 치과의사', wage: 13, minYears: 5, need: {"learning":106}, routeType: '성장' },
+  dentistOwner: { from: 'specializedDentist', title: '치과 원장', wage: 15, minYears: 7, need: {"learning":121}, routeType: '성장' },
+  seniorPhysicalTherapist: { from: 'physicalTherapist', title: '선임 물리치료사', wage: 8, minYears: 5, need: {"learning":67,"bond":42}, routeType: '성장' },
+  rehabTeamLead: { from: 'seniorPhysicalTherapist', title: '재활팀장', wage: 10, minYears: 7, need: {"learning":82,"bond":57}, routeType: '성장' },
+  seniorCounselor: { from: 'counselor', title: '전문 상담사', wage: 7, minYears: 5, need: {"learning":67,"bond":67}, routeType: '성장' },
+  counselingDirector: { from: 'seniorCounselor', title: '상담센터장', wage: 9, minYears: 7, need: {"learning":82,"bond":82}, routeType: '성장' },
+  rookieIdol: { from: 'idol', title: '신인 아이돌', wage: 5, minYears: 5, need: {"art":52,"health":47,"bond":37}, routeType: '성장' },
+  popularIdol: { from: 'rookieIdol', title: '인기 아이돌', wage: 7, minYears: 7, need: {"art":67,"health":62,"bond":52}, routeType: '성장' },
+  supportingActor: { from: 'actor', title: '조연 배우', wage: 6, minYears: 5, need: {"art":55,"bond":45}, routeType: '성장' },
+  leadActor: { from: 'supportingActor', title: '주연 배우', wage: 8, minYears: 7, need: {"art":70,"bond":60}, routeType: '성장' },
+  debutSinger: { from: 'singer', title: '정식 데뷔 가수', wage: 6, minYears: 5, need: {"art":62}, routeType: '성장' },
+  popularSinger: { from: 'debutSinger', title: '인기 가수', wage: 8, minYears: 7, need: {"art":77}, routeType: '성장' },
+  serialWebtoon: { from: 'webtoon', title: '연재 작가', wage: 6, minYears: 5, need: {"art":64,"learning":37}, routeType: '성장' },
+  famousWebtoon: { from: 'serialWebtoon', title: '인기 웹툰 작가', wage: 8, minYears: 7, need: {"art":79,"learning":52}, routeType: '성장' },
+  professionalPhotographer: { from: 'photographer', title: '전문 사진작가', wage: 6, minYears: 5, need: {"art":54}, routeType: '성장' },
+  famousPhotographer: { from: 'professionalPhotographer', title: '유명 사진작가', wage: 8, minYears: 7, need: {"art":69}, routeType: '성장' },
+  seniorDesigner: { from: 'designer', title: '선임 디자이너', wage: 7, minYears: 5, need: {"art":60,"learning":42}, routeType: '성장' },
+  designDirector: { from: 'seniorDesigner', title: '디자인 디렉터', wage: 9, minYears: 7, need: {"art":75,"learning":57}, routeType: '성장' },
+  seniorFitnessTrainer: { from: 'fitnessTrainer', title: '선임 트레이너', wage: 6, minYears: 5, need: {"health":77,"bond":40}, routeType: '성장' },
+  fitnessDirector: { from: 'seniorFitnessTrainer', title: '피트니스센터장', wage: 8, minYears: 7, need: {"health":92,"bond":55}, routeType: '성장' },
+  seniorProducer: { from: 'producer', title: '선임 PD', wage: 8, minYears: 5, need: {"learning":68,"art":54,"bond":45}, routeType: '성장' },
+  chiefProducer: { from: 'seniorProducer', title: '총괄 PD', wage: 10, minYears: 7, need: {"learning":83,"art":69,"bond":60}, routeType: '성장' },
+});
+
+// 각 직급의 기본 연봉은 이전 단계보다 높게 정리합니다.
+// 기존 직위·저장 파일의 식별자는 그대로 유지합니다.
+for (const position of Object.values(CAREER_PROMOTIONS)) {
+  const previous = CAREERS[position.from]?.wage ?? CAREER_PROMOTIONS[position.from]?.wage ?? 0;
+  if (position.wage <= previous) position.wage = previous + 2;
+}
+
 // 상위 직위는 독립적인 신규 취업 자리가 아니라 직전 직위에서의 승진으로만 열립니다.
 for (const [id, position] of Object.entries({ ...CAREER_PROMOTIONS, ...LEGACY_PERFORMANCE_PROMOTIONS })) {
   const parent = CAREERS[position.from];
@@ -187,11 +353,16 @@ for (const [id, position] of Object.entries({ ...CAREER_PROMOTIONS, ...LEGACY_PE
     payStat: parent.payStat,
     fatigue: Math.max(0, (parent.fatigue ?? 0) - 1),
     field: parent.field,
+    group: parent.group,
     related: parent.related,
     promotionFrom: position.from,
     legacyPromotion: Object.hasOwn(LEGACY_PERFORMANCE_PROMOTIONS, id),
     minYears: position.minYears,
     requiresGraduate: position.requiresGraduate ?? false,
+    requiresNursingTeaching: position.requiresNursingTeaching ?? false,
+    requiresNurseLicense: position.requiresNurseLicense ?? false,
+    routeType: position.routeType ?? '승진',
+    militaryProfessional: parent.militaryProfessional ?? false,
     need: position.need,
   };
 }
