@@ -537,16 +537,16 @@ function playerView(session, state, rank) {
     const waiting = state.turn.auto ? '골랐어요. 친구들을 기다려요.' : '골랐어요. 선생님이 마감하면 다음 해로 가요.';
     const careerScene = scene.key === 'career';
     const advancing = careerScene ? scene.choices.filter(({ careerGroup }) => careerGroup === 'advancement') : [];
-    const currentJob = careerScene && me.life.career;
-    const otherJobs = currentJob ? scene.choices.filter(({ careerGroup, locked }) =>
-      careerGroup === 'other' && !locked) : [];
-    const lockedJobs = careerScene ? scene.choices.filter(({ locked, careerGroup }) =>
-      locked && careerGroup !== 'advancement') : [];
+    // 직업 60개를 한 화면에 쏟아놓지 않고 다섯 분야로 나눠 펼쳐 볼 수 있게 합니다.
+    const careerGroups = careerScene ? Object.entries(CAREER_GROUPS).map(([groupId, info]) =>
+      choiceSection(`career-${groupId}`, info.title,
+        scene.choices.filter((item) => item.careerGroup === 'other' &&
+          CAREERS[item.career]?.category === groupId),
+        me, scene.bonus)).join('') : '';
     const college = scene.key === 'education' ? scene.choices.filter(({ educationGroup }) => educationGroup === 'college') : [];
     const further = scene.key === 'education' ? scene.choices.filter(({ educationGroup }) => educationGroup === 'further') : [];
     const choices = scene.choices.filter((item) => !item.educationGroup &&
-      (!careerScene || (!item.locked && item.careerGroup !== 'advancement' &&
-        (!currentJob || item.id === 'rest'))));
+      (!careerScene || item.id === 'rest'));
     const hint = scene.waiting || me.choice ? waiting : !choices.length ? '친구들 메뉴에서 다른 이야기를 볼 수 있어요.' : '';
     const canPass = !personal && me.mode !== 'alive' && !scene.waiting;
     body = `${roundMeta(state)}
@@ -561,10 +561,9 @@ function playerView(session, state, rank) {
         <div class="section-heading"><h3>승진·전직 기회</h3><span class="small-badge mint">${advancing.length}개</span></div>
         <div class="choice-grid">${advancing.map((item) => choiceCard(item, me, scene.bonus)).join('')}</div>
       </section>` : ''}
-      ${choiceSection('career-other', '다른 직업 보기', otherJobs, me, scene.bonus)}
+      ${careerGroups}
       ${choiceSection('college', '대학 진학', college, me, scene.bonus, '가족 지원을 뺀 본인 부담만 표시해요.')}
       ${choiceSection('further', '대학원·직업훈련', further, me, scene.bonus)}
-      ${choiceSection('career-locked', '조건이 필요한 직업', lockedJobs, me, scene.bonus)}
       ${hint || canPass ? `<div class="choice-footer">${hint ? `<span>${hint}</span>` : ''}
         ${canPass ? button('choose', me.choice === 'pass' ? '기다리기를 골랐어요' : '이번엔 기다리기', 'clock', 'quiet', 'data-id="pass"') : ''}</div>` : ''}
       ${personal || session.role === 'demo' ? '' : `<div class="submission-note"><span>${icon('users')} ${progress}</span></div>`}
