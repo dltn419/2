@@ -59,12 +59,12 @@ test('농부·가게 주인·크리에이터는 경력 성장 경로만 안내�
   }
 });
 
-test('운동선수는 성과형이지만 운동 지도자·감독 전직 경로는 보인다', () => {
+test('운동선수는 경력 성장과 운동 지도자·감독 전직 경로를 갖는다', () => {
   const html = guide();
   const start = html.indexOf('class="job-guide-title">운동선수');
   const part = html.slice(start, html.indexOf('</details>', start));
   assert.ok(start >= 0);
-  assert.match(part, /대회 성적 상금/);
+  assert.match(part, /주전 선수/);
   assert.match(part, /운동 지도자/);
   assert.match(part, /운동선수 경력 3년 이상/);
   assert.match(part, /운동팀 감독/);
