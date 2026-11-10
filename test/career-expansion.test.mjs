@@ -92,19 +92,22 @@ test('교도관은 남녀 모두 채용되며 교정직 성장 경로가 표시�
   }
 });
 
-test('여성과 남성에게 동일한 부사관 진입 기회가 있고 남성의 의무복무는 중복되지 않는다', () => {
+test('여성과 남성에게 동일한 부사관 선발·임관 기회가 있고 남성의 의무복무는 중복되지 않는다', () => {
   for (const sex of ['female', 'male']) {
     const { room, player } = roomFor({ age: 19, sex });
-    choose(room, 'rest');
-    const option = view(room).me.scene.choices.find(({ id }) => id === 'work-militaryNco');
-    assert.ok(option && !option.locked, sex);
-    choose(room, 'work-militaryNco');
+    choose(room, 'rest'); // 교육 기회 건너뛰기
+    const choice = view(room).me.scene.choices.find(({ id }) => id === 'apply-military-nco');
+    assert.ok(choice && !choice.locked, sex);
+    choose(room, 'apply-military-nco');
+    assert.equal(player.life.career, null);
+    assert.equal(player.life.path.militaryTraining.route, 'nco-public');
+    const annual = view(room).me.scene.choices.find(({ locked }) => !locked);
+    choose(room, annual.id);
     assert.equal(player.life.career, 'militaryNco');
     assert.equal(careerGoals(player.life)[0].title, '중사');
     if (sex === 'male') {
       assert.equal(player.life.path.service.status, 'complete');
       assert.equal(player.life.path.service.kind, 'professional');
-      player.life.age = 20;
       assert.notEqual(bonusScene(player.life, [])?.key, 'military');
     } else {
       assert.equal(player.life.path.service, null);
@@ -112,23 +115,24 @@ test('여성과 남성에게 동일한 부사관 진입 기회가 있고 남성�
   }
 });
 
-test('장교 경로는 대학 졸업 조건이 있으며 남녀에게 동일하게 열린다', () => {
+test('장교 학사사관은 남녀 모두 4년제 대학 졸업 후 양성교육을 거쳐 임관한다', () => {
   for (const sex of ['female', 'male']) {
-    const { room, player } = roomFor({ age: 34, sex });
+    const { room, player } = roomFor({ age: 26, sex });
     player.life.path.degree = null;
-    let scene = view(room).me.scene;
-    if (scene.key === 'education') {
-      choose(room, 'rest');
-      scene = view(room).me.scene;
-    }
-    const before = scene.choices.find(({ id }) => id === 'work-militaryOfficer');
+    if (view(room).me.scene.key === 'education') choose(room, 'rest');
+    const before = view(room).me.scene.choices.find(({ id }) => id === 'apply-military-ocs');
+    assert.ok(before);
     assert.match(before.locked, /4년제 대학 졸업/);
     player.life.path.degree = { kind: 'university', field: 'office', age: 23 };
-    const after = view(room).me.scene.choices.find(({ id }) => id === 'work-militaryOfficer');
+    const after = view(room).me.scene.choices.find(({ id }) => id === 'apply-military-ocs');
     assert.ok(after && !after.locked, sex);
-    choose(room, 'work-militaryOfficer');
+    choose(room, 'apply-military-ocs');
+    assert.equal(player.life.career, null);
+    assert.equal(player.life.path.militaryTraining.route, 'officer-ocs');
+    const annual = view(room).me.scene.choices.find(({ locked }) => !locked);
+    choose(room, annual.id);
     assert.equal(player.life.career, 'militaryOfficer');
-    assert.equal(careerGoals(player.life)[0].title, '대위');
+    assert.equal(careerGoals(player.life)[0].title, '중위');
   }
 });
 
