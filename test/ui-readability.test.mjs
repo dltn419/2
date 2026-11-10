@@ -72,7 +72,7 @@ test('직업 안내는 간결한 지원 조건을 보여주되 상세에는 실�
   assert.match(html, /job-guide-full-req/);
   assert.match(html, /외 [1-9]개/);
   assert.match(html, /승진·전직 경로와 필요 조건/);
-  assert.match(html, /초등교사 경력 12년 이상/);
+  assert.match(html, /교사 경력 12년 이상/);
 });
 
 test('승진 준비 현황은 조건을 숨기지 않고 펼친 상태를 추적할 식별자를 제공한다', () => {
@@ -80,7 +80,7 @@ test('승진 준비 현황은 조건을 숨기지 않고 펼친 상태를 추적
   const html = screen(room);
   assert.match(html, /class="career-goal-card" data-career-goal="vicePrincipal"/);
   assert.match(html, /승진·전직 준비/);
-  assert.match(html, /초등교사 경력/);
+  assert.match(html, /교사 경력/);
   assert.match(html, /배움/);
   assert.match(html, /충족/);
 });
