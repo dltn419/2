@@ -623,7 +623,10 @@ function militaryPlan(life, path) {
     choices.push(pick(`service-professional-${career}`, `${job.title} 지원하기`,
       job.detail, 'flag', {}, {
         career, need: job.need, strictNeed: true,
-        conditions: [{ label: CAREER_CREDENTIALS[job.education], met: educationMet }],
+        conditions: [
+          { label: CAREER_CREDENTIALS[job.education], met: educationMet },
+          { label: '현재 학교 과정을 마쳤거나 재학 중이 아님', met: !path.program },
+        ],
         narration: `${job.title} 선발을 통과해 직업군인으로 복무를 시작했어요.`,
       }));
   }
