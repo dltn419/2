@@ -887,6 +887,26 @@ export function bonusScene(life, done) {
       examChoice(), rest('조금 더 공부하기', '시험은 나중에 볼 수 있어요.', {}),
     ]), key: 'education', fallback: 'rest' };
   }
+  // 교직이수는 간호학과 재학 중에만 신청할 수 있습니다. 졸업 뒤에 소급 취득할 수 없습니다.
+  if (path.program?.kind === 'nursing' && path.program.remaining >= 2 &&
+    !path.nursingTeachingTrack && !done.includes('nursing-teaching')) {
+    return { ...scene('간호학과 교직이수', '학교 보건교사를 희망한다면 재학 중 교직이수를 신청해야 해요.', [
+      option('nursing-teaching-apply', '교직이수 신청하기', '간호학과 교직과정 선발을 준비해요. 졸업할 때 함께 수료해요.',
+        'book', {}, 'nursing-teaching', 'selected', '교직과정을 신청하고 교육 실습을 준비했어요.',
+        { need: { learning: 65 }, narration: '교직이수 과정에 선발되어 간호와 교육을 함께 배우기 시작했어요.' }),
+      rest('다음에 생각하기', '아직 결정하지 않고 간호 공부에 집중해요.', {}),
+    ]), key: 'nursing-teaching', fallback: 'rest' };
+  }
+  // 교직이수·간호사 면허를 갖춘 경우에만 보건교사 임용시험에 도전합니다.
+  if (path.nursingTeachingTrack === 'completed' && Number.isInteger(path.nursingLicenseAge) &&
+    !Number.isInteger(path.schoolNurseExamAge) && !done.includes('school-nurse-exam')) {
+    return { ...scene('보건교사 임용시험', '간호사 면허와 교직이수 자격을 갖췄어요. 학교에서 일할 기회에 도전해요.', [
+      option('school-nurse-exam-pass', '보건교사 임용시험 보기', '시험에 합격하면 간호사에서 보건교사로 전직할 자격을 얻어요.',
+        'book', { money: -1 }, 'school-nurse-exam', true, '학교 보건실에서 일할 준비를 마쳤어요.',
+        { need: { learning: 70, bond: 40 }, narration: '보건교사 임용시험에 합격했어요.' }),
+      rest('나중에 도전하기', '간호 일을 이어가며 다음 기회를 기다려요.', {}),
+    ]), key: 'school-nurse-exam', fallback: 'rest' };
+  }
   if (path.sex === 'male' && age >= 20 && age <= SERVICE_LIMIT && !done.includes('military') &&
     (!path.service || (path.service.status === 'planned' && age >= Math.min(path.service.at, SERVICE_LIMIT)))) {
     return { ...militaryPlan(life, path), key: 'military' };
@@ -973,6 +993,8 @@ export function applyPath(life, age, choice) {
       path.program = { kind: action.value, field: choice.studyField ?? mostRecentDream(path), remaining: PROGRAMS[action.value].years };
       break;
     case 'license': path[LICENSES[action.value].record] = age; break;
+    case 'nursing-teaching': path.nursingTeachingTrack = 'selected'; break;
+    case 'school-nurse-exam': path.schoolNurseExamAge = age; break;
     case 'sport': path.sportYears = (path.sportYears ?? 0) + action.value; break;
     case 'service':
       if (typeof action.value === 'number') path.service = { status: 'planned', at: action.value };
@@ -1035,6 +1057,9 @@ export function advancePath(life) {
   } else {
     if (path.degree) (path.previousDegrees ??= []).push(path.degree);
     path.degree = { kind, field, age: life.age };
+    if (kind === 'nursing' && path.nursingTeachingTrack === 'selected') {
+      path.nursingTeachingTrack = 'completed';
+    }
   }
   path.program = null;
   if (kind === 'training') return '기술을 배우는 과정을 마쳤어요.';
