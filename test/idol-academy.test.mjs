@@ -255,7 +255,7 @@ test('신인 급여는 급상승하지 않고 인기/솔로 활동은 경력 보
   popular.path.workYears.rookieIdol = 3;
   popular.path.workYears.popularIdol = 5;
   const popularPay = careerPay(popular);
-  assert.equal(popularPay.track, '성과 성장');
+  assert.equal(popularPay.track, '경력 성장');
   assert.ok(popularPay.total > popularPay.base);
 });
 
