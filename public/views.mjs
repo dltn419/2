@@ -32,7 +32,6 @@ function jobRequirementList(id, job, life) {
   });
   return [
     job.promotionFrom && `${CAREERS[job.promotionFrom].title} 경력 ${job.minYears}년 이상`,
-    id === 'coach' && '운동선수 경력 3년 이상',
     CAREER_CREDENTIALS[job.education],
     ...need,
     job.requiresGraduate && '관련 대학원 수료',
@@ -43,9 +42,15 @@ function jobRequirementList(id, job, life) {
   ].filter(Boolean);
 }
 
-function careerPromotionRoute(id) {
-  const next = Object.entries(CAREER_PROMOTIONS).filter(([, position]) => position.from === id);
-  return next.flatMap(([nextId]) => [nextId, ...careerPromotionRoute(nextId)]);
+// 승진·전직이 갈라지면 각 경로를 독립적으로 표시합니다.
+function careerPromotionPaths(id, ancestors = new Set([id])) {
+  const next = Object.entries(CAREER_PROMOTIONS)
+    .filter(([, position]) => position.from === id).map(([nextId]) => nextId);
+  if (id === 'athlete') next.push('coach'); // 선수에서 지도자로 이동하는 별도의 전직 경로
+  return next.filter((nextId) => !ancestors.has(nextId)).flatMap((nextId) => {
+    const paths = careerPromotionPaths(nextId, new Set([...ancestors, nextId]));
+    return paths.length ? paths.map((path) => [nextId, ...path]) : [[nextId]];
+  });
 }
 
 function jobGuide(life) {
@@ -76,30 +81,37 @@ function jobGuide(life) {
         ? `${requirements.slice(0, 2).join(' · ')} 외 ${requirements.length - 2}개`
         : requirementText;
       const performance = performanceProfile(id);
-      const routeIds = careerPromotionRoute(id);
-      const route = id === 'athlete' ? ['coach', ...careerPromotionRoute('coach')] : routeIds;
+      const routes = careerPromotionPaths(id);
       let familyId = life?.career;
       while (familyId && CAREERS[familyId]?.promotionFrom) familyId = CAREERS[familyId].promotionFrom;
       const inFamily = familyId === id;
-      const routeHtml = route.length ? `<ol class="job-promotion-route">
-        <li class="job-promotion-step">
-          <div><strong>${h(job.title)}</strong><span>초기 연봉 ${job.wage}코인</span></div>
-          <p>시작 · ${h(requirementText)}</p>
-        </li>
-        ${route.map((positionId) => {
-          const position = CAREERS[positionId];
-          const info = jobRequirementList(positionId, position, null);
-          const conditions = positionId === 'coach'
-            ? ['운동선수 경력 3년 이상', ...Object.entries(position.need ?? {}).map(([stat, value]) => `${STATS[stat].label} ${value}${STATS[stat].unit ?? '점'}`)]
-            : info;
-          return `<li class="job-promotion-step">
-            <div><strong>${h(position.title)}</strong><span>기본 연봉 ${position.wage}코인</span></div>
-            <p>${positionId === 'coach' || position.routeType === '전직' ? '전직' : position.routeType === '성장' ? '성장' : '승진'} · ${h(conditions.join(' · ') || '별도 조건 없음')}</p>
-          </li>`;
-        }).join('')}
-      </ol>` : `<div class="job-no-promotion">
+      const routeHtml = routes.length ? `<div class="job-route-start">
+        <strong>${h(job.title)}</strong><span>시작 · 초기 연봉 ${job.wage}코인</span>
+      </div>
+      <div class="job-route-branches${routes.length > 1 ? ' multiple' : ''}">
+        ${routes.map((route, index) => `<section class="job-route-branch">
+          ${routes.length > 1 ? `<span class="job-route-label">경로 ${index + 1} · ${h(CAREERS[route.at(-1)].title)}</span>` : ''}
+          <ol class="job-promotion-route">
+            ${route.map((positionId) => {
+              const position = CAREERS[positionId];
+              const fromAthlete = id === 'athlete' && positionId === 'coach';
+              const requirements = fromAthlete
+                ? ['운동선수 경력 3년 이상', CAREER_CREDENTIALS.sportsCoach,
+                  ...Object.entries(position.need ?? {}).map(([stat, value]) =>
+                    `${STATS[stat].label} ${value}${STATS[stat].unit ?? '점'}`)]
+                : jobRequirementList(positionId, position, null);
+              const kind = fromAthlete || position.routeType === '전직' ? '전직'
+                : position.routeType === '성장' ? '성장' : '승진';
+              return `<li class="job-promotion-step">
+                <div><strong>${h(position.title)}</strong><span>기본 연봉 ${position.wage}코인</span></div>
+                <p>${kind} · ${h(requirements.join(' · ') || '별도 조건 없음')}</p>
+              </li>`;
+            }).join('')}
+          </ol>
+        </section>`).join('')}
+      </div>` : `<div class="job-no-promotion">
         <strong>별도 승진 단계 없음</strong>
-        <p>${performance ? '경력을 쌓고 좋은 성과를 내면 추가 보너스를 받을 수 있어요.' : '현재 직업에서 경력과 능력치를 키우거나 다른 직업으로 이직할 수 있어요.'}</p>
+        <p>${performance ? '경력과 좋은 성과에 따라 수입을 높일 수 있어요.' : '현재 직업에서 경력을 쌓거나 다른 직업으로 이직할 수 있어요.'}</p>
       </div>`;
       return `<li class="job-guide-entry">
         <details class="job-guide-card">
@@ -126,7 +138,7 @@ function jobGuide(life) {
             ${performance ? `<div class="job-performance-info"><strong>성과 수입: 매년 0~${performance.max}코인</strong>
               <p><b>${h(performance.label)}</b> · ${h(performance.description)}</p></div>` : ''}
             <section class="job-promotion-detail">
-              <h4>${route.length ? '승진·전직 경로와 필요 조건' : '성장 방식'}</h4>
+              <h4>${routes.length ? '승진·전직 경로와 필요 조건' : '성장 방식'}</h4>
               ${routeHtml}
             </section>
             <p class="job-guide-footnote">표시된 조건은 게임용 기준이며, 실제 직업 자격이나 승진 규정과는 다를 수 있어요.</p>
@@ -554,6 +566,8 @@ function playerView(session, state, rank) {
     const lockedJobs = careerScene ? scene.choices.filter(({ locked, careerGroup }) =>
       locked && careerGroup !== 'advancement') : [];
     const college = scene.key === 'education' ? scene.choices.filter(({ educationGroup }) => educationGroup === 'college') : [];
+    const medical = scene.key === 'education' ? scene.choices.filter(({ educationGroup }) => educationGroup === 'medical') : [];
+    const qualifications = scene.key === 'education' ? scene.choices.filter(({ educationGroup }) => educationGroup === 'qualifications') : [];
     const further = scene.key === 'education' ? scene.choices.filter(({ educationGroup }) => educationGroup === 'further') : [];
     const choices = scene.choices.filter((item) => !item.educationGroup &&
       (!careerScene || (!item.locked && item.careerGroup !== 'advancement' &&
@@ -576,6 +590,8 @@ function playerView(session, state, rank) {
       ${careerCategoryList('career-start', '직업 분야 고르기', starterJobs, me, scene.bonus)}
       ${careerCategoryList('career-other', '다른 직업 보기', otherJobs, me, scene.bonus)}
       ${choiceSection('college', '대학 진학', college, me, scene.bonus, '가족 지원을 뺀 본인 부담만 표시해요.')}
+      ${choiceSection('medical', '의료·보건 계열', medical, me, scene.bonus, '관련 학과를 졸업하고 면허시험을 통과해야 취업할 수 있어요.')}
+      ${choiceSection('qualifications', '자격시험·연수', qualifications, me, scene.bonus, '전공·진학과 별개로 자격을 준비할 수 있어요.')}
       ${choiceSection('further', '대학원·직업훈련', further, me, scene.bonus)}
       ${careerCategoryList('career-locked', '조건이 필요한 직업', lockedJobs, me, scene.bonus)}
       ${hint || canPass ? `<div class="choice-footer">${hint ? `<span>${hint}</span>` : ''}
