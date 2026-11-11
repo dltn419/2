@@ -1008,7 +1008,8 @@ export function bonusScene(life, done) {
   // 간호학과 재학 중 한 번만 교직이수 선발에 도전할 수 있습니다.
   // 졸업 후 새로 조건을 충족해도 당시 교직이수를 소급 취득할 수 없습니다.
   if (['idol','rookieIdol','popularIdol','soloArtist'].includes(life.career) &&
-    age >= retirementAge(life.career) && !done.includes('idol-exit')) {
+    (age >= retirementAge(life.career) ||
+      (life.career === 'idol' && (path.workYears?.idol ?? 0) >= 6)) && !done.includes('idol-exit')) {
     return { ...scene('아이돌 활동을 마무리할 때', '그룹 활동이 끝나거나 계약이 만료되었어요. 다른 진로를 찾을 수 있어요.', [
       option('idol-contract-expire', '아이돌 활동 마치기', '그동안 쌓은 실력을 갖고 새로운 길을 찾아요.',
         'leaf', {}, 'idol-exit', 'contract', '무대에서 내려와 다음 진로를 준비했어요.'),
@@ -1111,7 +1112,8 @@ export function bonusScene(life, done) {
   const firstOffer = path.savings === null &&
     age >= offerAge && age <= Math.max(offerAge, firstJob + 5);
   const raisedOffer = path.savingsReview && age >= path.savingsReview.at;
-  if (!continuing && life.career && path.retired === null && age < retirementAge(life.career) && (firstOffer || raisedOffer) &&
+  if (!continuing && age >= 19 && life.career && life.career !== 'idol' &&
+    path.retired === null && age < retirementAge(life.career) && (firstOffer || raisedOffer) &&
     !done.includes('saving')) {
     return { ...savingsOffer(life), key: 'saving',
       fallback: path.savings?.annual ? `save-${Math.floor(path.savings.annual)}` : 'save-none' };
@@ -1350,6 +1352,25 @@ export function careerPay(life) {
   const education = degreesOf(path).some(({ kind, field }) => kind === 'graduate' && fields.includes(field)) ? 2 : 0;
   return { base: job.wage, years, transfer, track: track.label, experience, stat, skill, education,
     total: job.wage + experience + skill + education };
+}
+
+// 신인 그룹은 데뷔 3년 차에 성장 기회를 확인하고, 이후 계약 갱신에 실패할 수 있습니다.
+// 연습생·아이돌의 활동 종료는 인생 전체의 은퇴가 아닌 전직 기회로 이어집니다.
+export function settleIdolCareer(life, roll = 100) {
+  if (life.career !== 'rookieIdol') return '';
+  const years = pathOf(life).workYears?.rookieIdol ?? 0;
+  // 신인 3년차가 끝난 직후에는 승급 기회를 먼저 줍니다.
+  if (years < 4) return '';
+  const resilience = (life.stats.art >= 75 ? 15 : 0) + (life.stats.bond >= 55 ? 10 : 0);
+  const disband = years >= 5 || (roll % 100) < Math.max(15, 55 - resilience);
+  if (!disband) return '';
+  const path = life.path;
+  path.idolExitAt = life.age;
+  path.idolSchool = false;
+  if (life.age < 19 && path.school === 'idolArts') path.school = 'general';
+  life.career = null;
+  path.firstJobAge = null;
+  return `데뷔 ${years}년 만에 그룹 활동이 종료되었어요. 새로운 일이나 공부를 선택할 수 있어요.`;
 }
 
 export function creditWorkYear(life) {
