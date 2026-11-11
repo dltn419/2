@@ -1,4 +1,4 @@
-import { CAREER_CREDENTIALS, CAREER_GROWTH, CAREERS, HABITS, PERFORMANCE_BONUSES, STATS, pick } from './content.mjs';
+import { CAREER_CREDENTIALS, CAREER_GROWTH, CAREERS, HABITS, STATS, pick } from './content.mjs';
 import { finishCare, illnessCare } from './health.mjs';
 
 export const SEXES = { male: '남자', female: '여자' };
@@ -110,39 +110,6 @@ export const retirementAge = (career) => {
   return job?.retireAt ?? (job?.promotionFrom ? retirementAge(job.promotionFrom) : 65);
 };
 export const careerGrowth = (career) => CAREER_GROWTH[CAREERS[career]?.growth ?? 'stable'];
-
-// 자영업·창작·판매·운동선수는 직급 대신 해마다 달라지는 성과 수입을 받습니다.
-// 게임 참여자별 고정 시드 + 나이 + 직업으로 계산해 화면을 다시 열어도 결과가 바뀌지 않습니다.
-export function performanceProfile(career) {
-  let root = career;
-  for (let i = 0; i < 6 && CAREERS[root]?.promotionFrom; i++) {
-    root = CAREERS[root].promotionFrom;
-  }
-  return PERFORMANCE_BONUSES[root] ? { ...PERFORMANCE_BONUSES[root], root } : null;
-}
-
-export function performanceBonus(life) {
-  const profile = performanceProfile(life?.career);
-  if (!profile) return null;
-  const path = pathOf(life);
-  const baseSeed = path.romanceSeed >>> 0;
-  let value = (baseSeed ^ Math.imul(life.age + 1, 0x9e3779b1)) >>> 0;
-  for (const char of profile.root) value = Math.imul(value ^ char.charCodeAt(0), 16777619) >>> 0;
-  value ^= value >>> 16;
-  value = Math.imul(value, 0x7feb352d);
-  value ^= value >>> 15;
-  value = Math.imul(value, 0x846ca68b);
-  value ^= value >>> 16;
-  const roll = (value >>> 0) % 100;
-  const tier = roll < 25 ? 0 : roll < 54 ? 1 : roll < 81 ? 2 : roll < 95 ? 3 : 4;
-  const years = Object.entries(path.workYears ?? {})
-    .filter(([id]) => id === profile.root || performanceProfile(id)?.root === profile.root)
-    .reduce((sum, [, amount]) => sum + amount, 0);
-  const skill = (life.stats[profile.stat] ?? 0) >= profile.threshold ? 1 : 0;
-  const experience = years >= 8 ? 1 : 0;
-  const money = tier ? Math.min(profile.max, tier + skill + experience) : 0;
-  return { ...profile, money, tier, years, skill, experience };
-}
 
 
 export function newPath(sex = null) {
@@ -669,11 +636,8 @@ function careerPlan(life, path) {
         }));
     }
   }
-  const performance = current && performanceProfile(life.career);
-  return scene(current ? (performance ? '올해도 이 일을 계속할까요?' : '승진하거나 다른 직업을 찾을까요?') : '어떤 일을 할까요?',
-    current ? (performance
-      ? `직급 승진보다는 해마다 ${performance.label}이 달라지는 일이에요. 실력과 경력을 키워 보너스를 늘리고, 원한다면 다른 직업으로 옮길 수 있어요.`
-      : '승진·전직 기회를 먼저 살펴보고, 다른 직업은 아래에서 펼쳐 볼 수 있어요.')
+  return scene(current ? '승진하거나 다른 직업을 찾을까요?' : '어떤 일을 할까요?',
+    current ? '경력과 능력치 조건을 갖추면 승급할 수 있어요. 승진·전직 기회를 먼저 살펴보고, 다른 직업은 아래에서 펼쳐 볼 수 있어요.'
       : '지원 조건과 해마다 버는 돈을 보고 골라요. 꿈이나 전공과 맞으면 지원하기 쉬워요.', choices);
 }
 
@@ -1443,12 +1407,6 @@ export function yearlySources(life) {
       sources.push({ id: 'idol-practice', label: life.career === 'idol'
         ? '연습생 보컬·안무 훈련' : '신인 아이돌 무대 준비',
         effect: { art: life.career === 'idol' ? 2 : 3, health: -1, bond: life.career === 'idol' ? 1 : 2 } });
-    }
-    const result = performanceBonus(life);
-    if (result) {
-      sources.push({ id: `performance-${result.root}`, label: result.label,
-        term: result.money ? `올해 성과 +${result.money}코인` : '올해 성과 없음 · 0코인',
-        effect: { money: result.money } });
     }
     if (path.savings?.annual > 0) {
       sources.push({ id: 'retirement-saving', label: '노후 저축', term: '은퇴할 때까지', effect: { money: -path.savings.annual } });
