@@ -42,6 +42,8 @@ export const CAREER_GROWTH = {
   professional: { label: '전문 성장', steps: [4, 9, 15], raise: 1 },
   performance: { label: '성과 성장', steps: [3, 7, 12], raise: 1 },
   athlete: { label: '선수 성장', steps: [2, 4, 7], raise: 2 },
+  trainee: { label: '데뷔 준비', steps: [], raise: 0 },
+  idolRookie: { label: '신인 경쟁', steps: [], raise: 0 },
 };
 
 export const CAREERS = {
@@ -122,7 +124,8 @@ export const CAREERS = {
   dentist: { title: '치과의사', detail: '치과의사으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'professional', field: 'medical', mark: 'heart', wage: 11, need: {"learning":94}, education: 'dentistry' },
   physicalTherapist: { title: '물리치료사', detail: '물리치료사으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'professional', field: 'medical', mark: 'heart', wage: 6, need: {"learning":55,"bond":30}, education: 'physicalTherapy' },
   counselor: { title: '상담사', detail: '상담사으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'professional', field: 'people', mark: 'link', wage: 5, need: {"learning":55,"bond":55}, education: 'bachelor' },
-  idol: { title: '아이돌 연습생', detail: '아이돌 연습생으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'performance', field: 'media', mark: 'spark', wage: 3, need: {"art":40,"health":35,"bond":25}, payStat: 'art', latestStart: 28 },
+  idol: { title: '아이돌 연습생', detail: '공연예술학교에서 보컬과 안무를 배우며 데뷔를 준비해요.', place: '기획사 연습실',
+    growth: 'trainee', field: 'media', mark: 'spark', wage: 0, need: { art: 28 }, payStat: 'art', retireAt: 24 },
   actor: { title: '신인 배우', detail: '작은 배역부터 출연하며 연기 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'performance', field: 'art', mark: 'spark', wage: 4, need: {"art":43,"bond":33}, payStat: 'art' },
   singer: { title: '신인 가수', detail: '가수로 활동하며 무대 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'performance', field: 'art', mark: 'spark', wage: 4, need: {"art":50}, payStat: 'art' },
   webtoon: { title: '웹툰 작가', detail: '웹툰 작가으로 일하며 경험을 쌓아요.', place: '전에 일하던 곳', growth: 'performance', field: 'art', mark: 'spark', wage: 4, need: {"art":52,"learning":25}, payStat: 'art' },
@@ -134,7 +137,7 @@ export const CAREERS = {
 
 
 // 직업 소개는 중복된 설명 대신 실제로 하는 일을 짧게 보여줍니다.
-for (const [id, [detail, place]] of Object.entries({"cafe":["음료를 만들고 주문을 받아 손님에게 건네요.","전에 일하던 카페"],"baker":["빵과 과자를 굽고 새로운 맛을 연구해요.","전에 일하던 제과점"],"hairdresser":["머리 모양을 디자인하고 손님을 관리해요.","전에 일하던 미용실"],"hotel":["호텔에서 투숙객을 안내하고 객실을 관리해요.","전에 일하던 호텔"],"realtor":["매매와 임대차 계약을 중개하고 중요한 서류를 확인해요.","전에 일하던 중개사무소"],"construction":["공사 도면을 확인하고 작업 순서와 안전을 관리해요.","전에 일하던 건설 현장"],"mechanic":["자동차 고장 원인을 찾아 수리해요.","전에 일하던 정비소"],"electrician":["전기 설비를 설치하고 고장을 고쳐요.","전에 일하던 전기 작업장"],"busDriver":["정해진 길을 따라 승객을 안전하게 태워요.","전에 운행하던 버스"],"freightDriver":["화물을 싣고 여러 지역으로 운반해요.","전에 일하던 운송회사"],"mechanicalEngineer":["제품에 들어가는 기계 장치를 설계하고 시험해요.","전에 일하던 설계실"],"architect":["건물의 형태와 공간을 계획하고 설계해요.","전에 일하던 건축사무소"],"livestock":["가축의 건강을 돌보고 축사를 관리해요.","전에 운영하던 축사"],"banker":["은행에서 고객의 예금과 대출 업무를 도와요.","전에 일하던 은행"],"accountant":["회계 장부와 지출 자료를 정리해요.","전에 일하던 회계팀"],"hr":["직원 채용과 교육·근무 환경을 기획해요.","전에 일하던 인사팀"],"tax":["세금 신고를 대리하고 세무 상담을 해요.","전에 일하던 세무사무소"],"police":["주민을 보호하고 사건을 조사해요.","전에 근무하던 경찰서"],"firefighter":["화재를 진압하고 긴급 상황에서 사람을 구조해요.","전에 근무하던 소방서"],"militaryNco":["군 간부로 지원해 부대 운영과 병력 지도를 맡아요.","전에 근무하던 부대"],"militaryOfficer":["대학 졸업 후 장교로 지원해 부대를 지휘해요.","전에 근무하던 부대"],"prisonOfficer":["교정시설의 안전을 지키고 사회복귀를 도와요.","전에 근무하던 교정시설"],"pharmacist":["처방전을 검토해 약을 조제하고 복약을 안내해요.","전에 일하던 약국"],"dentist":["치아를 치료하고 구강 건강을 관리해요.","전에 일하던 치과"],"physicalTherapist":["재활 운동과 물리치료로 신체 기능 회복을 도와요.","전에 일하던 재활센터"],"counselor":["고민을 듣고 마음의 어려움을 함께 해결해요.","전에 일하던 상담센터"],"idol":["기획사에서 보컬·안무를 훈련하며 그룹 데뷔를 준비해요.","전에 연습하던 연습실"],"actor":["오디션에 참가해 드라마와 공연의 배역을 연기해요.","전에 서던 무대"],"singer":["음원을 발표하고 소규모 무대에서 노래해요.","전에 공연하던 무대"],"webtoon":["이야기를 그림으로 만들어 연재해요.","전에 작업하던 스튜디오"],"photographer":["사람과 풍경을 촬영하고 사진을 편집해요.","전에 쓰던 사진 작업실"],"designer":["상품과 화면의 색·모양을 설계해요.","전에 일하던 디자인실"],"fitnessTrainer":["헬스장에서 개인별 근력·체력 운동을 지도해요.","전에 일하던 체육관"],"producer":["방송의 주제와 촬영·편집을 기획해요.","전에 일하던 방송국"]})) {
+for (const [id, [detail, place]] of Object.entries({"cafe":["음료를 만들고 주문을 받아 손님에게 건네요.","전에 일하던 카페"],"baker":["빵과 과자를 굽고 새로운 맛을 연구해요.","전에 일하던 제과점"],"hairdresser":["머리 모양을 디자인하고 손님을 관리해요.","전에 일하던 미용실"],"hotel":["호텔에서 투숙객을 안내하고 객실을 관리해요.","전에 일하던 호텔"],"realtor":["매매와 임대차 계약을 중개하고 중요한 서류를 확인해요.","전에 일하던 중개사무소"],"construction":["공사 도면을 확인하고 작업 순서와 안전을 관리해요.","전에 일하던 건설 현장"],"mechanic":["자동차 고장 원인을 찾아 수리해요.","전에 일하던 정비소"],"electrician":["전기 설비를 설치하고 고장을 고쳐요.","전에 일하던 전기 작업장"],"busDriver":["정해진 길을 따라 승객을 안전하게 태워요.","전에 운행하던 버스"],"freightDriver":["화물을 싣고 여러 지역으로 운반해요.","전에 일하던 운송회사"],"mechanicalEngineer":["제품에 들어가는 기계 장치를 설계하고 시험해요.","전에 일하던 설계실"],"architect":["건물의 형태와 공간을 계획하고 설계해요.","전에 일하던 건축사무소"],"livestock":["가축의 건강을 돌보고 축사를 관리해요.","전에 운영하던 축사"],"banker":["은행에서 고객의 예금과 대출 업무를 도와요.","전에 일하던 은행"],"accountant":["회계 장부와 지출 자료를 정리해요.","전에 일하던 회계팀"],"hr":["직원 채용과 교육·근무 환경을 기획해요.","전에 일하던 인사팀"],"tax":["세금 신고를 대리하고 세무 상담을 해요.","전에 일하던 세무사무소"],"police":["주민을 보호하고 사건을 조사해요.","전에 근무하던 경찰서"],"firefighter":["화재를 진압하고 긴급 상황에서 사람을 구조해요.","전에 근무하던 소방서"],"militaryNco":["군 간부로 지원해 부대 운영과 병력 지도를 맡아요.","전에 근무하던 부대"],"militaryOfficer":["대학 졸업 후 장교로 지원해 부대를 지휘해요.","전에 근무하던 부대"],"prisonOfficer":["교정시설의 안전을 지키고 사회복귀를 도와요.","전에 근무하던 교정시설"],"pharmacist":["처방전을 검토해 약을 조제하고 복약을 안내해요.","전에 일하던 약국"],"dentist":["치아를 치료하고 구강 건강을 관리해요.","전에 일하던 치과"],"physicalTherapist":["재활 운동과 물리치료로 신체 기능 회복을 도와요.","전에 일하던 재활센터"],"counselor":["고민을 듣고 마음의 어려움을 함께 해결해요.","전에 일하던 상담센터"],"idol":["공연예술학교에서 수업과 보컬·안무 훈련을 병행해요. 데뷔 전에는 수입이 없어요.","기획사 연습실"],"actor":["오디션에 참가해 드라마와 공연의 배역을 연기해요.","전에 서던 무대"],"singer":["음원을 발표하고 소규모 무대에서 노래해요.","전에 공연하던 무대"],"webtoon":["이야기를 그림으로 만들어 연재해요.","전에 작업하던 스튜디오"],"photographer":["사람과 풍경을 촬영하고 사진을 편집해요.","전에 쓰던 사진 작업실"],"designer":["상품과 화면의 색·모양을 설계해요.","전에 일하던 디자인실"],"fitnessTrainer":["헬스장에서 개인별 근력·체력 운동을 지도해요.","전에 일하던 체육관"],"producer":["방송의 주제와 촬영·편집을 기획해요.","전에 일하던 방송국"]})) {
   CAREERS[id].detail = detail;
   CAREERS[id].place = place;
 }
@@ -321,9 +324,12 @@ Object.assign(CAREER_PROMOTIONS, {
   rehabTeamLead: { from: 'seniorPhysicalTherapist', title: '재활팀장', wage: 10, minYears: 7, need: {"learning":82,"bond":57}, routeType: '성장' },
   seniorCounselor: { from: 'counselor', title: '전문 상담사', wage: 7, minYears: 5, need: {"learning":67,"bond":67}, routeType: '성장' },
   counselingDirector: { from: 'seniorCounselor', title: '상담센터장', wage: 9, minYears: 7, need: {"learning":82,"bond":82}, routeType: '성장' },
-  rookieIdol: { from: 'idol', title: '신인 아이돌', wage: 5, minYears: 3, need: {"art":52,"health":47,"bond":37}, routeType: '성장' },
-  soloArtist: { from: 'rookieIdol', title: '솔로 데뷔 가수', wage: 8, minYears: 3, need: { art: 80, bond: 55 }, routeType: '전직' },
-  popularIdol: { from: 'rookieIdol', title: '인기 아이돌', wage: 7, minYears: 7, need: {"art":67,"health":62,"bond":52}, routeType: '성장' },
+  rookieIdol: { from: 'idol', title: '신인 아이돌', wage: 4, minYears: 3,
+    need: { art: 43, health: 42, bond: 25 }, growth: 'idolRookie', retireAt: 29, routeType: '성장' },
+  soloArtist: { from: 'rookieIdol', title: '솔로 데뷔 가수', wage: 15, minYears: 3,
+    need: { art: 70, bond: 48 }, retireAt: 38, routeType: '전직' },
+  popularIdol: { from: 'rookieIdol', title: '인기 아이돌', wage: 12, minYears: 3,
+    need: { art: 62, health: 46, bond: 36 }, retireAt: 32, routeType: '성장' },
   supportingActor: { from: 'actor', title: '활동 배우', wage: 6, minYears: 5, need: {"art":55,"bond":45}, routeType: '성장' },
   leadActor: { from: 'supportingActor', title: '인기 배우', wage: 8, minYears: 7, need: {"art":70,"bond":60}, routeType: '성장' },
   debutSinger: { from: 'singer', title: '활동 가수', wage: 6, minYears: 5, need: {"art":62}, routeType: '성장' },
