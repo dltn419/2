@@ -46,6 +46,9 @@ const PROGRAMS = {
   graduate: { label: '대학원', years: 2, cost: 9 },
   medicine: { label: '의대', years: 6, familyCopay: 4 },
   nursing: { label: '간호학과', years: 4, familyCopay: 2 },
+  pharmacy: { label: '약학과', years: 6, familyCopay: 4 },
+  dentistry: { label: '치의학과', years: 6, familyCopay: 4 },
+  physicalTherapy: { label: '물리치료학과', years: 4, familyCopay: 2 },
   teaching: { label: '교육대', years: 4, familyCopay: 3 },
   academy: { label: '육군사관학교', years: 4, familyCopay: 0 },
   academy3: { label: '육군3사관학교', years: 2, familyCopay: 0 },
@@ -56,6 +59,15 @@ const PROGRAMS = {
 const LICENSES = {
   medicine: { title: '의사', choice: 'doctor-license', record: 'licenseAge', learning: 92 },
   nursing: { title: '간호사', choice: 'nurse-license', record: 'nursingLicenseAge', learning: 53 },
+  pharmacy: { title: '약사', choice: 'pharmacist-license', record: 'pharmacyLicenseAge', learning: 87 },
+  dentistry: { title: '치과의사', choice: 'dentist-license', record: 'dentistLicenseAge', learning: 94 },
+  physicalTherapy: { title: '물리치료사', choice: 'physical-therapist-license', record: 'physicalTherapyLicenseAge', learning: 55 },
+};
+
+const QUALIFICATION_EXAMS = {
+  realtor: { title: '공인중개사', record: 'realtorCertificationAge', need: { learning: 45, bond: 35 } },
+  taxation: { title: '세무사', record: 'taxCertificationAge', need: { learning: 85 } },
+  sportsCoach: { title: '스포츠지도사', record: 'sportsCoachCertificationAge', need: { health: 48, learning: 35, bond: 25 } },
 };
 
 const PARTNER_NAMES = {
@@ -114,7 +126,9 @@ export function newPath(sex = null) {
   return { sex, dreams: [], school: null, diploma: false, program: null, degree: null, training: false,
     service: null, partner: null, romance: null, romanceSeed: 0, married: null, children: [],
     retired: null, savings: null, savingsReview: null, workYears: {}, home: null, illness: null, recoveredAt: null, habit: null,
-    nursingTeachingDecision: null, militaryRoute: null, militaryTraining: null };
+    nursingTeachingDecision: null, militaryRoute: null, militaryTraining: null,
+    realtorCertificationAge: null, taxCertificationAge: null, sportsCoachCertificationAge: null,
+    pharmacyLicenseAge: null, dentistLicenseAge: null, physicalTherapyLicenseAge: null };
 }
 
 const EMPTY_PATH = newPath();
@@ -368,7 +382,8 @@ function examChoice() {
 function universityChoice(kind, life, engineering = false) {
   const path = pathOf(life);
   const dream = mostRecentDream(path);
-  let field = { medicine: 'medical', nursing: 'medical', teaching: 'education', caregiving: 'people', academy: 'public', academy3: 'public' }[kind]
+  let field = { medicine: 'medical', nursing: 'medical', pharmacy: 'medical', dentistry: 'medical',
+    physicalTherapy: 'medical', teaching: 'education', caregiving: 'people', academy: 'public', academy3: 'public' }[kind]
     ?? (engineering ? 'tech' : studyFieldFor(dream));
   if (kind === 'graduate') {
     const major = undergraduate(degreesOf(path))?.field;
@@ -376,6 +391,7 @@ function universityChoice(kind, life, engineering = false) {
   }
   const data = PROGRAMS[kind];
   const title = { university: engineering ? '이공계 대학 가기' : '4년제 대학 가기', nursing: '간호학과 가기',
+    pharmacy: '약학과 진학하기', dentistry: '치의학과 진학하기', physicalTherapy: '물리치료학과 진학하기',
     academy: '육군사관학교 지원하기', academy3: '육군3사관학교 지원하기',
     training: '일할 기술 배우기', caregiving: '돌봄 교육과 시험 준비하기' }[kind] ?? `${data.label} 가기`;
   const scienceSchool = path.school === 'gifted' ? 6 : path.school === 'science' ? 3 : 0;
@@ -383,6 +399,9 @@ function universityChoice(kind, life, engineering = false) {
     university: { learning: engineering ? 33 - scienceSchool : field === 'explore' ? 22 : 19 },
     medicine: { learning: 63 - scienceSchool - (dreamIncludes(dream, 'medical') ? 4 : 0) },
     nursing: { learning: dreamIncludes(dream, 'medical') ? 33 : 38, bond: 20 },
+    pharmacy: { learning: dreamIncludes(dream, 'medical') ? 61 : 67 },
+    dentistry: { learning: dreamIncludes(dream, 'medical') ? 64 : 70 },
+    physicalTherapy: { learning: dreamIncludes(dream, 'medical') ? 36 : 43, bond: 20 },
     teaching: { learning: dreamIncludes(dream, 'education') ? 42 : 47, bond: 22 },
     academy: { learning: 64, health: 55, bond: 30 },
     academy3: { learning: 52, health: 55, bond: 30 },
@@ -393,7 +412,11 @@ function universityChoice(kind, life, engineering = false) {
     ? Math.min(scholarship ? 2 : data.familyCopay, Math.max(0, life.stats.money - 1))
     : data.cost;
   const detail = kind === 'medicine' ? `6년을 배우고 의사 시험에 도전해요.${scholarship ? ' 장학금을 받아요.' : ''}`
-    : { nursing: '4년 동안 간호를 배우고 간호사 시험을 준비해요.', teaching: '4년 동안 아이들을 가르치는 법을 배워요.',
+    : { nursing: '4년 동안 간호를 배우고 간호사 시험을 준비해요.',
+      pharmacy: '6년 동안 약학을 공부하고 약사 국가시험을 준비해요.',
+      dentistry: '6년 동안 치의학을 배우고 치과의사 국가시험을 준비해요.',
+      physicalTherapy: '4년 동안 물리치료를 배우고 국가시험을 준비해요.',
+      teaching: '4년 동안 아이들을 가르치는 법을 배워요.',
       academy: '4년간 생도교육과 군사훈련을 받고 졸업하면 소위로 임관해요.',
       academy3: '전문대 졸업 뒤 2년간 생도교육을 받고 소위로 임관해요.',
       caregiving: '1년 동안 어르신을 돌보는 법을 배우고 시험을 봐요.' }[kind]
@@ -406,6 +429,9 @@ function universityChoice(kind, life, engineering = false) {
     graduate: '대학원에 들어가 더 오래 붙들고 싶던 질문을 연구 노트에 적었어요.',
     medicine: '의대에 들어가 사람의 몸을 배우는 첫 수업을 들었어요.',
     nursing: '간호학과에 들어가 아픈 사람을 돌보는 법을 배우기 시작했어요.',
+    pharmacy: '약학과에 들어가 약의 성분과 안전한 조제를 배우기 시작했어요.',
+    dentistry: '치의학과에 들어가 치아와 구강을 치료하는 법을 배웠어요.',
+    physicalTherapy: '물리치료학과에서 재활과 신체 움직임을 배우기 시작했어요.',
     teaching: '교육대에 들어가 아이들에게 어떤 선생님이 될지 생각했어요.',
     academy: '육군사관학교 선발에 합격해 생도 생활을 시작했어요.',
     academy3: '육군3사관학교에 합격해 2년간 생도교육을 시작했어요.',
@@ -415,7 +441,24 @@ function universityChoice(kind, life, engineering = false) {
   return option(engineering ? 'study-engineering' : `study-${kind}`, title, detail,
     kind === 'training' ? 'settings' : field === 'medical' || kind === 'caregiving' ? 'heart' : 'book', cost ? { money: -cost } : {}, 'study', kind,
     field === 'explore' ? '처음 보는 시간표를 받아 들었어요.' : `시간표에서 ‘${fieldLabel(field)}’와 이어지는 수업을 찾았어요.`,
-    { studyField: field, need, narration, educationGroup: familySupported ? 'college' : 'further', ...(need ? { conditions: [] } : {}) });
+    { studyField: field, need, narration,
+      educationGroup: ['medicine', 'nursing', 'pharmacy', 'dentistry', 'physicalTherapy'].includes(kind)
+        ? 'medical' : familySupported ? 'college' : 'further',
+      ...(need ? { conditions: [] } : {}) });
+}
+
+function qualificationChoice(kind, life) {
+  const { title, need } = QUALIFICATION_EXAMS[kind];
+  const detail = kind === 'sportsCoach'
+    ? '필기·실기와 연수 과정을 마치고 생활체육을 지도할 자격을 얻어요.'
+    : kind === 'realtor'
+      ? '법과 거래 지식을 시험으로 확인해 중개사 자격을 얻어요.'
+      : '세무 지식을 평가하는 자격시험에 합격해요.';
+  return option(`qualify-${kind}`, `${title} 자격 도전하기`, detail,
+    kind === 'sportsCoach' ? 'flag' : 'book', { money: -2 },
+    'qualification', kind, `${title} 자격을 취득해 새로운 진로가 열렸어요.`,
+    { need, strictNeed: true, educationGroup: 'qualifications',
+      narration: `${title} 자격시험과 필요한 절차를 마쳤어요.` });
 }
 
 function licensePlan(kind) {
@@ -468,6 +511,9 @@ export function careerGoals(life) {
     if (job.requiresNurseLicense) {
       checks.push({ id: 'nursingLicense', label: '간호사 면허', met: Number.isInteger(path.nursingLicenseAge) });
     }
+    if (career === 'coach') {
+      checks.push({ id: 'sportsCoachCertification', label: '스포츠지도사 자격', met: Number.isInteger(path.sportsCoachCertificationAge) });
+    }
     return { career, title: job.title, type, checks,
       met: checks.filter((item) => item.met).length, total: checks.length,
       ready: checks.every((item) => item.met) };
@@ -479,7 +525,8 @@ function careerWindow(life, path) {
   return path.retired === null && ([19, 26, 34, 42, 50, 56].includes(age) ||
     (!life.career && [21, 23, 27, 30, 38, 46, 54, 59].includes(age)) ||
     path.degree?.age === age || Object.values(LICENSES).some(({ record }) => path[record] === age) ||
-    path.trainingAge === age || path.caregivingAge === age || path.service?.endedAt === age);
+    path.trainingAge === age || path.caregivingAge === age || path.service?.endedAt === age ||
+    Object.values(QUALIFICATION_EXAMS).some(({ record }) => path[record] === age));
 }
 
 function careerPlan(life, path) {
@@ -496,6 +543,12 @@ function careerPlan(life, path) {
     nursing: Number.isInteger(path.nursingLicenseAge),
     caregiving: Number.isInteger(path.caregivingAge),
     sports: (path.sportYears ?? 0) >= 2,
+    sportsCoach: Number.isInteger(path.sportsCoachCertificationAge),
+    pharmacy: Number.isInteger(path.pharmacyLicenseAge) && degrees.some(({ kind }) => kind === 'pharmacy'),
+    dentistry: Number.isInteger(path.dentistLicenseAge) && degrees.some(({ kind }) => kind === 'dentistry'),
+    physicalTherapy: Number.isInteger(path.physicalTherapyLicenseAge) && degrees.some(({ kind }) => kind === 'physicalTherapy'),
+    realtor: Number.isInteger(path.realtorCertificationAge),
+    taxation: Number.isInteger(path.taxCertificationAge),
   };
   const schoolField = { science: 'science', gifted: 'science', vocational: 'tech', arts: 'art' }[path.school];
   const interests = [schoolField, ...path.dreams.flatMap(({ field }) => dreamFields(field)), ...degrees.map(({ field }) => field)];
@@ -510,7 +563,7 @@ function careerPlan(life, path) {
       life.age >= retirementAge(career) ||
       (job.promotionFrom && job.promotionFrom !== life.career)) continue;
     const fields = jobFields(job);
-    const credential = job.education && !(career === 'coach' && life.career === 'athlete') &&
+    const credential = job.education &&
       { label: CAREER_CREDENTIALS[job.education], met: credentials[job.education] };
     const explored = interests.some((field) => fields.includes(field)) || (career === 'athlete' && path.sportYears > 0);
     const readyWithoutDegree = !credential && Object.entries(job.need ?? {}).every(([stat, minimum]) => life.stats[stat] >= minimum);
@@ -556,7 +609,8 @@ function careerPlan(life, path) {
         }));
     }
     const bachelorForOfficer = degrees.some(({ kind }) =>
-      ['university', 'teaching', 'nursing', 'medicine', 'academy', 'graduate'].includes(kind));
+      ['university', 'teaching', 'nursing', 'medicine', 'pharmacy', 'dentistry', 'physicalTherapy',
+        'academy', 'graduate'].includes(kind));
     if (life.age >= 20 && life.age <= 28) {
       choices.push(pick('apply-military-ocs', '육군 학사사관 지원',
         '4년제 대학 졸업 이상 · 남녀 지원 가능 · 선발과 양성교육을 거쳐 소위로 임관해요.',
@@ -600,11 +654,19 @@ function educationPlan(life, path) {
     (['medical', 'people'].some((field) => dreamIncludes(dream, field)) || (life.stats.learning >= 38 && life.stats.bond >= 20))) {
     options.push(universityChoice('nursing', life));
   }
+  if (eligible && life.age <= 38 && !completed('pharmacy')) options.push(universityChoice('pharmacy', life));
+  if (eligible && life.age <= 38 && !completed('dentistry')) options.push(universityChoice('dentistry', life));
+  if (eligible && life.age <= 45 && !completed('physicalTherapy')) options.push(universityChoice('physicalTherapy', life));
   if (eligible && life.age <= 38 && !completed('teaching') &&
     (['people', 'education'].some((field) => dreamIncludes(dream, field)) || (life.stats.learning >= 42 && life.stats.bond >= 20))) {
     options.push(universityChoice('teaching', life));
   }
   if (undergraduate(degrees) && !completed('graduate')) options.push(universityChoice('graduate', life));
+  if (eligible && life.age >= 19) {
+    for (const [kind, exam] of Object.entries(QUALIFICATION_EXAMS)) {
+      if (!Number.isInteger(path[exam.record])) options.push(qualificationChoice(kind, life));
+    }
+  }
   if (!path.training) options.push(universityChoice('training', life));
   if (!Number.isInteger(path.caregivingAge) && (['people', 'medical'].some((field) => dreamIncludes(dream, field)) || life.stats.bond >= 28)) {
     options.push(universityChoice('caregiving', life));
@@ -1064,6 +1126,9 @@ export function applyPath(life, age, choice) {
       break;
     case 'academy3-transfer':
       path.program = { kind: 'academy3', field: 'public', remaining: 2 };
+      break;
+    case 'qualification':
+      path[QUALIFICATION_EXAMS[action.value].record] = age;
       break;
     case 'nursing-teaching': path.nursingTeachingDecision = action.value; break;
     case 'license': path[LICENSES[action.value].record] = age; break;
