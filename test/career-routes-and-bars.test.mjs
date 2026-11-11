@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CAREER_CREDENTIALS, CAREERS, CAREER_PROMOTIONS, STATS } from '../public/content.mjs';
 import { addPlayer, newRoom, selectChoice, stateFor, teacherAction } from '../public/game.mjs';
-import { bonusScene, careerGoals, newPath } from '../public/life.mjs';
+import { bonusScene, careerGoals, newPath, restoreWorkYears } from '../public/life.mjs';
 import { statGrid } from '../public/ui.mjs';
 import { gameMenuView, roomView } from '../public/views.mjs';
 
@@ -146,4 +146,20 @@ test('능력치 막대는 분야 색상과 정확한 숫자를 함께 제공한�
   assert.match(html, /65 <small>\/ 100/);
   assert.match(html, /막대 기준/);
   assert.match(statGrid({ ...data, health: 150 }), /150 <small>점/);
+});
+
+test('이전 버전 직업명으로 저장된 연대기에서도 경력을 복구한다', () => {
+  for (const [title, career] of [
+    ['창작자', 'studio'], ['현장 기술자', 'tech'], ['연구원', 'lab'],
+    ['운동 지도자', 'coach'], ['가수', 'singer'], ['배우', 'actor'],
+    ['부동산 중개사', 'realtor'], ['솔로 아티스트', 'soloArtist'],
+  ]) {
+    const path = { ...newPath('female'), workYears: null };
+    const life = { age: 30, career, path, stats: {}, history: [
+      { type: 'bonus', title, decisionAge: 20 },
+      { type: 'life', decisionAge: 20 },
+    ] };
+    restoreWorkYears(life);
+    assert.equal(life.path.workYears[career], 1, title);
+  }
 });
