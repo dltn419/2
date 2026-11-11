@@ -2,7 +2,8 @@ import { CAREER_CREDENTIALS, CAREER_GROWTH, CAREERS, HABITS, PERFORMANCE_BONUSES
 import { finishCare, illnessCare } from './health.mjs';
 
 export const SEXES = { male: '남자', female: '여자' };
-export const SCHOOLS = { general: '일반고', science: '과학고', gifted: '영재학교', vocational: '직업계고', arts: '예술고', outside: '학교 밖 진로' };
+export const SCHOOLS = { general: '일반고', science: '과학고', gifted: '영재학교', vocational: '직업계고',
+  arts: '예술고', idolArts: '공연예술학교(연습생 과정)', outside: '학교 밖 진로' };
 export const DREAMS = {
   science: { label: '과학과 연구', title: '궁금한 것을 알아봐요.', mark: 'book' },
   biology: { label: '생명과학', title: '동물, 식물, 우리 몸을 연구해요.', mark: 'leaf' },
@@ -34,6 +35,10 @@ export const DREAM_OPTIONS = {
   explore: { label: '아직 모르겠어요', title: '다양한 일을 알아보고 나중에 정해요.', mark: 'leaf', fields: [] },
 };
 
+// 각 졸업 연도 선택 직전의 예술 최고치: 초기 7점에서 0~11, 0~14, 0~17세의
+// 일반적인 연간 선택지만 모두 예술 최대로 고른 결과입니다 (무작위 사건 제외).
+export const IDOL_GRADUATION_ART_MAX = Object.freeze({ 12: 30, 15: 38, 18: 47 });
+export const IDOL_GRADUATION_ART_MIN = Object.freeze({ 12: 28, 15: 36, 18: 45 });
 const SERVICE_LIMIT = 28;
 const COMMUNITY_HEALTH = 40;
 const CAREER_BY_TITLE = new Map(Object.entries(CAREERS).map(([id, job]) => [job.title, id]));
@@ -144,7 +149,8 @@ export function newPath(sex = null) {
     retired: null, savings: null, savingsReview: null, workYears: {}, home: null, illness: null, recoveredAt: null, habit: null,
     nursingTeachingDecision: null, militaryRoute: null, militaryTraining: null,
     realtorCertificationAge: null, taxCertificationAge: null, sportsCoachCertificationAge: null,
-    pharmacyLicenseAge: null, dentistLicenseAge: null, physicalTherapyLicenseAge: null };
+    pharmacyLicenseAge: null, dentistLicenseAge: null, physicalTherapyLicenseAge: null,
+    idolJoinedAt: null, idolDebutAge: null, idolExitAt: null, idolSchool: false };
 }
 
 const EMPTY_PATH = newPath();
@@ -317,6 +323,12 @@ const SCHOOL_YEARS = {
 function schoolYear(life, path) {
   const age = life.age;
   const entry = SCHOOL_YEARS[age];
+  // 공연예술학교는 일반 학교 선택지의 능력치 상승량을 그대로 사용합니다.
+  // 추가 훈련 효과는 yearlySources에서 별도로 계산합니다.
+  if (path.idolSchool && ['idol','rookieIdol','popularIdol','soloArtist'].includes(life.career)) {
+    return { ...entry, title: `공연예술학교 · ${entry.title}`,
+      detail: '학교 수업과 기획사 보컬·안무 훈련을 함께 이어가요. ' + entry.detail };
+  }
   if (age < 16) return entry;
   if (path.school === 'outside') {
     return scene(['학교 밖의 첫해', '나만의 공부 계획', '다음 길을 준비하는 해'][age - 16], '관심 있는 일을 찾아 하나씩 배워요.', [
@@ -348,6 +360,19 @@ function schoolYear(life, path) {
     ] };
   }
   return entry;
+}
+
+function idolAudition(life) {
+  const minimum = IDOL_GRADUATION_ART_MIN[life.age];
+  if (!minimum || life.career || life.stats.art < minimum || Number.isInteger(pathOf(life).idolJoinedAt)) return null;
+  const place = life.age === 12 ? '중등 예술교육 과정'
+    : life.age === 15 ? '공연예술고 과정' : '연예기획사 전문 교육 과정';
+  return option('idol-audition', '연예기획사 오디션 보기',
+    `예술 ${minimum}점 이상이면 지원 가능 · 합격하면 ${place}에서 노래와 안무를 전문적으로 배워요. 데뷔 전 수입 0코인.`,
+    'spark', { health: -1, art: 1 }, 'idol-trainee', life.age,
+    '오디션에 합격해 기획사 연습생이 되었어요.', {
+      narration: `연예기획사 오디션에 합격했어요. ${place}에 들어가 학교 수업과 연습생 생활을 시작했어요.`,
+    });
 }
 
 function dreamSurvey(life) {
@@ -540,7 +565,8 @@ function careerWindow(life, path) {
   const age = life.age;
   return path.retired === null && ([19, 26, 34, 42, 50, 56].includes(age) ||
     (!life.career && [21, 23, 27, 30, 38, 46, 54, 59].includes(age)) ||
-    path.degree?.age === age || Object.values(LICENSES).some(({ record }) => path[record] === age) ||
+    path.degree?.age === age || path.idolExitAt === age ||
+    Object.values(LICENSES).some(({ record }) => path[record] === age) ||
     path.trainingAge === age || path.caregivingAge === age || path.service?.endedAt === age ||
     Object.values(QUALIFICATION_EXAMS).some(({ record }) => path[record] === age));
 }
@@ -573,8 +599,8 @@ function careerPlan(life, path) {
     current ? `지금의 직업인 ${current.title} 일을 이어가요.` : '나중에 일자리를 다시 살펴볼 수 있어요.', {})];
   const dream = mostRecentDream(path);
   for (const [career, job] of Object.entries(CAREERS)) {
-    // 초임 간부는 일반 취업과 달리 선발·양성교육 경로를 먼저 거쳐야 합니다.
-    if (['militaryNco', 'militaryOfficer'].includes(career)) continue;
+    // 연습생은 졸업 시 12·15·18세 오디션으로만 시작할 수 있습니다.
+    if (['militaryNco', 'militaryOfficer', 'idol'].includes(career)) continue;
     if (career === life.career || job.legacyPromotion || life.age > (job.latestStart ?? Infinity) ||
       life.age >= retirementAge(career) ||
       (job.promotionFrom && job.promotionFrom !== life.career)) continue;
@@ -981,6 +1007,39 @@ export function bonusScene(life, done) {
   }
   // 간호학과 재학 중 한 번만 교직이수 선발에 도전할 수 있습니다.
   // 졸업 후 새로 조건을 충족해도 당시 교직이수를 소급 취득할 수 없습니다.
+  if (['idol','rookieIdol','popularIdol','soloArtist'].includes(life.career) &&
+    age >= retirementAge(life.career) && !done.includes('idol-exit')) {
+    return { ...scene('아이돌 활동을 마무리할 때', '그룹 활동이 끝나거나 계약이 만료되었어요. 다른 진로를 찾을 수 있어요.', [
+      option('idol-contract-expire', '아이돌 활동 마치기', '그동안 쌓은 실력을 갖고 새로운 길을 찾아요.',
+        'leaf', {}, 'idol-exit', 'contract', '무대에서 내려와 다음 진로를 준비했어요.'),
+    ]), key: 'idol-exit', fallback: 'idol-contract-expire' };
+  }
+  // 연습생은 3년 뒤부터 데뷔 심사를 받을 수 있습니다.
+  if (life.career === 'idol' && (path.workYears?.idol ?? 0) >= 3 &&
+    age >= 15 && age < retirementAge('idol') && !done.includes('idol-debut')) {
+    return { ...scene('연습생 데뷔 심사', '무대 준비가 되었는지 확인해요. 기준을 넘으면 신인 아이돌로 데뷔할 수 있어요.', [
+      option('idol-debut-now', '신인 아이돌로 데뷔하기', '예술·체력·관계와 3년 이상의 연습생 경력이 필요해요.',
+        'spark', {}, 'idol-promotion', 'rookieIdol', '정식 그룹으로 데뷔했어요.',
+        { need: CAREERS.rookieIdol.need, strictNeed: true,
+          conditions: [{ label: '연습생 경력 3년', met: (path.workYears?.idol ?? 0) >= 3 }] }),
+      rest('연습 더 이어가기', '이번 심사는 건너뛰고 다음 해를 준비해요.', {}),
+    ]), key: 'idol-debut', fallback: 'rest' };
+  }
+  // 신인 그룹은 3년을 버틴 뒤 인지도 상승이나 솔로 진출을 선택해야 살아남기 쉽습니다.
+  if (life.career === 'rookieIdol' && (path.workYears?.rookieIdol ?? 0) >= 3 &&
+    !done.includes('idol-breakthrough')) {
+    return { ...scene('신인 그룹 재계약 심사', '데뷔 초반 성적에 따라 계약이 연장되거나 활동이 끝날 수 있어요.', [
+      option('idol-grow-popular', '인기 아이돌로 성장하기', '무대 성과와 팬들의 지지가 필요해요.',
+        'spark', {}, 'idol-promotion', 'popularIdol', '더 큰 무대에서 활동하게 되었어요.',
+        { need: CAREERS.popularIdol.need, strictNeed: true,
+          conditions: [{ label: '신인 아이돌 경력 3년', met: (path.workYears?.rookieIdol ?? 0) >= 3 }] }),
+      option('idol-go-solo', '솔로 아티스트로 전향하기', '높은 예술 실력과 팬들의 지지가 필요해요.',
+        'spark', {}, 'idol-promotion', 'soloArtist', '솔로 데뷔를 확정했어요.',
+        { need: CAREERS.soloArtist.need, strictNeed: true,
+          conditions: [{ label: '신인 아이돌 경력 3년', met: (path.workYears?.rookieIdol ?? 0) >= 3 }] }),
+      rest('신인 활동 더 이어가기', '재계약이 보장되지는 않지만 다음 활동을 준비해요.', {}),
+    ]), key: 'idol-breakthrough', fallback: 'rest' };
+  }
   if (path.program?.kind === 'nursing' && path.program.remaining <= 3 &&
     path.nursingTeachingDecision !== true && path.nursingTeachingDecision !== false &&
     !done.includes('nursing-teaching')) {
@@ -1088,12 +1147,22 @@ export function annualScene(life) {
   if (age < CHILDHOOD.length) return CHILDHOOD[age];
   if (age < 19) {
     const school = schoolYear(life, path);
-    if (![11, 13, 15, 17, 18].includes(age)) return school;
-    const outside = path.school === 'outside';
-    const sport = option('sports-team', outside ? '동네 운동팀에서 훈련하기' : '운동부에서 훈련하기',
-      '운동선수에 도전할 때 필요한 경험을 쌓아요.', 'flag', { health: 5, learning: -1, bond: 1 },
-      'sport', 1, '연습이 끝나고 친구들과 땀을 닦으며 웃었어요.');
-    return { ...school, choices: [...school.choices, sport] };
+    let choices = school.choices;
+    if (age === 12) {
+      // 초등 졸업 화면도 4개의 기본 선택지를 제공하고 오디션은 항상 다섯 번째에 둡니다.
+      choices = [...choices, pick('graduation-performance', '졸업식 무대 준비하기',
+        '친구들과 함께 공연을 연습해요.', 'spark', { art: 3, bond: 1 })];
+    }
+    if ([11, 13, 15, 17, 18].includes(age)) {
+      const outside = path.school === 'outside';
+      const sport = option('sports-team', outside ? '동네 운동팀에서 훈련하기' : '운동부에서 훈련하기',
+        '운동선수에 도전할 때 필요한 경험을 쌓아요.', 'flag', { health: 5, learning: -1, bond: 1 },
+        'sport', 1, '연습이 끝나고 친구들과 땀을 닦으며 웃었어요.');
+      choices = [...choices, sport];
+    }
+    const audition = idolAudition(life);
+    if (audition) choices = [...choices, audition];
+    return choices === school.choices ? school : { ...school, choices };
   }
   if (path.service?.status === 'serving') return serving(life, path);
   if (path.militaryTraining) return scene('군 간부 양성교육',
@@ -1125,6 +1194,24 @@ export function applyPath(life, age, choice) {
   switch (action?.kind) {
     case 'dream': path.dreams.push({ age, field: action.value }); break;
     case 'school': path.school = action.value; break;
+    case 'idol-trainee':
+      path.idolJoinedAt = age;
+      path.idolSchool = true;
+      path.school = 'idolArts';
+      life.career = 'idol';
+      path.firstJobAge = age;
+      break;
+    case 'idol-promotion':
+      life.career = action.value;
+      if (action.value === 'rookieIdol') path.idolDebutAge = age;
+      break;
+    case 'idol-exit':
+      path.idolExitAt = age;
+      path.idolSchool = false;
+      if (age < 19 && path.school === 'idolArts') path.school = 'general';
+      life.career = null;
+      path.firstJobAge = null;
+      break;
     case 'diploma':
       path.diploma = true;
       path.diplomaAge = age;
@@ -1243,6 +1330,10 @@ export function careerPay(life) {
   if (!job) return null;
   const path = pathOf(life);
   const years = path.workYears?.[life.career] ?? 0;
+  if (life.career === 'idol') return {
+    base: 0, years, transfer: 0, track: '데뷔 준비', experience: 0,
+    stat: 'art', skill: 0, education: 0, total: 0,
+  };
   // 승진은 동일 경력 사다리 전체를 이어받습니다. 일반 이직은 최대 10년까지 절반 인정합니다.
   const fields = jobFields(job);
   const previous = Object.entries(path.workYears ?? {}).filter(([id]) =>
@@ -1299,6 +1390,11 @@ export function yearlySources(life) {
     const pay = careerPay(life);
     sources.push({ id: `job-${life.career}`, label: `${career.title} 수입${career.fatigue ? '과 피로' : ''}`, term: `경력 ${pay.years}년`,
       effect: { money: pay.total, ...(career.fatigue ? { health: -career.fatigue } : {}) } });
+    if (life.career === 'idol' || life.career === 'rookieIdol') {
+      sources.push({ id: 'idol-practice', label: life.career === 'idol'
+        ? '연습생 보컬·안무 훈련' : '신인 아이돌 무대 준비',
+        effect: { art: life.career === 'idol' ? 2 : 3, health: -1, bond: life.career === 'idol' ? 0 : 1 } });
+    }
     const result = performanceBonus(life);
     if (result) {
       sources.push({ id: `performance-${result.root}`, label: result.label,
