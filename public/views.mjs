@@ -109,7 +109,7 @@ function jobGuide(life) {
               const kind = fromAthlete || position.routeType === '전직' ? '전직'
                 : position.routeType === '성장' ? '성장' : '승진';
               return `<li class="job-promotion-step">
-                <div><strong>${h(position.title)}</strong><span>기본 연봉 ${position.wage}코인</span></div>
+                <div><strong>${h(position.title)}</strong><span>기본 연봉 ${position.wage}코인${positionId === 'soloArtist' ? ' · 연령 제한 없음' : ''}</span></div>
                 <p>${kind} · ${h(requirements.join(' · ') || '별도 조건 없음')}</p>
               </li>`;
             }).join('')}
