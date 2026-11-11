@@ -59,7 +59,7 @@ test('오디션 합격 시 공연예술학교 진학·연습생 수입 0코인·
   const wage = yearlySources(student).find((item) => item.id === 'job-idol');
   assert.equal(wage.effect.money, 0);
   assert.deepEqual(yearlySources(student).find((item) => item.id === 'idol-practice').effect,
-    { art: 2, health: -1, bond: 0 });
+    { art: 2, health: -1, bond: 1 });
   assert.equal(school.choices.length, 4); // 13세 학교 활동과 운동부 선택지가 공존
 });
 
@@ -127,7 +127,7 @@ test('장기 연습생은 계약 종료 후 학교 또는 새로운 진로로 �
   assert.equal(student.path.retired, null);
 });
 
-test('신인 4년 차에는 활동 종료 위험, 5년 차에는 활동 종료 확정', () => {
+test('신인 4~5년 차에는 생존 기회, 6년 차에는 계약 종료 후 작별 이벤트', () => {
   const student = newStudent(24, 76);
   student.career = 'rookieIdol';
   student.path.school = 'idolArts';
@@ -136,26 +136,38 @@ test('신인 4년 차에는 활동 종료 위험, 5년 차에는 활동 종료 �
   assert.equal(settleIdolCareer(student, 99), '');
   assert.equal(student.career, 'rookieIdol');
   const ended = settleIdolCareer(student, 0);
-  assert.match(ended, /그룹 활동이 종료/);
+  assert.match(ended, /다음 해에 작별 무대/);
+  assert.equal(student.career, 'rookieIdol');
+  assert.ok(student.path.idolExitPending);
+  assert.equal(student.path.idolExitAt, null);
+  assert.equal(student.path.retired, null);
+  const farewell = bonusScene(student, []);
+  assert.equal(farewell.key, 'idol-exit');
+  assert.deepEqual(farewell.choices.map(c => c.id),
+    ['idol-farewell-show', 'idol-farewell-study', 'idol-farewell-rest']);
+  applyPath(student, student.age, farewell.choices[1]);
   assert.equal(student.career, null);
+  assert.equal(student.path.idolExitPending, null);
   assert.equal(student.path.idolExitAt, 24);
   assert.equal(student.path.retired, null);
 
   const late = newStudent(26, 90);
   late.career = 'rookieIdol';
   late.path.workYears.rookieIdol = 5;
-  assert.match(settleIdolCareer(late, 99), /그룹 활동이 종료/);
+  assert.equal(settleIdolCareer(late, 99), '');
+  late.path.workYears.rookieIdol = 6;
+  assert.match(settleIdolCareer(late, 99), /다음 해에 작별 무대/);
 });
 
 test('연습생·신인·인기·솔로 활동은 서로 다른 나이 제한을 갖는다', () => {
   assert.equal(retirementAge('idol'), 24);
   assert.equal(retirementAge('rookieIdol'), 29);
-  assert.equal(retirementAge('popularIdol'), 32);
-  assert.equal(retirementAge('soloArtist'), 38);
+  assert.equal(retirementAge('popularIdol'), 34);
+  assert.equal(retirementAge('soloArtist'), 40);
   assert.equal(CAREERS.idol.wage, 0);
   assert.ok(CAREERS.popularIdol.wage > CAREERS.rookieIdol.wage * 2);
   assert.ok(CAREERS.soloArtist.wage > CAREERS.popularIdol.wage);
-  const popular = newStudent(32, 90);
+  const popular = newStudent(34, 90);
   popular.career = 'popularIdol';
   assert.equal(bonusScene(popular, []).key, 'idol-exit');
 });
