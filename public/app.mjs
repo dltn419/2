@@ -247,7 +247,9 @@ function expire(oldSession, error) {
   const previous = read(localStorage, lastKey(oldSession.role));
   if (previous?.token === oldSession.token) write(localStorage, lastKey(oldSession.role), null);
   if (session?.token === oldSession.token) home();
-  message(error.message);
+  message(error.status === 404
+    ? '이전 게임방이 만료되었거나 새 패치로 초기화됐어요. 새 게임방을 만들어 주세요.'
+    : error.message);
 }
 
 async function recover(saved) {
