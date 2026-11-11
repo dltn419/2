@@ -52,8 +52,7 @@ test('연습생은 신인 아이돌을 거쳐야 솔로로 전직할 수 있다'
   const { room, player } = setup(26);
   player.life.career = 'idol';
   player.life.path.workYears.idol = 10;
-  choose(room, 'rest'); // education
-  assert.equal(screen(room).me.scene.key, 'career');
+  assert.equal(screen(room).me.scene.key, 'idol-exit'); // 미데뷔 연습생 활동 종료
   assert.equal(screen(room).me.scene.choices.some((c) => c.id === 'work-soloArtist'), false);
 });
 
