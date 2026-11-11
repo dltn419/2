@@ -3,7 +3,7 @@ import {
 } from './content.mjs';
 import {
   SEXES, advancePath, annualScene, applyPath, bonusScene, careerPay, chanceDiscount, creditWorkYear,
-  familyDream, farewell, newPath, pathOf, restoreWorkYears, updateLifePath, upgradeLifePath, yearlySources,
+  familyDream, farewell, newPath, pathOf, restoreWorkYears, settleIdolCareer, updateLifePath, upgradeLifePath, yearlySources,
 } from './life.mjs';
 import { fallIll, illnessDeathRisk, settleHealth } from './health.mjs';
 
@@ -293,7 +293,8 @@ function changeLife(room, player, year, option, after) {
     const rate = account.interestRate ?? 0.04;
     account.balance = Math.floor(balance * (1 + rate) + 1e-9) + deposit;
   }
-  if (salary) creditWorkYear(life);
+  // 연습생은 수입이 없어도 실제로 연습한 연수가 누적되어야 데뷔 심사가 열립니다.
+  if (salary || (life.career === 'idol' && life.path.service?.status !== 'serving')) creditWorkYear(life);
   const affectionBefore = pathOf(life).romance?.affection;
   const decision = applyDecision(life, age, option);
   const affectionAfter = pathOf(life).romance?.affection;
@@ -303,7 +304,8 @@ function changeLife(room, player, year, option, after) {
   const diedFromIllness = hash(`${randomKey}:illness-ending`) % 100 < illnessDeathRisk(life);
   settleHealth(life);
   life.age += 1;
-  const memories = [decision, after, event?.text, advancePath(life)];
+  const disbandNote = settleIdolCareer(life, hash(`${randomKey}:idol-group-renewal`) % 100);
+  const memories = [decision, after, event?.text, advancePath(life), disbandNote];
   if (diedFromIllness || oldAgeEnding(life.age, room.settings.maxAge, hash(`${randomKey}:ending`) % 100)) {
     const ending = diedFromIllness ? '큰 병으로 삶을 마쳤어요.' : '삶의 마지막 장을 덮었어요.';
     const note = `${life.age}살에 ${ending} ${farewell(life)}`;
@@ -313,7 +315,7 @@ function changeLife(room, player, year, option, after) {
   } else {
     memories.push(fallIll(life, life.path, hash(`${randomKey}:illness`) % 100, hash(`${randomKey}:severity`) % 100));
   }
-  const nextSalary = salary && !life.end && life.path.retired === null ? careerPay(life).total : 0;
+  const nextSalary = salary && life.career && !life.end && life.path.retired === null ? careerPay(life).total : 0;
   const raise = nextSalary > salary ? { from: salary, to: nextSalary } : undefined;
   if (raise && salary > 0 && !life.end) {
     life.path.savingsReview = { at: life.age, from: salary, to: nextSalary };
