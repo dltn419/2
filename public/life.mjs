@@ -901,7 +901,9 @@ function retirementScene(life, mandatory) {
   }
   if (!mandatory) {
     options.push(pick('mentor-work', '일을 계속하기',
-      `${age}세에는 정년이 되어 퇴직하게 돼요. 지금은 일을 계속해요.`,
+      Number.isFinite(age)
+        ? `${age}세에는 정년이 되어 퇴직하게 돼요. 지금은 일을 계속해요.`
+        : '정해진 활동 연령 상한이 없어요. 원하는 만큼 무대 활동을 이어갈 수 있어요.',
       'book', { learning: 2, bond: 3 }));
   }
   return scene(mandatory ? `${job.title} 정년의 날` : '일을 그만둘 때가 올까?',
