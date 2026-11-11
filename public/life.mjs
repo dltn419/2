@@ -103,6 +103,8 @@ const RETIREMENT_YEARS = 10;
 const SAVINGS_RATE = 0.04;
 const LUMP_TAX = 0.25;
 const PENSION_TAX = 0.05;
+const IDOL_CAREERS = ['idol','rookieIdol','popularIdol','soloArtist'];
+const isIdolCareer = (career) => IDOL_CAREERS.includes(career);
 export const retirementAge = (career) => {
   const job = CAREERS[career];
   return job?.retireAt ?? (job?.promotionFrom ? retirementAge(job.promotionFrom) : 65);
@@ -150,7 +152,8 @@ export function newPath(sex = null) {
     nursingTeachingDecision: null, militaryRoute: null, militaryTraining: null,
     realtorCertificationAge: null, taxCertificationAge: null, sportsCoachCertificationAge: null,
     pharmacyLicenseAge: null, dentistLicenseAge: null, physicalTherapyLicenseAge: null,
-    idolJoinedAt: null, idolDebutAge: null, idolExitAt: null, idolSchool: false };
+    idolJoinedAt: null, idolDebutAge: null, idolExitAt: null, idolSchool: false,
+    idolExitPending: null };
 }
 
 const EMPTY_PATH = newPath();
@@ -562,6 +565,8 @@ export function careerGoals(life) {
 }
 
 function careerWindow(life, path) {
+  // 아이돌 전용 심사와 일반 직업 이벤트를 중복 노출하지 않습니다.
+  if (isIdolCareer(life.career)) return false;
   const age = life.age;
   return path.retired === null && ([19, 26, 34, 42, 50, 56].includes(age) ||
     (!life.career && [21, 23, 27, 30, 38, 46, 54, 59].includes(age)) ||
@@ -964,12 +969,12 @@ function savingsOffer(life) {
   const review = path.savingsReview;
   const increase = Boolean(review && life.age >= review.at);
   const amounts = current > 0 && increase ? [current, current + 1, current + 2, current + 4] : [0, 1, 2, 4];
-  const title = increase ? `연봉이 ${review.from} → ${review.to}코인으로 올랐어요!`
-    : '노후 저축을 시작할까요?';
+  const title = increase ? `연봉이 ${review.from} → ${review.to}코인으로 올랐어요! 노후 적금은?`
+    : '노후 적금 가입 안내';
   const detail = increase
     ? current ? `현재 매년 ${current}코인을 저축 중이에요. 유지하거나 증액할 수 있어요.`
-      : '연봉이 올랐으니 이번에 노후 적금을 시작할 수 있어요.'
-    : '일하는 동안 매년 저축하고 연 4% 복리 이자를 받아요. 이자는 매년 정수 코인으로 내림해요.';
+      : '이제 수입이 생겼어요. 노후 적금에 가입해 매년 일부를 모아 볼까요?'
+    : '지금 가입 여부와 매년 납입액을 직접 고릅니다. 매년 납입하면 연 4% 복리가 붙고, 활동을 마쳐도 적금은 유지돼요.';
   return scene(title, detail, amounts.map((amount) => {
     const label = amount === 0 ? '이번에는 저축하지 않기' :
       current > 0 && amount === current ? `현재 금액 유지 (${amount}코인)` :
@@ -1007,19 +1012,33 @@ export function bonusScene(life, done) {
   }
   // 간호학과 재학 중 한 번만 교직이수 선발에 도전할 수 있습니다.
   // 졸업 후 새로 조건을 충족해도 당시 교직이수를 소급 취득할 수 없습니다.
-  if (['idol','rookieIdol','popularIdol','soloArtist'].includes(life.career) &&
-    (age >= retirementAge(life.career) ||
+  if (isIdolCareer(life.career) &&
+    (path.idolExitPending || age >= retirementAge(life.career) ||
       (life.career === 'idol' && (path.workYears?.idol ?? 0) >= 6)) && !done.includes('idol-exit')) {
-    return { ...scene('아이돌 활동을 마무리할 때', '그룹 활동이 끝나거나 계약이 만료되었어요. 다른 진로를 찾을 수 있어요.', [
-      option('idol-contract-expire', '아이돌 활동 마치기', '그동안 쌓은 실력을 갖고 새로운 길을 찾아요.',
-        'leaf', {}, 'idol-exit', 'contract', '무대에서 내려와 다음 진로를 준비했어요.'),
-    ]), key: 'idol-exit', fallback: 'idol-contract-expire' };
+    const reason = path.idolExitPending?.reason ??
+      (life.career === 'idol' ? '연습생 계약 기간이 끝났어요.'
+        : '공연 활동을 마칠 시기가 되었어요. 새로운 진로도 열려 있습니다.');
+    const savingText = path.savings?.annual > 0
+      ? `노후 적금 ${Math.floor(path.savings.balance ?? 0)}코인은 계속 유지돼요.`
+      : '가입된 노후 적금이 없어요. 이후 다른 직업을 시작하면 가입할 기회가 있어요.';
+    return { ...scene('마지막 무대 · 다음 길 고르기',
+      `${reason} 인생 전체의 은퇴가 아니에요. 활동을 정리하면 학교와 새 직업을 선택할 수 있어요. ${savingText}`, [
+        option('idol-farewell-show', '마지막 무대에서 인사하기',
+          '팬들과 추억을 만들고 활동을 마무리해요.', 'spark', { art: 2, joy: 4, bond: 2 },
+          'idol-exit', 'farewell', '팬들에게 마지막 인사를 한 뒤 새로운 시작을 준비했어요.'),
+        option('idol-farewell-study', '다음 진로를 준비하기',
+          '자격증, 대학, 새로운 직업을 알아봐요.', 'book', { learning: 3, joy: 1 },
+          'idol-exit', 'study', '학교와 직업에 관한 정보를 모으며 새 꿈을 찾아봤어요.'),
+        option('idol-farewell-rest', '쉬면서 마음 정리하기',
+          '바쁜 활동을 마친 뒤 몸과 마음을 추슬러요.', 'leaf', { health: 4, joy: 2 },
+          'idol-exit', 'rest', '연습실을 정리하고 천천히 다음 일을 준비했어요.'),
+      ]), key: 'idol-exit', fallback: 'idol-farewell-rest' };
   }
   // 연습생은 3년 뒤부터 데뷔 심사를 받을 수 있습니다.
   if (life.career === 'idol' && (path.workYears?.idol ?? 0) >= 3 &&
     age >= 15 && age < retirementAge('idol') && !done.includes('idol-debut')) {
     return { ...scene('연습생 데뷔 심사', '무대 준비가 되었는지 확인해요. 기준을 넘으면 신인 아이돌로 데뷔할 수 있어요.', [
-      option('idol-debut-now', '신인 아이돌로 데뷔하기', '예술·체력·관계와 3년 이상의 연습생 경력이 필요해요.',
+      option('idol-debut-now', '신인 아이돌로 데뷔하기', '3년 이상의 연습 경험과 예술·체력이 필요해요. 관계는 팀 훈련으로도 쌓입니다.',
         'spark', {}, 'idol-promotion', 'rookieIdol', '정식 그룹으로 데뷔했어요.',
         { need: CAREERS.rookieIdol.need, strictNeed: true,
           conditions: [{ label: '연습생 경력 3년', met: (path.workYears?.idol ?? 0) >= 3 }] }),
@@ -1030,11 +1049,11 @@ export function bonusScene(life, done) {
   if (life.career === 'rookieIdol' && (path.workYears?.rookieIdol ?? 0) >= 3 &&
     !done.includes('idol-breakthrough')) {
     return { ...scene('신인 그룹 재계약 심사', '데뷔 초반 성적에 따라 계약이 연장되거나 활동이 끝날 수 있어요.', [
-      option('idol-grow-popular', '인기 아이돌로 성장하기', '무대 성과와 팬들의 지지가 필요해요.',
+      option('idol-grow-popular', '인기 아이돌로 성장하기', '예술 58점 · 체력 40점 · 관계 18점 · 신인 활동 3년 이상',
         'spark', {}, 'idol-promotion', 'popularIdol', '더 큰 무대에서 활동하게 되었어요.',
         { need: CAREERS.popularIdol.need, strictNeed: true,
           conditions: [{ label: '신인 아이돌 경력 3년', met: (path.workYears?.rookieIdol ?? 0) >= 3 }] }),
-      option('idol-go-solo', '솔로 아티스트로 전향하기', '높은 예술 실력과 팬들의 지지가 필요해요.',
+      option('idol-go-solo', '솔로 아티스트로 전향하기', '예술 66점 · 관계 26점 · 신인 활동 3년 이상',
         'spark', {}, 'idol-promotion', 'soloArtist', '솔로 데뷔를 확정했어요.',
         { need: CAREERS.soloArtist.need, strictNeed: true,
           conditions: [{ label: '신인 아이돌 경력 3년', met: (path.workYears?.rookieIdol ?? 0) >= 3 }] }),
@@ -1109,8 +1128,11 @@ export function bonusScene(life, done) {
   // 첫 취업 후 1~3년 또는 연봉 인상 다음 해에 적금 가입·증액 기회를 엽니다.
   const firstJob = path.firstJobAge;
   const offerAge = Number.isInteger(firstJob) ? firstJob + 1 + ((path.romanceSeed ?? 0) % 3) : Infinity;
+  const paidIdol = ['rookieIdol', 'popularIdol', 'soloArtist'].includes(life.career);
+  // 12세 입사한 무급 연습생도 성인이 되어 유급 아이돌이 되면 적금 안내를 받습니다.
+  // 이전 버전에서 가입 기회를 놓친 저장 데이터도 구제합니다.
   const firstOffer = path.savings === null &&
-    age >= offerAge && age <= Math.max(offerAge, firstJob + 5);
+    (paidIdol && age >= 19 || age >= offerAge && age <= Math.max(offerAge, firstJob + 5));
   const raisedOffer = path.savingsReview && age >= path.savingsReview.at;
   if (!continuing && age >= 19 && life.career && life.career !== 'idol' &&
     path.retired === null && age < retirementAge(life.career) && (firstOffer || raisedOffer) &&
@@ -1127,10 +1149,10 @@ export function bonusScene(life, done) {
   if (!continuing && license && !done.includes('license')) {
     return { ...licensePlan(license.kind), key: 'license', fallback: 'rest' };
   }
-  const planning = [19, 22, 26, 38, 50].includes(age) || path.degree?.age === age ||
+  const planning = [19, 22, 26, 38, 50].includes(age) || path.idolExitAt === age || path.degree?.age === age ||
     path.diplomaAge === age - 1 || (!life.career && path.trainingAge === age) ||
     (path.service?.endedAt === age && (!life.career || path.degree));
-  if (!continuing && planning && !done.includes('education')) {
+  if (!continuing && !isIdolCareer(life.career) && planning && !done.includes('education')) {
     const entry = educationPlan(life, path);
     if (entry) return { ...entry, key: 'education', fallback: 'rest' };
   }
@@ -1201,18 +1223,24 @@ export function applyPath(life, age, choice) {
       path.idolSchool = true;
       path.school = 'idolArts';
       life.career = 'idol';
-      path.firstJobAge = age;
+      // 연습생은 무급이라 첫 유급 취업과 구별합니다.
+      path.firstJobAge = null;
       break;
     case 'idol-promotion':
       life.career = action.value;
-      if (action.value === 'rookieIdol') path.idolDebutAge = age;
+      if (action.value === 'rookieIdol') {
+        path.idolDebutAge = age;
+        path.firstJobAge = age;
+      }
       break;
     case 'idol-exit':
       path.idolExitAt = age;
+      path.idolExitPending = null;
       path.idolSchool = false;
       if (age < 19 && path.school === 'idolArts') path.school = 'general';
       life.career = null;
       path.firstJobAge = null;
+      // 아이돌 활동 종료는 일반 정년 퇴직·연금 개시가 아닙니다.
       break;
     case 'diploma':
       path.diploma = true;
@@ -1358,19 +1386,16 @@ export function careerPay(life) {
 // 연습생·아이돌의 활동 종료는 인생 전체의 은퇴가 아닌 전직 기회로 이어집니다.
 export function settleIdolCareer(life, roll = 100) {
   if (life.career !== 'rookieIdol') return '';
-  const years = pathOf(life).workYears?.rookieIdol ?? 0;
-  // 신인 3년차가 끝난 직후에는 승급 기회를 먼저 줍니다.
+  const path = pathOf(life);
+  if (path.idolExitPending) return '';
+  const years = path.workYears?.rookieIdol ?? 0;
   if (years < 4) return '';
-  const resilience = (life.stats.art >= 75 ? 15 : 0) + (life.stats.bond >= 55 ? 10 : 0);
-  const disband = years >= 5 || (roll % 100) < Math.max(15, 55 - resilience);
-  if (!disband) return '';
-  const path = life.path;
-  path.idolExitAt = life.age;
-  path.idolSchool = false;
-  if (life.age < 19 && path.school === 'idolArts') path.school = 'general';
-  life.career = null;
-  path.firstJobAge = null;
-  return `데뷔 ${years}년 만에 그룹 활동이 종료되었어요. 새로운 일이나 공부를 선택할 수 있어요.`;
+  // 데뷔 4년차: 기본 25%, 5년차: 기본 45%, 6년차에는 재계약 종료 확정
+  const resilience = (life.stats.art >= 68 ? 10 : 0) + (life.stats.bond >= 32 ? 10 : 0);
+  const risk = years === 4 ? 25 : 45;
+  if (years < 6 && roll % 100 >= Math.max(5, risk - resilience)) return '';
+  path.idolExitPending = { reason: `데뷔 ${years}년 만에 그룹 재계약이 불발되었어요.`, notifiedAt: life.age };
+  return `신인 그룹의 ${years}년 차 계약이 마무리됩니다. 다음 해에 작별 무대와 이후 진로를 고를 수 있어요.`;
 }
 
 export function creditWorkYear(life) {
@@ -1414,7 +1439,7 @@ export function yearlySources(life) {
     if (life.career === 'idol' || life.career === 'rookieIdol') {
       sources.push({ id: 'idol-practice', label: life.career === 'idol'
         ? '연습생 보컬·안무 훈련' : '신인 아이돌 무대 준비',
-        effect: { art: life.career === 'idol' ? 2 : 3, health: -1, bond: life.career === 'idol' ? 0 : 1 } });
+        effect: { art: life.career === 'idol' ? 2 : 3, health: -1, bond: life.career === 'idol' ? 1 : 2 } });
     }
     const result = performanceBonus(life);
     if (result) {
