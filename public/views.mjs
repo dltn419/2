@@ -398,12 +398,13 @@ function conditionView(option) {
 function careerGoalsView(life) {
   const goals = careerGoals(life);
   if (!goals.length) return '';
+  const idol = ['idol','rookieIdol','popularIdol','soloArtist'].includes(life.career);
   return `<section class="career-goals" aria-label="내 승진·전직 준비 현황">
-    <div class="career-goals-head"><strong>승진·전직 준비</strong></div>
+    <div class="career-goals-head"><strong>${idol ? '아이돌 데뷔·승급 준비' : '승진·전직 준비'}</strong></div>
     ${goals.map((goal) => {
       const missing = goal.checks.filter(({ met }) => !met);
       const summary = goal.ready
-        ? '모든 조건 충족 · 다음 직업 선택 때 도전할 수 있어요'
+        ? (idol ? '조건 충족 · 기획사 심사 때 도전할 수 있어요' : '모든 조건 충족 · 다음 직업 선택 때 도전할 수 있어요')
         : `남은 조건: ${missing.map(({ label }) => label).join(' · ')}`;
       return `<details class="career-goal-card" data-career-goal="${h(goal.career)}">
         <summary>
@@ -421,7 +422,8 @@ function careerGoalsView(life) {
             <span class="career-goal-check-state">${item.met ? '충족' : '미충족'}</span>
           </li>`).join('')}
         </ul>
-        <p class="career-goal-note">조건을 채운 뒤 직업 선택 기회에 지원할 수 있어요.</p>
+        <p class="career-goal-note">${idol ? '조건을 채우면 아이돌 전용 데뷔·승급 심사에서만 지원할 수 있어요. 일반 직업 선택과 중복되지 않습니다.'
+          : '조건을 채운 뒤 직업 선택 기회에 지원할 수 있어요.'}</p>
       </details>`;
     }).join('')}
   </section>`;
@@ -531,7 +533,13 @@ function relationshipDetails(life) {
 function retirementDetails(life) {
   const path = pathOf(life);
   const account = path.savings;
-  if (!account?.annual) return '';
+  if (!account?.annual) {
+    if (life.age < 19 || path.retired !== null) return '';
+    const trainee = life.career === 'idol';
+    return `<p class="life-extra">${icon('coin')} <strong>노후 적금 · 미가입</strong>
+      <span>${trainee ? '무급 연습생은 데뷔 후 성인이 되면 가입 안내를 받아요.'
+        : '수입이 생긴 뒤 선택할 수 있어요. 가입을 건너뛰었다면 연봉이 오를 때 재검토할 수 있습니다.'}</span></p>`;
+  }
   const first = retirementPayout(account, 0);
   const last = retirementPayout(account, 9);
   const pensionLabel = first === last ? `${first}코인` : `${last}~${first}코인`;
