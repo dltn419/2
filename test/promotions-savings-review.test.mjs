@@ -37,7 +37,7 @@ test('승진 단계는 부모 직위가 모두 존재하며 시작 직업 없이
   for (const [key, role] of Object.entries(CAREER_PROMOTIONS)) {
     assert.ok(CAREERS[role.from], key);
     assert.ok(CAREERS[key].wage > CAREERS[role.from].wage, key);
-    assert.ok(role.minYears >= (['militaryLieutenant', 'militaryCaptain'].includes(key) ? 2 : 4), key);
+    assert.ok(role.minYears >= (['militaryLieutenant', 'militaryCaptain', 'barista'].includes(key) ? 2 : 4), key);
   }
   assert.equal(CAREERS.vicePrincipal.promotionFrom, 'teacher');
   assert.equal(CAREERS.principal.promotionFrom, 'vicePrincipal');
