@@ -221,3 +221,64 @@ test('기존 보너스 직업은 성장 단계가 생겨도 성과 보너스 계
     assert.ok(p && p.money >= 0 && p.money <= PERFORMANCE_BONUSES[id].max);
   }
 });
+
+
+test('진학 건너뛰기 후 직업 선택에서 같은 나이의 학교 선택으로 돌아간다', () => {
+  const { room, player } = roomFor({ age: 19, sex: 'female' });
+  const first = view(room);
+  assert.equal(first.me.scene.key, 'education');
+  const before = player.life.history.length;
+  const money = player.life.stats.money;
+  const learning = player.life.stats.learning;
+
+  choose(room, 'rest');
+  assert.equal(view(room).me.scene.key, 'career');
+  assert.equal(view(room).me.scene.canReturnToEducation, true);
+  let html = roomView({ role: 'player' }, view(room), { pane: 'play', rank: 'money' });
+  assert.match(html, /data-id="return-education"/);
+  assert.match(html, /진학 선택으로 돌아가기/);
+
+  choose(room, 'return-education');
+  assert.equal(view(room).me.scene.key, 'education');
+  assert.equal(player.life.age, 19);
+  assert.equal(player.life.history.length, before);
+  assert.deepEqual(player.bonuses, []);
+  assert.equal(player.life.stats.money, money);
+  assert.equal(player.life.stats.learning, learning);
+  assert.equal(player.latest, null);
+
+  choose(room, 'study-university');
+  assert.equal(player.life.path.program.kind, 'university');
+  assert.equal(player.life.age, 19);
+  assert.equal(view(room).me.scene.key === 'career', false);
+  html = roomView({ role: 'player' }, view(room), { pane: 'play', rank: 'money' });
+  assert.doesNotMatch(html, /data-id="return-education"/);
+});
+
+test('직업 선택을 거치며 이전 보너스 기록은 그대로 두고 진학 건너뛰기만 철회한다', () => {
+  const { room, player } = roomFor({ age: 26, sex: 'female' });
+  player.life.path.partner = 24;
+  player.life.path.romance = { name: '민수', career: 'staff', metAge: 24, affection: 60 };
+  if (view(room).me.scene.key === 'dating') choose(room, 'date-alone');
+  const before = player.life.history.length;
+  while (view(room).me.scene.key !== 'education') {
+    const scene = view(room).me.scene;
+    assert.ok(scene.bonus, scene.key);
+    choose(room, scene.fallback);
+  }
+  choose(room, 'rest');
+  assert.equal(view(room).me.scene.key, 'career');
+  choose(room, 'return-education');
+  assert.equal(view(room).me.scene.key, 'education');
+  assert.equal(player.life.history.length, before);
+});
+
+test('건너뛰지 않은 직업 선택에서는 진학 복귀를 허용하지 않는다', () => {
+  const { room, player } = roomFor({ age: 42, sex: 'female' });
+  assert.equal(view(room).me.scene.key, 'career');
+  assert.equal(view(room).me.scene.canReturnToEducation, false);
+  assert.doesNotMatch(roomView({ role: 'player' }, view(room), { pane: 'play', rank: 'money' }),
+    /data-id="return-education"/);
+  assert.throws(() => selectChoice(room, player.id,
+    { round: view(room).turn.number, scene: 'career', choice: 'return-education' }, 1000), /할 수 없어요/);
+});
