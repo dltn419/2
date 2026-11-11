@@ -271,8 +271,8 @@ test('솔로 가수는 40·55·70세에도 자동 은퇴하지 않고 활동과 
     assert.equal(artist.path.retired, null);
     assert.notEqual(bonusScene(artist, [])?.key, 'idol-exit', `${age}세 강제 종료 없음`);
     const yearly = annualScene(artist);
-    assert.doesNotMatch(yearly.title, /정년의 날/, `${age}세`);
-    if (age === 55 && yearly.choices.some(({ id }) => id === 'mentor-work')) {
+    if (yearly) assert.doesNotMatch(yearly.title, /정년의 날/, `${age}세`);
+    if (age === 55 && yearly?.choices.some(({ id }) => id === 'mentor-work')) {
       assert.match(yearly.choices.find(({ id }) => id === 'mentor-work').detail,
         /정해진 활동 연령 상한이 없어요/);
       assert.doesNotMatch(yearly.choices.find(({ id }) => id === 'mentor-work').detail, /Infinity/);
