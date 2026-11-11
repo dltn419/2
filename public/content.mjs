@@ -327,7 +327,7 @@ Object.assign(CAREER_PROMOTIONS, {
   rookieIdol: { from: 'idol', title: '신인 아이돌', wage: 4, minYears: 3,
     need: { art: 42, health: 38, bond: 12 }, growth: 'idolRookie', retireAt: 29, routeType: '성장' },
   soloArtist: { from: 'rookieIdol', title: '솔로 데뷔 가수', wage: 15, minYears: 3, growth: 'performance',
-    need: { art: 66, bond: 26 }, retireAt: 40, routeType: '전직' },
+    need: { art: 66, bond: 26 }, retireAt: Infinity, routeType: '전직' },
   popularIdol: { from: 'rookieIdol', title: '인기 아이돌', wage: 12, minYears: 3, growth: 'performance',
     need: { art: 58, health: 40, bond: 18 }, retireAt: 34, routeType: '성장' },
   supportingActor: { from: 'actor', title: '활동 배우', wage: 6, minYears: 5, need: {"art":55,"bond":45}, routeType: '성장' },
