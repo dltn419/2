@@ -59,7 +59,7 @@ test('오디션 합격 시 공연예술학교 진학·연습생 수입 0코인·
   assert.equal(wage.effect.money, 0);
   assert.deepEqual(yearlySources(student).find((item) => item.id === 'idol-practice').effect,
     { art: 2, health: -1, bond: 0 });
-  assert.equal(school.choices.length, 3);
+  assert.equal(school.choices.length, 4); // 13세 학교 활동과 운동부 선택지가 공존
 });
 
 test('연봉이 0이어도 실제 연습생 경력이 쌓이고 3년 뒤 데뷔 심사가 열린다', () => {
@@ -70,10 +70,12 @@ test('연봉이 0이어도 실제 연습생 경력이 쌓이고 3년 뒤 데뷔 
   player.life.stats.art = 30;
   player.life.stats.bond = 60;
   teacherAction(room, 'start', {}, 1000);
-  for (let i = 0; i < 4; i++) {
+  let step = 0;
+  while (player.life.age < 16 && step++ < 12) {
     const scene = stateFor(room, 'student').me.scene;
-    const id = i === 0 ? 'idol-audition' : scene.choices[0].id;
-    selectChoice(room, 'student', { round: stateFor(room, 'student').turn.number, scene: scene.key, choice: id }, 1000);
+    const id = step === 1 ? 'idol-audition' : scene.choices[0].id;
+    selectChoice(room, 'student', { round: stateFor(room, 'student').turn.number,
+      scene: scene.key, choice: id }, 1000);
   }
   assert.equal(player.life.career, 'idol');
   assert.equal(player.life.age, 16);
