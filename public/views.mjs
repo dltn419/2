@@ -456,7 +456,7 @@ function choiceSection(key, title, options, me, bonus, note = '') {
   </details>`;
 }
 
-// 시작 직업 60개와 조건 부족 직업을 분야별 접이식 목록으로 탐색합니다.
+// 시작 직업과 조건 부족 직업을 분야별 접이식 목록으로 탐색합니다.
 function careerCategoryList(key, title, options, me, bonus) {
   if (!options.length) return '';
   return `<details class="choice-section career-category-list" data-choice-section="${key}">
