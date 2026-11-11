@@ -61,13 +61,27 @@ export function changes(effect = {}) {
   }).join('') + (effect.affection ? `<span class="delta rose${effect.affection < 0 ? ' minus' : ''}">애정 ${deltaText(effect.affection)}</span>` : '');
 }
 
+const statMeter = (value, maximum) => {
+  const amount = Number.isFinite(value) ? Math.max(0, value) : 0;
+  const fill = Math.min(100, Math.round(amount / maximum * 100));
+  return `<span class="stat-meter" aria-hidden="true"><span class="stat-meter-fill" style="width:${fill}%"></span></span>`;
+};
+
 export function statGrid(stats, romance = null) {
-  return `<div class="stat-grid">${Object.entries(STATS).map(([key, item]) => `<div class="stat-tile ${item.color}" data-stat="${key}">
-    <span class="stat-label">${icon(item.mark)} ${item.label}</span>
-    <strong>${numeral(stats[key])} <small>${item.unit ?? '점'}</small></strong>
-  </div>`).join('')}
+  return `<div class="stat-grid">${Object.entries(STATS).map(([key, item]) => {
+    const value = stats[key] ?? 0;
+    const maximum = key === 'money' ? 200 : 100;
+    return `<div class="stat-tile ${item.color}" data-stat="${key}">
+      <span class="stat-label">${icon(item.mark)} ${item.label}</span>
+      <strong>${numeral(value)} <small>${item.unit ?? '점'}</small></strong>
+      ${statMeter(value, maximum)}
+    </div>`;
+  }).join('')}
   ${romance ? `<div class="stat-tile rose affection-tile" data-stat="affection">
     <span class="stat-label">${icon('heart')} 애정</span>
     <strong>${numeral(romance.affection ?? 55)} <small>/ 100</small></strong>
-  </div>` : ''}</div>`;
+    ${statMeter(romance.affection ?? 55, 100)}
+  </div>` : ''}
+  <small class="stat-meter-caption">막대 기준: 능력치 100점 · 자금 200코인 (초과 수치는 숫자로 확인)</small>
+  </div>`;
 }
