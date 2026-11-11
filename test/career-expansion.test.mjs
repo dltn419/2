@@ -238,7 +238,8 @@ test('진학 건너뛰기 후 직업 선택에서 같은 나이의 학교 선택
   assert.match(html, /data-id="return-education"/);
   assert.match(html, /진학 선택으로 돌아가기/);
 
-  choose(room, 'return-education');
+  selectChoice(room, 'student', { round: view(room).turn.number,
+    scene: view(room).me.scene.key, choice: 'return-education' }, 1000);
   assert.equal(view(room).me.scene.key, 'education');
   assert.equal(player.life.age, 19);
   assert.equal(player.life.history.length, before);
@@ -268,7 +269,8 @@ test('직업 선택을 거치며 이전 보너스 기록은 그대로 두고 진
   }
   choose(room, 'rest');
   assert.equal(view(room).me.scene.key, 'career');
-  choose(room, 'return-education');
+  selectChoice(room, 'student', { round: view(room).turn.number,
+    scene: view(room).me.scene.key, choice: 'return-education' }, 1000);
   assert.equal(view(room).me.scene.key, 'education');
   assert.equal(player.life.history.length, before);
 });
@@ -280,5 +282,5 @@ test('건너뛰지 않은 직업 선택에서는 진학 복귀를 허용하지 �
   assert.doesNotMatch(roomView({ role: 'player' }, view(room), { pane: 'play', rank: 'money' }),
     /data-id="return-education"/);
   assert.throws(() => selectChoice(room, player.id,
-    { round: view(room).turn.number, scene: 'career', choice: 'return-education' }, 1000), /할 수 없어요/);
+    { round: view(room).turn.number, scene: 'career', choice: 'return-education' }, 1000), /돌아갈 수 없어요/);
 });
