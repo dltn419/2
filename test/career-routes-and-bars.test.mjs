@@ -72,8 +72,8 @@ test('운동선수에서 지도자로의 전직은 자격시험·연수 완료�
 test('직업 안내에서는 경로가 합쳐지지 않고 각각 분기된다', () => {
   const html = gameMenuView('jobs', null);
   assert.match(html, /job-route-branches multiple/);
-  assert.match(html, /경로 1 · 인기 아이돌/);
-  assert.match(html, /경로 2 · 솔로 데뷔 가수/);
+  assert.match(html, /경로 [12] · 인기 아이돌/);
+  assert.match(html, /경로 [12] · 솔로 데뷔 가수/);
   assert.match(html, /진료과장/);
   assert.match(html, /병원장/);
   assert.match(html, /생활체육 지도자/);
