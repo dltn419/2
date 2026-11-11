@@ -26,7 +26,7 @@ function staticResponse(pathname, method, response) {
 }
 
 export function makeServer({ dataDir = process.env.DATA_DIR || './data', hostPin = process.env.HOST_PIN || '', clock = Date.now, store: suppliedStore } = {}) {
-  const store = suppliedStore ?? fileRooms(dataDir, clock);
+  const store = suppliedStore ?? fileRooms(dataDir, clock, process.env.RAILWAY_DEPLOYMENT_ID || null);
   const active = new Map();
   const api = makeGameApi({ store, hostPin, clock, onActivity: (code, now) => active.set(code, now) });
 
