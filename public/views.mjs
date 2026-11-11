@@ -563,6 +563,7 @@ function playerView(session, state, rank) {
     body = `${roundMeta(state)}
       ${scene.bonus ? '<p class="extra-label">추가 선택 · 나이 그대로</p>' : ''}
       <h2 tabindex="-1">${h(scene.title)}</h2><p class="subtle scene-detail">${h(scene.detail)}</p>
+      ${scene.canReturnToEducation ? `<div class="career-return">${button('choose', '진학 선택으로 돌아가기', 'book', 'secondary', 'data-id="return-education"')}</div>` : ''}
       ${scene.healthWarning ? `<p class="health-warning">${icon('heart')} 큰 병을 치료 중이에요. 올해는 체력을 아껴요.</p>` : ''}
       ${me.mode === 'fork' && me.life.end ? `<p class="fork-note">${icon('book')} ${h(me.life.end.note)}</p>` : ''}
       ${yearlyView(scene)}
