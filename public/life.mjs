@@ -1073,7 +1073,8 @@ export function bonusScene(life, done) {
         'nursing-teaching', false, '병원 간호 분야에 집중하기로 했어요.'),
     ]), key: 'nursing-teaching', fallback: 'rest' };
   }
-  if ([10, 14, 17].includes(age) && !path.dreams.some((entry) => entry.age === age)) {
+  if ([10, 14, 17].includes(age) && !isIdolCareer(life.career) &&
+    !path.dreams.some((entry) => entry.age === age)) {
     return { ...dreamSurvey(life), key: 'dream', fallback: 'rest' };
   }
   if (age === 16 && !path.school) return { ...highSchool(life), key: 'school', fallback: 'high-general' };
