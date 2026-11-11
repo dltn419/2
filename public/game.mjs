@@ -176,8 +176,20 @@ function choicesFor(room, player) {
     choices = [keep, ...jobs];
   }
   return {
-    ...entry, bonus: Boolean(extra), base, yearly, healthWarning: !extra && illnessDeathRisk(life) > 0, choices,
+    ...entry, bonus: Boolean(extra), base, yearly, healthWarning: !extra && illnessDeathRisk(life) > 0,
+    canReturnToEducation: canReturnToEducation(player, entry, turnFor(room, player)?.to), choices,
   };
+}
+
+// '진학을 건너뛰고 일자리 살펴보기'만 철회할 수 있습니다.
+// 기록/수치가 바뀐 다른 보너스 선택까지 되돌리는 일반 실행 취소는 허용하지 않습니다.
+function canReturnToEducation(player, entry, year) {
+  const last = player.life.history.at(-1);
+  return entry.key === 'career' && player.bonuses.at(-1) === 'education' &&
+    last?.type === 'bonus' && last.year === year &&
+    last.decisionAge === player.life.age &&
+    ['일자리 살펴보기', '지금 생활 이어가기'].includes(last.title) &&
+    Object.values(last.changes ?? {}).every((value) => value === 0);
 }
 
 function findChoice(entry, choice) {
@@ -466,6 +478,14 @@ export function selectChoice(room, playerId, { round, scene, choice }, now) {
   const entry = choicesFor(room, player);
   if (scene !== entry.key && (scene !== undefined || entry.bonus || player.bonuses.length)) {
     throw new GameError('새 선택이 열렸어요. 화면을 다시 확인해 주세요.');
+  }
+  // 같은 나이의 진학 화면으로 돌아갈 때는 기록 없이 이전의 '건너뛰기'만 철회합니다.
+  if (choice === 'return-education') {
+    if (!entry.canReturnToEducation) throw new GameError('지금은 진학 선택으로 돌아갈 수 없어요.');
+    player.bonuses.pop();
+    player.life.history.pop();
+    player.latest = player.life.history.at(-1) ?? null;
+    return true;
   }
   const personal = room.settings.pace === 'personal';
   const option = !personal && choice === PASS.id && player.mode !== 'alive'
