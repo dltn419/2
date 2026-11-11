@@ -26,6 +26,12 @@ export function topView(session, state) {
 
 
 function jobRequirementList(id, job, life) {
+  if (id === 'idol') return [
+    '12세 초등 졸업 오디션: 예술 28점 이상',
+    '15세 중등 졸업 오디션: 예술 36점 이상',
+    '18세 고등 졸업 오디션: 예술 45점 이상',
+    '연습생 연봉 0코인 · 공연예술학교에서 수업과 훈련 병행',
+  ];
   const need = Object.entries(job.need ?? {}).map(([stat, minimum]) => {
     const threshold = life && !job.promotionFrom ? Math.max(1, minimum - chanceDiscount(life, id, stat)) : minimum;
     return `${STATS[stat].label} ${threshold}${STATS[stat].unit ?? '점'}`;
