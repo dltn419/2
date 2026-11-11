@@ -39,6 +39,22 @@ const COMMUNITY_HEALTH = 40;
 const CAREER_BY_TITLE = new Map(Object.entries(CAREERS).map(([id, job]) => [job.title, id]));
 // 저장된 이전 버전의 학급 연대기에 있는 명칭도 같은 교사 직업으로 복구합니다.
 CAREER_BY_TITLE.set('초등교사', 'teacher');
+// 이전 버전에서 사용한 직업명은 저장된 연대기·경력 복구 시 그대로 인식합니다.
+for (const [oldTitle, id] of Object.entries({
+  '창작자': 'studio',
+  '현장 기술자': 'tech',
+  '연구원': 'lab',
+  '운동 지도자': 'coach',
+  '운동팀 감독': 'headCoach',
+  '스포츠 총감독': 'chiefSportsDirector',
+  '부동산 중개사': 'realtor',
+  '가수': 'singer',
+  '배우': 'actor',
+  '조연 배우': 'supportingActor',
+  '주연 배우': 'leadActor',
+  '정식 데뷔 가수': 'debutSinger',
+  '솔로 아티스트': 'soloArtist',
+})) CAREER_BY_TITLE.set(oldTitle, id);
 
 const PROGRAMS = {
   college: { label: '전문대', years: 2, familyCopay: 1 },
