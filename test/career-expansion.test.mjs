@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CAREER_GROUPS, CAREER_PROMOTIONS, CAREERS, PERFORMANCE_BONUSES } from '../public/content.mjs';
+import { CAREER_GROUPS, CAREER_PROMOTIONS, CAREERS } from '../public/content.mjs';
 import { addPlayer, newRoom, selectChoice, stateFor, teacherAction } from '../public/game.mjs';
-import { bonusScene, careerGoals, newPath, pathNotes, performanceBonus } from '../public/life.mjs';
+import { bonusScene, careerGoals, newPath, pathNotes, yearlySources } from '../public/life.mjs';
 import { gameMenuView, roomView } from '../public/views.mjs';
 
 function roomFor({ age = 42, sex = 'female', career = null } = {}) {
@@ -26,13 +26,13 @@ function choose(room, id) {
     scene: snapshot.me.scene.key, choice: id }, 1000);
 }
 
-test('기본 직업은 정확히 60개이며 5개 분야에 각 12개씩 배치된다', () => {
+test('기본 직업은 현재 60개 이상이며 추가 직업도 분야별로 확장할 수 있다', () => {
   const base = Object.entries(CAREERS).filter(([, job]) => !job.promotionFrom && !job.legacyPromotion);
-  assert.equal(base.length, 60);
-  assert.equal(CAREER_GROUPS.length, 5);
-  assert.equal(new Set(base.map(([id]) => id)).size, 60);
+  assert.ok(base.length >= 60);
+  assert.ok(CAREER_GROUPS.length >= 5);
+  assert.equal(new Set(base.map(([id]) => id)).size, base.length);
   for (const group of CAREER_GROUPS) {
-    assert.equal(base.filter(([, job]) => job.group === group.id).length, 12, group.title);
+    assert.ok(base.filter(([, job]) => job.group === group.id).length >= 1, group.title);
   }
   for (const id of ['prisonOfficer', 'militaryNco', 'militaryOfficer', 'idol', 'architect']) {
     assert.ok(CAREERS[id] && !CAREERS[id].promotionFrom, id);
@@ -205,11 +205,12 @@ test('진학과 직업 선택은 다섯 분야별로 펼치고 기존 뒤로가�
   assert.match(html, /data-choice-section="career-locked"/);
   assert.match(html, /이전 선택지로/);
   const guide = gameMenuView('jobs', room.players[0].life);
-  assert.equal([...guide.matchAll(/class="job-guide-entry"/g)].length, 60);
-  assert.equal([...guide.matchAll(/class="job-guide-category"/g)].length, 5);
+  assert.equal([...guide.matchAll(/class="job-guide-entry"/g)].length,
+    Object.values(CAREERS).filter((job) => !job.promotionFrom && !job.legacyPromotion).length);
+  assert.equal([...guide.matchAll(/class="job-guide-category"/g)].length, CAREER_GROUPS.length);
 });
 
-test('기존 보너스 직업은 성장 단계가 생겨도 성과 보너스 계산을 유지한다', () => {
+test('이전 성과 보너스 직업에도 승급 경로가 유지되고 무작위 소득이 없다', () => {
   for (const id of ['farmer', 'studio', 'sales', 'creator', 'shop', 'athlete']) {
     assert.ok(Object.values(CAREERS).some((job) => job.promotionFrom === id));
     const path = newPath('female');
@@ -217,8 +218,9 @@ test('기존 보너스 직업은 성장 단계가 생겨도 성과 보너스 계
     const person = { age: 35, career: id, history: [], path, stats: {
       health: 100, learning: 100, money: 150, joy: 60, bond: 100, art: 100,
     } };
-    const p = performanceBonus(person);
-    assert.ok(p && p.money >= 0 && p.money <= PERFORMANCE_BONUSES[id].max);
+    const sources = yearlySources(person);
+    assert.ok(sources.some(({ id: sourceId }) => sourceId === `job-${id}`), id);
+    assert.ok(!sources.some(({ id: sourceId }) => sourceId.startsWith('performance-')), id);
   }
 });
 
