@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CAREERS } from '../public/content.mjs';
 import { addPlayer, newRoom, selectChoice, stateFor, teacherAction } from '../public/game.mjs';
+import { gameMenuView } from '../public/views.mjs';
 import { IDOL_GRADUATION_ART_MAX, IDOL_GRADUATION_ART_MIN, SCHOOLS,
   annualScene, applyPath, bonusScene, careerPay, newPath, retirementAge,
   settleIdolCareer, yearlySources } from '../public/life.mjs';
@@ -157,4 +158,13 @@ test('연습생·신인·인기·솔로 활동은 서로 다른 나이 제한을
   const popular = newStudent(32, 90);
   popular.career = 'popularIdol';
   assert.equal(bonusScene(popular, []).key, 'idol-exit');
+});
+
+test('직업 안내에도 졸업 나이별 오디션 기준과 0코인 수입이 보인다', () => {
+  const html = gameMenuView('jobs', null);
+  assert.match(html, /12세 초등 졸업 오디션: 예술 28점 이상/);
+  assert.match(html, /15세 중등 졸업 오디션: 예술 36점 이상/);
+  assert.match(html, /18세 고등 졸업 오디션: 예술 45점 이상/);
+  assert.match(html, /연습생 연봉 0코인/);
+  assert.match(html, /솔로 데뷔 가수/);
 });
