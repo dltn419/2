@@ -163,7 +163,7 @@ test('연습생·신인·인기·솔로 활동은 서로 다른 나이 제한을
   assert.equal(retirementAge('idol'), 24);
   assert.equal(retirementAge('rookieIdol'), 29);
   assert.equal(retirementAge('popularIdol'), 34);
-  assert.equal(retirementAge('soloArtist'), 40);
+  assert.equal(retirementAge('soloArtist'), Infinity);
   assert.equal(CAREERS.idol.wage, 0);
   assert.ok(CAREERS.popularIdol.wage > CAREERS.rookieIdol.wage * 2);
   assert.ok(CAREERS.soloArtist.wage > CAREERS.popularIdol.wage);
@@ -257,4 +257,29 @@ test('신인 급여는 급상승하지 않고 인기/솔로 활동은 경력 보
   const popularPay = careerPay(popular);
   assert.equal(popularPay.track, '성과 성장');
   assert.ok(popularPay.total > popularPay.base);
+});
+
+test('솔로 가수는 40·55·70세에도 자동 은퇴하지 않고 활동과 연봉을 유지한다', () => {
+  for (const age of [40, 55, 70]) {
+    const artist = newStudent(age, 85);
+    artist.career = 'soloArtist';
+    artist.path.idolDebutAge = 19;
+    artist.path.workYears.soloArtist = age - 26;
+    artist.path.workYears.rookieIdol = 3;
+    const pay = careerPay(artist);
+    assert.ok(pay.total >= CAREERS.soloArtist.wage, `${age}세 연봉`);
+    assert.equal(artist.path.retired, null);
+    assert.notEqual(bonusScene(artist, [])?.key, 'idol-exit', `${age}세 강제 종료 없음`);
+    const yearly = annualScene(artist);
+    assert.doesNotMatch(yearly.title, /정년의 날/, `${age}세`);
+    if (age === 55 && yearly.choices.some(({ id }) => id === 'mentor-work')) {
+      assert.match(yearly.choices.find(({ id }) => id === 'mentor-work').detail,
+        /정해진 활동 연령 상한이 없어요/);
+      assert.doesNotMatch(yearly.choices.find(({ id }) => id === 'mentor-work').detail, /Infinity/);
+    }
+  }
+  const guide = gameMenuView('jobs', null);
+  const start = guide.indexOf('솔로 데뷔 가수');
+  assert.ok(start >= 0);
+  assert.match(guide, /연령 제한 없음/);
 });
