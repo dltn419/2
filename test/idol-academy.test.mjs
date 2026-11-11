@@ -180,3 +180,81 @@ test('직업 안내에도 졸업 나이별 오디션 기준과 0코인 수입이
   assert.match(html, /연습생 연봉 0코인/);
   assert.match(html, /솔로 데뷔 가수/);
 });
+
+test('연습생과 신인은 예술 훈련만으로도 관계 요구치에 근접할 수 있다', () => {
+  const debutBond = 10 + 3 * 1; // 초기 관계 10, 무급 연습생 3년 매년 관계 +1
+  const popularBond = debutBond + 3 * 2; // 신인 그룹 3년 매년 관계 +2
+  const debutArt = 30 + 1 + 3 * (2 + 4); // 초등 졸업 후 오디션과 학교 예술 수업
+  const popularArt = debutArt + 3 * 3; // 데뷔 후 신인 그룹 훈련 효과만
+  assert.ok(debutBond >= CAREERS.rookieIdol.need.bond);
+  assert.ok(debutArt >= CAREERS.rookieIdol.need.art);
+  assert.ok(popularBond >= CAREERS.popularIdol.need.bond);
+  assert.ok(popularArt >= CAREERS.popularIdol.need.art);
+  assert.ok(CAREERS.soloArtist.need.bond > CAREERS.popularIdol.need.bond);
+});
+
+test('아이돌 활동 중 일반 직업·진학 이벤트가 전용 승급 이벤트와 겹치지 않는다', () => {
+  const student = newStudent(19, 75);
+  student.path.idolSchool = true;
+  student.path.school = 'idolArts';
+  student.path.idolDebutAge = 16;
+  student.path.firstJobAge = 16;
+  student.path.savings = { annual: 0, balance: 0, interestRate: 0.04 };
+  student.career = 'rookieIdol';
+  student.path.workYears.rookieIdol = 1;
+  assert.equal(bonusScene(student, []), null);
+  student.path.workYears.rookieIdol = 3;
+  assert.equal(bonusScene(student, []).key, 'idol-breakthrough');
+  assert.equal(bonusScene(student, ['idol-breakthrough']), null);
+});
+
+test('12세 무급 입사·16세 유급 데뷔여도 19세에 적금 안내가 반드시 열린다', () => {
+  const student = newStudent(19, 75);
+  student.career = 'rookieIdol';
+  student.path.idolJoinedAt = 12;
+  student.path.idolDebutAge = 16;
+  student.path.firstJobAge = 12; // 이전 버전 저장 데이터와 같은 상태
+  student.path.workYears.rookieIdol = 1;
+  const offer = bonusScene(student, []);
+  assert.equal(offer.key, 'saving');
+  assert.match(offer.title, /노후 적금/);
+  assert.ok(offer.choices.some(({ id }) => id === 'save-2'));
+  applyPath(student, 19, offer.choices.find(({ id }) => id === 'save-2'));
+  assert.equal(student.path.savings.annual, 2);
+  assert.notEqual(bonusScene(student, [])?.key, 'saving');
+});
+
+test('기획사 재계약이 불발되어도 실직/은퇴를 즉시 적용하지 않고 다음 선택을 제공한다', () => {
+  const student = newStudent(23, 81);
+  student.career = 'rookieIdol';
+  student.path.idolSchool = true;
+  student.path.school = 'idolArts';
+  student.path.workYears.rookieIdol = 4;
+  assert.match(settleIdolCareer(student, 0), /작별 무대/);
+  assert.equal(student.career, 'rookieIdol');
+  assert.equal(student.path.retired, null);
+  const farewell = bonusScene(student, []);
+  assert.equal(farewell.key, 'idol-exit');
+  assert.match(farewell.detail, /인생 전체의 은퇴가 아니에요/);
+  assert.match(farewell.detail, /노후 적금/);
+  applyPath(student, student.age, farewell.choices[1]);
+  assert.equal(student.career, null);
+  assert.equal(student.path.retired, null);
+  assert.equal(bonusScene(student, []).key, 'education');
+  assert.equal(bonusScene(student, ['education']).key, 'career');
+});
+
+test('신인 급여는 급상승하지 않고 인기/솔로 활동은 경력 보상을 받는다', () => {
+  const rookie = newStudent(22, 78);
+  rookie.career = 'rookieIdol';
+  rookie.path.workYears.rookieIdol = 4;
+  const rookiePay = careerPay(rookie);
+  assert.equal(rookiePay.experience, 0);
+  const popular = newStudent(26, 90);
+  popular.career = 'popularIdol';
+  popular.path.workYears.rookieIdol = 3;
+  popular.path.workYears.popularIdol = 5;
+  const popularPay = careerPay(popular);
+  assert.equal(popularPay.track, '성과 성장');
+  assert.ok(popularPay.total > popularPay.base);
+});
