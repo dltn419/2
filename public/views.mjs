@@ -138,7 +138,7 @@ function jobGuide(life) {
             <p class="job-guide-full-req"><strong>지원 조건</strong> ${h(requirementText)}</p>
             <div class="job-guide-details-meta">
               <span><b>연봉 성장</b> ${h(growthLine)}</span>
-              <span><b>정년</b> ${retirementAge(id)}세</span>
+              <span><b>활동 기간</b> ${Number.isFinite(retirementAge(id)) ? `${retirementAge(id)}세까지` : '연령 제한 없음'}</span>
               <span><b>체력 소모</b> ${job.fatigue ? `매년 -${job.fatigue}점` : '기본 소모 없음'}</span>
             </div>
             ${performance ? `<div class="job-performance-info"><strong>성과 수입: 매년 0~${performance.max}코인</strong>
