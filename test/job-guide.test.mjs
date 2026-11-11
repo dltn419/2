@@ -61,16 +61,17 @@ test('성과형 직업은 성과 수입과 경력 성장 경로를 함께 보여
   }
 });
 
-test('운동선수는 성과형이지만 운동 지도자·감독 전직 경로는 보인다', () => {
+test('운동선수는 성과형이며 생활체육 지도자로 자격 전직할 수 있다', () => {
   const html = guide();
   const start = html.indexOf('class="job-guide-title">운동선수');
   const part = html.slice(start, html.indexOf('</details>', start));
   assert.ok(start >= 0);
   assert.match(part, /대회 성적 상금/);
-  assert.match(part, /운동 지도자/);
+  assert.match(part, /생활체육 지도자/);
   assert.match(part, /운동선수 경력 3년 이상/);
-  assert.match(part, /운동팀 감독/);
-  assert.match(part, /운동 지도자 경력 6년 이상/);
+  assert.match(part, /생활체육팀장/);
+  assert.match(part, /생활체육 지도자 경력 6년 이상/);
+  assert.match(part, /스포츠지도사 자격시험·연수 완료/);
 });
 
 test('직업명과 필요 조건만 보여주는 기본 목록에서 옛 승진직은 숨긴다', () => {
