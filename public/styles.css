@@ -332,6 +332,9 @@ body:has(.playing-room) .footer { display: none; }
   border: 1px solid #d4ddc9; border-radius: 4px; background: #fffdf5; color: var(--pine);
   font-size: 13px; font-weight: 800; text-align: left; }
 .choice-back:hover { background: #edf4e3; border-color: #a9c39d; }
+.career-return { margin: 9px 0 12px; }
+.career-return .button { min-height: 40px; border-color: #adc5b6; background: #f2f7f2; color: #285e48; box-shadow: none; }
+.career-return .button:hover:not(:disabled) { background: #e5f0e7; }
 .choice-back:focus-visible { outline: 3px solid #43846c; outline-offset: 2px; }
 .health-warning { display: flex; align-items: center; gap: 6px; margin: 0 0 9px; padding: 7px 9px; border: 1px solid #e5c6b0; border-radius: 4px; background: #fbefe3; color: #79432f; font-size: 13px; word-break: keep-all; }
 .requirement, .delta { display: inline-block; width: fit-content; padding: 2px 5px; border: 1px solid var(--tone-line, #ddd6c7); border-radius: 3px; background: var(--tone, #f2ecdf); color: var(--tone-ink, #625a49); font-size: 12px; font-weight: 750; }
