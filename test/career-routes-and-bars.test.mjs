@@ -128,7 +128,8 @@ test('전공이나 면허 없는 상태에서는 약사·치과의사 등으로 
   choose(room, 'rest');
   const jobs = screen(room).me.scene.choices;
   for (const id of ['pharmacist','dentist','physicalTherapist','tax','realtor','coach']) {
-    assert.ok(jobs.find((c) => c.id === `work-${id}`)?.locked, id);
+    const job = jobs.find((c) => c.id === `work-${id}`);
+    assert.ok(!job || job.locked, id); // Some specialist roles are hidden until interests/credentials fit
   }
 });
 
