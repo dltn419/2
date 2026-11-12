@@ -2,7 +2,8 @@ import { CAREER_CREDENTIALS, CAREER_GROWTH, CAREERS, HABITS, STATS, pick } from 
 import { finishCare, illnessCare } from './health.mjs';
 
 export const SEXES = { male: '남자', female: '여자' };
-export const SCHOOLS = { general: '일반고', science: '과학고', gifted: '영재학교', vocational: '직업계고', arts: '예술고', outside: '학교 밖 진로' };
+export const SCHOOLS = { general: '일반고', science: '과학고', gifted: '영재학교', vocational: '직업계고',
+  arts: '예술고', idolArts: '공연예술학교(연습생 과정)', outside: '학교 밖 진로' };
 export const DREAMS = {
   science: { label: '과학과 연구', title: '궁금한 것을 알아봐요.', mark: 'book' },
   biology: { label: '생명과학', title: '동물, 식물, 우리 몸을 연구해요.', mark: 'leaf' },
@@ -34,11 +35,31 @@ export const DREAM_OPTIONS = {
   explore: { label: '아직 모르겠어요', title: '다양한 일을 알아보고 나중에 정해요.', mark: 'leaf', fields: [] },
 };
 
+// 각 졸업 연도 선택 직전의 예술 최고치: 초기 7점에서 0~11, 0~14, 0~17세의
+// 일반적인 연간 선택지만 모두 예술 최대로 고른 결과입니다 (무작위 사건 제외).
+export const IDOL_GRADUATION_ART_MAX = Object.freeze({ 12: 30, 15: 38, 18: 47 });
+export const IDOL_GRADUATION_ART_MIN = Object.freeze({ 12: 28, 15: 36, 18: 45 });
 const SERVICE_LIMIT = 28;
 const COMMUNITY_HEALTH = 40;
 const CAREER_BY_TITLE = new Map(Object.entries(CAREERS).map(([id, job]) => [job.title, id]));
 // 저장된 이전 버전의 학급 연대기에 있는 명칭도 같은 교사 직업으로 복구합니다.
 CAREER_BY_TITLE.set('초등교사', 'teacher');
+// 이전 버전에서 사용한 직업명은 저장된 연대기·경력 복구 시 그대로 인식합니다.
+for (const [oldTitle, id] of Object.entries({
+  '창작자': 'studio',
+  '현장 기술자': 'tech',
+  '연구원': 'lab',
+  '운동 지도자': 'coach',
+  '운동팀 감독': 'headCoach',
+  '스포츠 총감독': 'chiefSportsDirector',
+  '부동산 중개사': 'realtor',
+  '가수': 'singer',
+  '배우': 'actor',
+  '조연 배우': 'supportingActor',
+  '주연 배우': 'leadActor',
+  '정식 데뷔 가수': 'debutSinger',
+  '솔로 아티스트': 'soloArtist',
+})) CAREER_BY_TITLE.set(oldTitle, id);
 
 const PROGRAMS = {
   college: { label: '전문대', years: 2, familyCopay: 1 },
@@ -46,7 +67,12 @@ const PROGRAMS = {
   graduate: { label: '대학원', years: 2, cost: 9 },
   medicine: { label: '의대', years: 6, familyCopay: 4 },
   nursing: { label: '간호학과', years: 4, familyCopay: 2 },
+  pharmacy: { label: '약학과', years: 6, familyCopay: 4 },
+  dentistry: { label: '치의학과', years: 6, familyCopay: 4 },
+  physicalTherapy: { label: '물리치료학과', years: 4, familyCopay: 2 },
   teaching: { label: '교육대', years: 4, familyCopay: 3 },
+  academy: { label: '육군사관학교', years: 4, familyCopay: 0 },
+  academy3: { label: '육군3사관학교', years: 2, familyCopay: 0 },
   training: { label: '직업훈련', years: 1, cost: 3 },
   caregiving: { label: '돌봄 교육', years: 1, cost: 4 },
 };
@@ -54,6 +80,15 @@ const PROGRAMS = {
 const LICENSES = {
   medicine: { title: '의사', choice: 'doctor-license', record: 'licenseAge', learning: 92 },
   nursing: { title: '간호사', choice: 'nurse-license', record: 'nursingLicenseAge', learning: 53 },
+  pharmacy: { title: '약사', choice: 'pharmacist-license', record: 'pharmacyLicenseAge', learning: 87 },
+  dentistry: { title: '치과의사', choice: 'dentist-license', record: 'dentistLicenseAge', learning: 94 },
+  physicalTherapy: { title: '물리치료사', choice: 'physical-therapist-license', record: 'physicalTherapyLicenseAge', learning: 55 },
+};
+
+const QUALIFICATION_EXAMS = {
+  realtor: { title: '공인중개사', record: 'realtorCertificationAge', need: { learning: 45, bond: 35 } },
+  taxation: { title: '세무사', record: 'taxCertificationAge', need: { learning: 85 } },
+  sportsCoach: { title: '스포츠지도사', record: 'sportsCoachCertificationAge', need: { health: 48, learning: 35, bond: 25 } },
 };
 
 const PARTNER_NAMES = {
@@ -68,11 +103,14 @@ const RETIREMENT_YEARS = 10;
 const SAVINGS_RATE = 0.04;
 const LUMP_TAX = 0.25;
 const PENSION_TAX = 0.05;
+const IDOL_CAREERS = ['idol','rookieIdol','popularIdol','soloArtist'];
+const isIdolCareer = (career) => IDOL_CAREERS.includes(career);
 export const retirementAge = (career) => {
   const job = CAREERS[career];
   return job?.retireAt ?? (job?.promotionFrom ? retirementAge(job.promotionFrom) : 65);
 };
 export const careerGrowth = (career) => CAREER_GROWTH[CAREERS[career]?.growth ?? 'stable'];
+
 
 // 중·노년의 단발성 투자. 직업 연봉과 기존 노후 적금은 이 상품들에 영향받지 않습니다.
 // 동일한 캐릭터·투자 시기·상품이면 새로고침해도 결산 결과가 바뀌지 않습니다.
@@ -95,9 +133,13 @@ export function investmentPayout(investment, seed = 0) {
 export function newPath(sex = null) {
   return { sex, dreams: [], school: null, diploma: false, program: null, degree: null, training: false,
     service: null, partner: null, romance: null, romanceSeed: 0, married: null, children: [],
-    retired: null, savings: null, savingsReview: null, investments: [],
-    workYears: {}, home: null, illness: null, recoveredAt: null, habit: null,
-    nursingTeachingDecision: null };
+    retired: null, savings: null, savingsReview: null, investments: [], promotionOffers: [], workYears: {},
+    home: null, illness: null, recoveredAt: null, habit: null,
+    nursingTeachingDecision: null, militaryRoute: null, militaryTraining: null,
+    realtorCertificationAge: null, taxCertificationAge: null, sportsCoachCertificationAge: null,
+    pharmacyLicenseAge: null, dentistLicenseAge: null, physicalTherapyLicenseAge: null,
+    idolJoinedAt: null, idolDebutAge: null, idolExitAt: null, idolSchool: false,
+    idolExitPending: null };
 }
 
 const EMPTY_PATH = newPath();
@@ -270,6 +312,12 @@ const SCHOOL_YEARS = {
 function schoolYear(life, path) {
   const age = life.age;
   const entry = SCHOOL_YEARS[age];
+  // 공연예술학교는 일반 학교 선택지의 능력치 상승량을 그대로 사용합니다.
+  // 추가 훈련 효과는 yearlySources에서 별도로 계산합니다.
+  if (path.idolSchool && ['idol','rookieIdol','popularIdol','soloArtist'].includes(life.career)) {
+    return { ...entry, title: `공연예술학교 · ${entry.title}`,
+      detail: '학교 수업과 기획사 보컬·안무 훈련을 함께 이어가요. ' + entry.detail };
+  }
   if (age < 16) return entry;
   if (path.school === 'outside') {
     return scene(['학교 밖의 첫해', '나만의 공부 계획', '다음 길을 준비하는 해'][age - 16], '관심 있는 일을 찾아 하나씩 배워요.', [
@@ -301,6 +349,19 @@ function schoolYear(life, path) {
     ] };
   }
   return entry;
+}
+
+function idolAudition(life) {
+  const minimum = IDOL_GRADUATION_ART_MIN[life.age];
+  if (!minimum || life.career || life.stats.art < minimum || Number.isInteger(pathOf(life).idolJoinedAt)) return null;
+  const place = life.age === 12 ? '중등 예술교육 과정'
+    : life.age === 15 ? '공연예술고 과정' : '연예기획사 전문 교육 과정';
+  return option('idol-audition', '연예기획사 오디션 보기',
+    `예술 ${minimum}점 이상이면 지원 가능 · 합격하면 ${place}에서 노래와 안무를 전문적으로 배워요. 데뷔 전 수입 0코인.`,
+    'spark', { health: -1, art: 1 }, 'idol-trainee', life.age,
+    '오디션에 합격해 기획사 연습생이 되었어요.', {
+      narration: `연예기획사 오디션에 합격했어요. ${place}에 들어가 학교 수업과 연습생 생활을 시작했어요.`,
+    });
 }
 
 function dreamSurvey(life) {
@@ -351,7 +412,8 @@ function examChoice() {
 function universityChoice(kind, life, engineering = false) {
   const path = pathOf(life);
   const dream = mostRecentDream(path);
-  let field = { medicine: 'medical', nursing: 'medical', teaching: 'education', caregiving: 'people' }[kind]
+  let field = { medicine: 'medical', nursing: 'medical', pharmacy: 'medical', dentistry: 'medical',
+    physicalTherapy: 'medical', teaching: 'education', caregiving: 'people', academy: 'public', academy3: 'public' }[kind]
     ?? (engineering ? 'tech' : studyFieldFor(dream));
   if (kind === 'graduate') {
     const major = undergraduate(degreesOf(path))?.field;
@@ -359,13 +421,20 @@ function universityChoice(kind, life, engineering = false) {
   }
   const data = PROGRAMS[kind];
   const title = { university: engineering ? '이공계 대학 가기' : '4년제 대학 가기', nursing: '간호학과 가기',
+    pharmacy: '약학과 진학하기', dentistry: '치의학과 진학하기', physicalTherapy: '물리치료학과 진학하기',
+    academy: '육군사관학교 지원하기', academy3: '육군3사관학교 지원하기',
     training: '일할 기술 배우기', caregiving: '돌봄 교육과 시험 준비하기' }[kind] ?? `${data.label} 가기`;
   const scienceSchool = path.school === 'gifted' ? 6 : path.school === 'science' ? 3 : 0;
   const need = {
     university: { learning: engineering ? 33 - scienceSchool : field === 'explore' ? 22 : 19 },
     medicine: { learning: 63 - scienceSchool - (dreamIncludes(dream, 'medical') ? 4 : 0) },
     nursing: { learning: dreamIncludes(dream, 'medical') ? 33 : 38, bond: 20 },
+    pharmacy: { learning: dreamIncludes(dream, 'medical') ? 61 : 67 },
+    dentistry: { learning: dreamIncludes(dream, 'medical') ? 64 : 70 },
+    physicalTherapy: { learning: dreamIncludes(dream, 'medical') ? 36 : 43, bond: 20 },
     teaching: { learning: dreamIncludes(dream, 'education') ? 42 : 47, bond: 22 },
+    academy: { learning: 64, health: 55, bond: 30 },
+    academy3: { learning: 52, health: 55, bond: 30 },
   }[kind];
   const scholarship = kind === 'medicine' && life.stats.learning >= need.learning + 5;
   const familySupported = data.familyCopay !== undefined;
@@ -373,7 +442,13 @@ function universityChoice(kind, life, engineering = false) {
     ? Math.min(scholarship ? 2 : data.familyCopay, Math.max(0, life.stats.money - 1))
     : data.cost;
   const detail = kind === 'medicine' ? `6년을 배우고 의사 시험에 도전해요.${scholarship ? ' 장학금을 받아요.' : ''}`
-    : { nursing: '4년 동안 간호를 배우고 간호사 시험을 준비해요.', teaching: '4년 동안 아이들을 가르치는 법을 배워요.',
+    : { nursing: '4년 동안 간호를 배우고 간호사 시험을 준비해요.',
+      pharmacy: '6년 동안 약학을 공부하고 약사 국가시험을 준비해요.',
+      dentistry: '6년 동안 치의학을 배우고 치과의사 국가시험을 준비해요.',
+      physicalTherapy: '4년 동안 물리치료를 배우고 국가시험을 준비해요.',
+      teaching: '4년 동안 아이들을 가르치는 법을 배워요.',
+      academy: '4년간 생도교육과 군사훈련을 받고 졸업하면 소위로 임관해요.',
+      academy3: '전문대 졸업 뒤 2년간 생도교육을 받고 소위로 임관해요.',
       caregiving: '1년 동안 어르신을 돌보는 법을 배우고 시험을 봐요.' }[kind]
       ?? (field !== 'explore' && kind !== 'training' ? `${data.years}년 동안 ‘${fieldLabel(field)}’를 배워요.`
         : `${data.years}년 동안 새로 배우고 싶은 것을 공부해요.`);
@@ -384,14 +459,36 @@ function universityChoice(kind, life, engineering = false) {
     graduate: '대학원에 들어가 더 오래 붙들고 싶던 질문을 연구 노트에 적었어요.',
     medicine: '의대에 들어가 사람의 몸을 배우는 첫 수업을 들었어요.',
     nursing: '간호학과에 들어가 아픈 사람을 돌보는 법을 배우기 시작했어요.',
+    pharmacy: '약학과에 들어가 약의 성분과 안전한 조제를 배우기 시작했어요.',
+    dentistry: '치의학과에 들어가 치아와 구강을 치료하는 법을 배웠어요.',
+    physicalTherapy: '물리치료학과에서 재활과 신체 움직임을 배우기 시작했어요.',
     teaching: '교육대에 들어가 아이들에게 어떤 선생님이 될지 생각했어요.',
+    academy: '육군사관학교 선발에 합격해 생도 생활을 시작했어요.',
+    academy3: '육군3사관학교에 합격해 2년간 생도교육을 시작했어요.',
     training: '직업훈련을 시작하며 처음 쓸 도구를 하나씩 익혔어요.',
     caregiving: '돌봄 수업에 들어가 어르신의 하루를 돕는 법부터 배웠어요.',
   }[kind];
   return option(engineering ? 'study-engineering' : `study-${kind}`, title, detail,
     kind === 'training' ? 'settings' : field === 'medical' || kind === 'caregiving' ? 'heart' : 'book', cost ? { money: -cost } : {}, 'study', kind,
     field === 'explore' ? '처음 보는 시간표를 받아 들었어요.' : `시간표에서 ‘${fieldLabel(field)}’와 이어지는 수업을 찾았어요.`,
-    { studyField: field, need, narration, educationGroup: familySupported ? 'college' : 'further', ...(need ? { conditions: [] } : {}) });
+    { studyField: field, need, narration,
+      educationGroup: ['medicine', 'nursing', 'pharmacy', 'dentistry', 'physicalTherapy'].includes(kind)
+        ? 'medical' : familySupported ? 'college' : 'further',
+      ...(need ? { conditions: [] } : {}) });
+}
+
+function qualificationChoice(kind, life) {
+  const { title, need } = QUALIFICATION_EXAMS[kind];
+  const detail = kind === 'sportsCoach'
+    ? '필기·실기와 연수 과정을 마치고 생활체육을 지도할 자격을 얻어요.'
+    : kind === 'realtor'
+      ? '법과 거래 지식을 시험으로 확인해 중개사 자격을 얻어요.'
+      : '세무 지식을 평가하는 자격시험에 합격해요.';
+  return option(`qualify-${kind}`, `${title} 자격 도전하기`, detail,
+    kind === 'sportsCoach' ? 'flag' : 'book', { money: -2 },
+    'qualification', kind, `${title} 자격을 취득해 새로운 진로가 열렸어요.`,
+    { need, strictNeed: true, educationGroup: 'qualifications',
+      narration: `${title} 자격시험과 필요한 절차를 마쳤어요.` });
 }
 
 function licensePlan(kind) {
@@ -444,6 +541,9 @@ export function careerGoals(life) {
     if (job.requiresNurseLicense) {
       checks.push({ id: 'nursingLicense', label: '간호사 면허', met: Number.isInteger(path.nursingLicenseAge) });
     }
+    if (career === 'coach') {
+      checks.push({ id: 'sportsCoachCertification', label: '스포츠지도사 자격', met: Number.isInteger(path.sportsCoachCertificationAge) });
+    }
     return { career, title: job.title, type, checks,
       met: checks.filter((item) => item.met).length, total: checks.length,
       ready: checks.every((item) => item.met) };
@@ -451,11 +551,15 @@ export function careerGoals(life) {
 }
 
 function careerWindow(life, path) {
+  // 아이돌 전용 심사와 일반 직업 이벤트를 중복 노출하지 않습니다.
+  if (isIdolCareer(life.career)) return false;
   const age = life.age;
   return path.retired === null && ([19, 26, 34, 42, 50, 56].includes(age) ||
     (!life.career && [21, 23, 27, 30, 38, 46, 54, 59].includes(age)) ||
-    path.degree?.age === age || Object.values(LICENSES).some(({ record }) => path[record] === age) ||
-    path.trainingAge === age || path.caregivingAge === age || path.service?.endedAt === age);
+    path.degree?.age === age || path.idolExitAt === age ||
+    Object.values(LICENSES).some(({ record }) => path[record] === age) ||
+    path.trainingAge === age || path.caregivingAge === age || path.service?.endedAt === age ||
+    Object.values(QUALIFICATION_EXAMS).some(({ record }) => path[record] === age));
 }
 
 function careerPlan(life, path) {
@@ -472,6 +576,12 @@ function careerPlan(life, path) {
     nursing: Number.isInteger(path.nursingLicenseAge),
     caregiving: Number.isInteger(path.caregivingAge),
     sports: (path.sportYears ?? 0) >= 2,
+    sportsCoach: Number.isInteger(path.sportsCoachCertificationAge),
+    pharmacy: Number.isInteger(path.pharmacyLicenseAge) && degrees.some(({ kind }) => kind === 'pharmacy'),
+    dentistry: Number.isInteger(path.dentistLicenseAge) && degrees.some(({ kind }) => kind === 'dentistry'),
+    physicalTherapy: Number.isInteger(path.physicalTherapyLicenseAge) && degrees.some(({ kind }) => kind === 'physicalTherapy'),
+    realtor: Number.isInteger(path.realtorCertificationAge),
+    taxation: Number.isInteger(path.taxCertificationAge),
   };
   const schoolField = { science: 'science', gifted: 'science', vocational: 'tech', arts: 'art' }[path.school];
   const interests = [schoolField, ...path.dreams.flatMap(({ field }) => dreamFields(field)), ...degrees.map(({ field }) => field)];
@@ -480,11 +590,13 @@ function careerPlan(life, path) {
     current ? `지금의 직업인 ${current.title} 일을 이어가요.` : '나중에 일자리를 다시 살펴볼 수 있어요.', {})];
   const dream = mostRecentDream(path);
   for (const [career, job] of Object.entries(CAREERS)) {
+    // 연습생은 졸업 시 12·15·18세 오디션으로만 시작할 수 있습니다.
+    if (['militaryNco', 'militaryOfficer', 'idol'].includes(career)) continue;
     if (career === life.career || job.legacyPromotion || life.age > (job.latestStart ?? Infinity) ||
       life.age >= retirementAge(career) ||
       (job.promotionFrom && job.promotionFrom !== life.career)) continue;
     const fields = jobFields(job);
-    const credential = job.education && !(career === 'coach' && life.career === 'athlete') &&
+    const credential = job.education &&
       { label: CAREER_CREDENTIALS[job.education], met: credentials[job.education] };
     const explored = interests.some((field) => fields.includes(field)) || (career === 'athlete' && path.sportYears > 0);
     const readyWithoutDegree = !credential && Object.entries(job.need ?? {}).every(([stat, minimum]) => life.stats[stat] >= minimum);
@@ -518,9 +630,48 @@ function careerPlan(life, path) {
         : `${job.title} 일을 시작했어요. 첫날은 누구나 떨려요.`,
     }));
   }
+  if (!CAREERS[life.career]?.militaryProfessional && !path.militaryTraining && !path.program) {
+    if (life.age >= 19 && life.age <= 26) {
+      choices.push(pick('apply-military-nco', '육군 민간부사관 지원',
+        '고졸 이상 · 남녀 지원 가능 · 체력·학습 조건을 통과하고 1년의 양성교육을 거쳐 하사로 임관해요.',
+        'flag', {}, {
+          action: { kind: 'military-recruit', value: 'nco-public' },
+          need: { health: 55, learning: 30 }, strictNeed: true, careerGroup: 'other',
+          conditions: [{ label: '고졸 또는 검정고시', met: finishedSchool(path) }],
+          narration: '부사관 선발에 합격해 양성교육에 들어갔어요.',
+        }));
+    }
+    const bachelorForOfficer = degrees.some(({ kind }) =>
+      ['university', 'teaching', 'nursing', 'medicine', 'pharmacy', 'dentistry', 'physicalTherapy',
+        'academy', 'graduate'].includes(kind));
+    if (life.age >= 20 && life.age <= 28) {
+      choices.push(pick('apply-military-ocs', '육군 학사사관 지원',
+        '4년제 대학 졸업 이상 · 남녀 지원 가능 · 선발과 양성교육을 거쳐 소위로 임관해요.',
+        'flag', {}, {
+          action: { kind: 'military-recruit', value: 'officer-ocs' },
+          need: { health: 55, learning: 50, bond: 30 }, strictNeed: true, careerGroup: 'other',
+          conditions: [{ label: '4년제 대학 졸업', met: bachelorForOfficer }],
+          narration: '학사사관 선발에 합격해 장교 양성교육을 받기로 했어요.',
+        }));
+    }
+  }
   return scene(current ? '승진하거나 다른 직업을 찾을까요?' : '어떤 일을 할까요?',
-    current ? '직업 성장을 먼저 살펴보고, 다른 직업은 아래에서 펼쳐 볼 수 있어요.'
+    current ? '경력과 능력치 조건을 갖추면 승급할 수 있어요. 승진·전직 기회를 먼저 살펴보고, 다른 직업은 아래에서 펼쳐 볼 수 있어요.'
       : '지원 조건과 해마다 버는 돈을 보고 골라요. 꿈이나 전공과 맞으면 지원하기 쉬워요.', choices);
+}
+
+function promotionOffer(life, path) {
+  if (isIdolCareer(life.career) || life.age >= retirementAge(life.career)) return null;
+  const targets = new Set(careerGoals(life)
+    .filter(({ ready, type, career }) => ready && type !== '전직' && !path.promotionOffers?.includes(career))
+    .map(({ career }) => career));
+  if (!targets.size) return null;
+  const choices = careerPlan(life, path).choices.filter(({ career }) => targets.has(career));
+  if (!choices.length) return null;
+  return scene('승진 조건을 갖췄어요', '지금 지원하면 올해부터 새 직급으로 일해요.', [
+    rest('나중에 지원하기', '지금 일을 계속하고 다음 직업 선택 때 지원할 수 있어요.', {}),
+    ...choices,
+  ]);
 }
 
 function educationPlan(life, path) {
@@ -534,6 +685,11 @@ function educationPlan(life, path) {
     if (!completed('college')) options.push(universityChoice('college', life));
     if (!isStem(dream)) options.push(universityChoice('university', life, true));
   } else if (!eligible) options.push(examChoice());
+  if (eligible && life.age === 19 && !life.career) options.push(universityChoice('academy', life));
+  if (eligible && life.age >= 21 && life.age <= 24 &&
+    degrees.some(({ kind }) => kind === 'college') && !life.career) {
+    options.push(universityChoice('academy3', life));
+  }
   if (eligible && life.age <= 38 && !completed('medicine') &&
     (dreamIncludes(dream, 'medical') || path.school === 'science' || path.school === 'gifted' || life.stats.learning >= 50)) {
     options.push(universityChoice('medicine', life));
@@ -542,11 +698,19 @@ function educationPlan(life, path) {
     (['medical', 'people'].some((field) => dreamIncludes(dream, field)) || (life.stats.learning >= 38 && life.stats.bond >= 20))) {
     options.push(universityChoice('nursing', life));
   }
+  if (eligible && life.age <= 38 && !completed('pharmacy')) options.push(universityChoice('pharmacy', life));
+  if (eligible && life.age <= 38 && !completed('dentistry')) options.push(universityChoice('dentistry', life));
+  if (eligible && life.age <= 45 && !completed('physicalTherapy')) options.push(universityChoice('physicalTherapy', life));
   if (eligible && life.age <= 38 && !completed('teaching') &&
     (['people', 'education'].some((field) => dreamIncludes(dream, field)) || (life.stats.learning >= 42 && life.stats.bond >= 20))) {
     options.push(universityChoice('teaching', life));
   }
   if (undergraduate(degrees) && !completed('graduate')) options.push(universityChoice('graduate', life));
+  if (eligible && life.age >= 19) {
+    for (const [kind, exam] of Object.entries(QUALIFICATION_EXAMS)) {
+      if (!Number.isInteger(path[exam.record])) options.push(qualificationChoice(kind, life));
+    }
+  }
   if (!path.training) options.push(universityChoice('training', life));
   if (!Number.isInteger(path.caregivingAge) && (['people', 'medical'].some((field) => dreamIncludes(dream, field)) || life.stats.bond >= 28)) {
     options.push(universityChoice('caregiving', life));
@@ -734,7 +898,9 @@ function retirementScene(life, mandatory) {
   }
   if (!mandatory) {
     options.push(pick('mentor-work', '일을 계속하기',
-      `${age}세에는 정년이 되어 퇴직하게 돼요. 지금은 일을 계속해요.`,
+      Number.isFinite(age)
+        ? `${age}세에는 정년이 되어 퇴직하게 돼요. 지금은 일을 계속해요.`
+        : '정해진 활동 연령 상한이 없어요. 원하는 만큼 무대 활동을 이어갈 수 있어요.',
       'book', { learning: 2, bond: 3 }));
   }
   return scene(mandatory ? `${job.title} 정년의 날` : '일을 그만둘 때가 올까?',
@@ -824,12 +990,12 @@ function savingsOffer(life) {
   const review = path.savingsReview;
   const increase = Boolean(review && life.age >= review.at);
   const amounts = current > 0 && increase ? [current, current + 1, current + 2, current + 4] : [0, 1, 2, 4];
-  const title = increase ? `연봉이 ${review.from} → ${review.to}코인으로 올랐어요!`
-    : '노후 저축을 시작할까요?';
+  const title = increase ? `연봉이 ${review.from} → ${review.to}코인으로 올랐어요! 노후 적금은?`
+    : '노후 적금 가입 안내';
   const detail = increase
     ? current ? `현재 매년 ${current}코인을 저축 중이에요. 유지하거나 증액할 수 있어요.`
-      : '연봉이 올랐으니 이번에 노후 적금을 시작할 수 있어요.'
-    : '일하는 동안 매년 저축하고 연 4% 복리 이자를 받아요. 이자는 매년 정수 코인으로 내림해요.';
+      : '이제 수입이 생겼어요. 노후 적금에 가입해 매년 일부를 모아 볼까요?'
+    : '지금 가입 여부와 매년 납입액을 직접 고릅니다. 매년 납입하면 연 4% 복리가 붙고, 활동을 마쳐도 적금은 유지돼요.';
   return scene(title, detail, amounts.map((amount) => {
     const label = amount === 0 ? '이번에는 저축하지 않기' :
       current > 0 && amount === current ? `현재 금액 유지 (${amount}코인)` :
@@ -867,6 +1033,54 @@ export function bonusScene(life, done) {
   }
   // 간호학과 재학 중 한 번만 교직이수 선발에 도전할 수 있습니다.
   // 졸업 후 새로 조건을 충족해도 당시 교직이수를 소급 취득할 수 없습니다.
+  if (isIdolCareer(life.career) &&
+    (path.idolExitPending || age >= retirementAge(life.career) ||
+      (life.career === 'idol' && (path.workYears?.idol ?? 0) >= 6)) && !done.includes('idol-exit')) {
+    const reason = path.idolExitPending?.reason ??
+      (life.career === 'idol' ? '연습생 계약 기간이 끝났어요.'
+        : '공연 활동을 마칠 시기가 되었어요. 새로운 진로도 열려 있습니다.');
+    const savingText = path.savings?.annual > 0
+      ? `노후 적금 ${Math.floor(path.savings.balance ?? 0)}코인은 계속 유지돼요.`
+      : '가입된 노후 적금이 없어요. 이후 다른 직업을 시작하면 가입할 기회가 있어요.';
+    return { ...scene('마지막 무대 · 다음 길 고르기',
+      `${reason} 인생 전체의 은퇴가 아니에요. 활동을 정리하면 학교와 새 직업을 선택할 수 있어요. ${savingText}`, [
+        option('idol-farewell-show', '마지막 무대에서 인사하기',
+          '팬들과 추억을 만들고 활동을 마무리해요.', 'spark', { art: 2, joy: 4, bond: 2 },
+          'idol-exit', 'farewell', '팬들에게 마지막 인사를 한 뒤 새로운 시작을 준비했어요.'),
+        option('idol-farewell-study', '다음 진로를 준비하기',
+          '자격증, 대학, 새로운 직업을 알아봐요.', 'book', { learning: 3, joy: 1 },
+          'idol-exit', 'study', '학교와 직업에 관한 정보를 모으며 새 꿈을 찾아봤어요.'),
+        option('idol-farewell-rest', '쉬면서 마음 정리하기',
+          '바쁜 활동을 마친 뒤 몸과 마음을 추슬러요.', 'leaf', { health: 4, joy: 2 },
+          'idol-exit', 'rest', '연습실을 정리하고 천천히 다음 일을 준비했어요.'),
+      ]), key: 'idol-exit', fallback: 'idol-farewell-rest' };
+  }
+  // 연습생은 3년 뒤부터 데뷔 심사를 받을 수 있습니다.
+  if (life.career === 'idol' && (path.workYears?.idol ?? 0) >= 3 &&
+    age >= 15 && age < retirementAge('idol') && !done.includes('idol-debut')) {
+    return { ...scene('연습생 데뷔 심사', '무대 준비가 되었는지 확인해요. 기준을 넘으면 신인 아이돌로 데뷔할 수 있어요.', [
+      option('idol-debut-now', '신인 아이돌로 데뷔하기', '3년 이상의 연습 경험과 예술·체력이 필요해요. 관계는 팀 훈련으로도 쌓입니다.',
+        'spark', {}, 'idol-promotion', 'rookieIdol', '정식 그룹으로 데뷔했어요.',
+        { need: CAREERS.rookieIdol.need, strictNeed: true,
+          conditions: [{ label: '연습생 경력 3년', met: (path.workYears?.idol ?? 0) >= 3 }] }),
+      rest('연습 더 이어가기', '이번 심사는 건너뛰고 다음 해를 준비해요.', {}),
+    ]), key: 'idol-debut', fallback: 'rest' };
+  }
+  // 신인 그룹은 3년을 버틴 뒤 인지도 상승이나 솔로 진출을 선택해야 살아남기 쉽습니다.
+  if (life.career === 'rookieIdol' && (path.workYears?.rookieIdol ?? 0) >= 3 &&
+    !done.includes('idol-breakthrough')) {
+    return { ...scene('신인 그룹 재계약 심사', '데뷔 초반 성적에 따라 계약이 연장되거나 활동이 끝날 수 있어요.', [
+      option('idol-grow-popular', '인기 아이돌로 성장하기', '예술 58점 · 체력 40점 · 관계 18점 · 신인 활동 3년 이상',
+        'spark', {}, 'idol-promotion', 'popularIdol', '더 큰 무대에서 활동하게 되었어요.',
+        { need: CAREERS.popularIdol.need, strictNeed: true,
+          conditions: [{ label: '신인 아이돌 경력 3년', met: (path.workYears?.rookieIdol ?? 0) >= 3 }] }),
+      option('idol-go-solo', '솔로 아티스트로 전향하기', '예술 66점 · 관계 26점 · 신인 활동 3년 이상',
+        'spark', {}, 'idol-promotion', 'soloArtist', '솔로 데뷔를 확정했어요.',
+        { need: CAREERS.soloArtist.need, strictNeed: true,
+          conditions: [{ label: '신인 아이돌 경력 3년', met: (path.workYears?.rookieIdol ?? 0) >= 3 }] }),
+      rest('신인 활동 더 이어가기', '재계약이 보장되지는 않지만 다음 활동을 준비해요.', {}),
+    ]), key: 'idol-breakthrough', fallback: 'rest' };
+  }
   if (path.program?.kind === 'nursing' && path.program.remaining <= 3 &&
     path.nursingTeachingDecision !== true && path.nursingTeachingDecision !== false &&
     !done.includes('nursing-teaching')) {
@@ -880,7 +1094,8 @@ export function bonusScene(life, done) {
         'nursing-teaching', false, '병원 간호 분야에 집중하기로 했어요.'),
     ]), key: 'nursing-teaching', fallback: 'rest' };
   }
-  if ([10, 14, 17].includes(age) && !path.dreams.some((entry) => entry.age === age)) {
+  if ([10, 14, 17].includes(age) && !isIdolCareer(life.career) &&
+    !path.dreams.some((entry) => entry.age === age)) {
     return { ...dreamSurvey(life), key: 'dream', fallback: 'rest' };
   }
   if (age === 16 && !path.school) return { ...highSchool(life), key: 'school', fallback: 'high-general' };
@@ -890,18 +1105,59 @@ export function bonusScene(life, done) {
     ]), key: 'education', fallback: 'rest' };
   }
   if (path.sex === 'male' && !CAREERS[life.career]?.militaryProfessional &&
+    !path.militaryTraining && !path.militaryRoute && !['academy', 'academy3'].includes(path.program?.kind) &&
     age >= 20 && age <= SERVICE_LIMIT && !done.includes('military') &&
     (!path.service || (path.service.status === 'planned' && age >= Math.min(path.service.at, SERVICE_LIMIT)))) {
     return { ...militaryPlan(life, path), key: 'military' };
   }
-  const continuing = path.program || path.service?.status === 'serving';
+  if (path.program?.kind === 'university' && path.service?.status !== 'serving' &&
+    !path.militaryRoute && !path.militaryTraining && age >= 20 && age <= 24 &&
+    [2, 3].includes(path.program.remaining) && !done.includes('rotc')) {
+    return { ...scene('학군사관(ROTC) 지원',
+      '대학 1~2학년 때 지원하고, 선발되면 대학 공부와 군사교육을 병행해 졸업 후 소위로 임관해요.', [
+        option('rotc-apply', 'ROTC 선발에 도전하기',
+          '남녀 모두 지원 가능 · 체력과 학업성적, 리더십 조건을 확인해요.', 'flag', {},
+          'rotc', true, '대학 수업과 ROTC 후보생 훈련을 병행하기로 했어요.',
+          { need: { health: 52, learning: 40, bond: 28 }, strictNeed: true,
+            narration: '학군사관 후보생으로 선발됐어요.' }),
+        rest('이번에는 지원하지 않기', '나중에 학군사관에 다시 도전할 수 있어요.', {}),
+      ]), key: 'rotc', fallback: 'rest' };
+  }
+  if (path.program?.kind === 'university' && path.service?.status !== 'serving' &&
+    !path.militaryRoute && !path.militaryTraining && age >= 21 && age <= 24 &&
+    path.program.remaining === 2 && !done.includes('academy3-transfer')) {
+    return { ...scene('육군3사관학교 편입',
+      '4년제 대학을 2년 정도 다닌 뒤 3사관학교에 지원할 수 있어요.', [
+        option('academy3-transfer', '육군3사관학교 지원하기',
+          '2년간 생도교육을 마치면 소위로 임관해요.', 'flag', {},
+          'academy3-transfer', true, '육군3사관학교로 진학했어요.',
+          { need: { health: 55, learning: 52, bond: 30 }, strictNeed: true }),
+        rest('현재 대학교 계속 다니기', '4년제 대학 과정을 이어가요.', {}),
+      ]), key: 'academy3-transfer', fallback: 'rest' };
+  }
+  if (path.service?.status === 'serving' && path.service.kind === 'military' &&
+    age >= 21 && age <= 26 && !path.militaryTraining && !done.includes('military-nco')) {
+    return { ...scene('현역병에서 부사관으로 지원',
+      '병 복무 경험을 살려 부사관 선발에 도전해요. 임관하면 의무복무를 중복하지 않아요.', [
+        option('military-nco-service', '현역부사관 전환 지원',
+          '체력·학습 능력 조건을 갖추고 간부 양성교육을 받아요.', 'flag', {},
+          'military-recruit', 'nco-enlisted', '부사관 지원서를 내고 선발됐어요.',
+          { need: { health: 52, learning: 30 }, strictNeed: true }),
+        rest('병 복무 마무리하기', '남은 병 복무를 마치고 전역하기로 해요.', {}),
+      ]), key: 'military-nco', fallback: 'rest' };
+  }
+  const continuing = path.program || path.militaryTraining || path.service?.status === 'serving';
   // 첫 취업 후 1~3년 또는 연봉 인상 다음 해에 적금 가입·증액 기회를 엽니다.
   const firstJob = path.firstJobAge;
   const offerAge = Number.isInteger(firstJob) ? firstJob + 1 + ((path.romanceSeed ?? 0) % 3) : Infinity;
+  const paidIdol = ['rookieIdol', 'popularIdol', 'soloArtist'].includes(life.career);
+  // 12세 입사한 무급 연습생도 성인이 되어 유급 아이돌이 되면 적금 안내를 받습니다.
+  // 이전 버전에서 가입 기회를 놓친 저장 데이터도 구제합니다.
   const firstOffer = path.savings === null &&
-    age >= offerAge && age <= Math.max(offerAge, firstJob + 5);
+    (paidIdol && age >= 19 || age >= offerAge && age <= Math.max(offerAge, firstJob + 5));
   const raisedOffer = path.savingsReview && age >= path.savingsReview.at;
-  if (!continuing && life.career && path.retired === null && age < retirementAge(life.career) && (firstOffer || raisedOffer) &&
+  if (!continuing && age >= 19 && life.career && life.career !== 'idol' &&
+    path.retired === null && age < retirementAge(life.career) && (firstOffer || raisedOffer) &&
     !done.includes('saving')) {
     return { ...savingsOffer(life), key: 'saving',
       fallback: path.savings?.annual ? `save-${Math.floor(path.savings.annual)}` : 'save-none' };
@@ -918,15 +1174,19 @@ export function bonusScene(life, done) {
   if (!continuing && license && !done.includes('license')) {
     return { ...licensePlan(license.kind), key: 'license', fallback: 'rest' };
   }
-  const planning = [19, 22, 26, 38, 50].includes(age) || path.degree?.age === age ||
+  const planning = [19, 22, 26, 38, 50].includes(age) || path.idolExitAt === age || path.degree?.age === age ||
     path.diplomaAge === age - 1 || (!life.career && path.trainingAge === age) ||
     (path.service?.endedAt === age && (!life.career || path.degree));
-  if (!continuing && planning && !done.includes('education')) {
+  if (!continuing && !isIdolCareer(life.career) && planning && !done.includes('education')) {
     const entry = educationPlan(life, path);
     if (entry) return { ...entry, key: 'education', fallback: 'rest' };
   }
-  if (!continuing && careerWindow(life, path) && !done.includes('career')) {
-    return { ...careerPlan(life, path), key: 'career', fallback: 'rest' };
+  if (!continuing && !done.includes('career')) {
+    if (careerWindow(life, path)) return { ...careerPlan(life, path), key: 'career', fallback: 'rest' };
+    if (!done.includes('promotion')) {
+      const offer = promotionOffer(life, path);
+      if (offer) return { ...offer, key: 'promotion', fallback: 'rest' };
+    }
   }
   return null;
 }
@@ -940,14 +1200,30 @@ export function annualScene(life) {
   if (age < CHILDHOOD.length) return CHILDHOOD[age];
   if (age < 19) {
     const school = schoolYear(life, path);
-    if (![11, 13, 15, 17, 18].includes(age)) return school;
-    const outside = path.school === 'outside';
-    const sport = option('sports-team', outside ? '동네 운동팀에서 훈련하기' : '운동부에서 훈련하기',
-      '운동선수에 도전할 때 필요한 경험을 쌓아요.', 'flag', { health: 5, learning: -1, bond: 1 },
-      'sport', 1, '연습이 끝나고 친구들과 땀을 닦으며 웃었어요.');
-    return { ...school, choices: [...school.choices, sport] };
+    let choices = school.choices;
+    if (age === 12) {
+      // 초등 졸업 화면도 4개의 기본 선택지를 제공하고 오디션은 항상 다섯 번째에 둡니다.
+      choices = [...choices, pick('graduation-performance', '졸업식 무대 준비하기',
+        '친구들과 함께 공연을 연습해요.', 'spark', { art: 3, bond: 1 })];
+    }
+    if ([11, 13, 15, 17, 18].includes(age)) {
+      const outside = path.school === 'outside';
+      const sport = option('sports-team', outside ? '동네 운동팀에서 훈련하기' : '운동부에서 훈련하기',
+        '운동선수에 도전할 때 필요한 경험을 쌓아요.', 'flag', { health: 5, learning: -1, bond: 1 },
+        'sport', 1, '연습이 끝나고 친구들과 땀을 닦으며 웃었어요.');
+      choices = [...choices, sport];
+    }
+    const audition = idolAudition(life);
+    if (audition) choices = [...choices, audition];
+    return choices === school.choices ? school : { ...school, choices };
   }
   if (path.service?.status === 'serving') return serving(life, path);
+  if (path.militaryTraining) return scene('군 간부 양성교육',
+    '지원에 합격했어요. 기본 군사교육과 리더십 훈련을 받은 뒤 임관해요.', [
+      pick('military-drill', '체력과 전술 훈련하기', '기초체력과 전술을 익혀요.', 'flag', { health: 3, learning: 1 }),
+      pick('military-lead', '지휘·리더십 배우기', '동료를 이끄는 방법을 배워요.', 'link', { learning: 2, bond: 2 }),
+      rest('훈련 중 휴식하기', '몸을 회복하며 다음 교육을 준비해요.', { health: 1, joy: 1 }),
+    ]);
   if (path.program && (age === 19 || path.service?.endedAt === age)) return studying(life, path);
   const milestone = relationships(life) ?? housing(life, path);
   if (milestone) return milestone;
@@ -971,12 +1247,50 @@ export function applyPath(life, age, choice) {
   switch (action?.kind) {
     case 'dream': path.dreams.push({ age, field: action.value }); break;
     case 'school': path.school = action.value; break;
+    case 'idol-trainee':
+      path.idolJoinedAt = age;
+      path.idolSchool = true;
+      path.school = 'idolArts';
+      life.career = 'idol';
+      // 연습생은 무급이라 첫 유급 취업과 구별합니다.
+      path.firstJobAge = null;
+      break;
+    case 'idol-promotion':
+      life.career = action.value;
+      if (action.value === 'rookieIdol') {
+        path.idolDebutAge = age;
+        path.firstJobAge = age;
+      }
+      break;
+    case 'idol-exit':
+      path.idolExitAt = age;
+      path.idolExitPending = null;
+      path.idolSchool = false;
+      if (age < 19 && path.school === 'idolArts') path.school = 'general';
+      life.career = null;
+      path.firstJobAge = null;
+      // 아이돌 활동 종료는 일반 정년 퇴직·연금 개시가 아닙니다.
+      break;
     case 'diploma':
       path.diploma = true;
       path.diplomaAge = age;
       break;
     case 'study':
       path.program = { kind: action.value, field: choice.studyField ?? mostRecentDream(path), remaining: PROGRAMS[action.value].years };
+      break;
+    case 'military-recruit':
+      path.militaryTraining = { route: action.value, readyAt: age + 1 };
+      // 양성교육 기간에는 기존 민간 직업의 연봉을 받지 않습니다.
+      life.career = null;
+      break;
+    case 'rotc':
+      path.militaryRoute = { kind: 'rotc', selectedAt: age };
+      break;
+    case 'academy3-transfer':
+      path.program = { kind: 'academy3', field: 'public', remaining: 2 };
+      break;
+    case 'qualification':
+      path[QUALIFICATION_EXAMS[action.value].record] = age;
       break;
     case 'nursing-teaching': path.nursingTeachingDecision = action.value; break;
     case 'license': path[LICENSES[action.value].record] = age; break;
@@ -996,6 +1310,16 @@ export function applyPath(life, age, choice) {
       }
       break;
     case 'marry': path.married = age; break;
+    case 'saving': {
+      const annual = Math.max(0, Math.floor(action.value));
+      path.savings = {
+        ...(path.savings ?? { balance: 0, chosenAt: age }),
+        annual, interestRate: SAVINGS_RATE,
+      };
+      path.savings.balance = savingsBalance(path.savings);
+      path.savingsReview = null;
+      break;
+    }
     case 'investment': {
       if (action.value) {
         (path.investments ??= []).push({
@@ -1037,7 +1361,19 @@ export function advancePath(life) {
   if (path.service?.status === 'serving') {
     if (life.age < path.service.until) return '';
     path.service = { status: 'complete', kind: path.service.kind ?? 'military', endedAt: life.age };
-    return path.program ? '복무를 마쳤어요. 다니던 학교로 돌아가요.' : '복무를 마치고 집으로 돌아와요.';
+    if (!path.militaryTraining) {
+      return path.program ? '복무를 마쳤어요. 다니던 학교로 돌아가요.' : '복무를 마치고 집으로 돌아와요.';
+    }
+  }
+  if (path.militaryTraining) {
+    if (life.age < path.militaryTraining.readyAt) return '';
+    const route = path.militaryTraining.route;
+    path.militaryTraining = null;
+    path.militaryRoute = { kind: route, selectedAt: life.age - 1 };
+    life.career = route === 'officer-ocs' ? 'militaryOfficer' : 'militaryNco';
+    path.firstJobAge = life.age;
+    if (path.sex === 'male') path.service = { status: 'complete', kind: 'professional', endedAt: life.age };
+    return `${life.career === 'militaryOfficer' ? '소위' : '하사'}로 임관해 군 생활을 시작했어요.`;
   }
   if (!path.program) return '';
   path.program.remaining -= 1;
@@ -1053,6 +1389,15 @@ export function advancePath(life) {
     path.degree = { kind, field, age: life.age };
   }
   path.program = null;
+  if (kind === 'academy' || kind === 'academy3' ||
+    (kind === 'university' && path.militaryRoute?.kind === 'rotc')) {
+    const route = kind === 'university' ? 'rotc' : kind;
+    path.militaryRoute = { kind: route, commissionedAt: life.age };
+    life.career = 'militaryOfficer';
+    path.firstJobAge = life.age;
+    if (path.sex === 'male') path.service = { status: 'complete', kind: 'professional', endedAt: life.age };
+    return `${PROGRAMS[kind].label} 과정을 마치고 육군 소위로 임관했어요.`;
+  }
   if (kind === 'training') return '기술을 배우는 과정을 마쳤어요.';
   if (kind === 'caregiving') return '돌봄 교육과 시험을 마치고 요양보호사 자격을 얻었어요.';
   return `${PROGRAMS[kind].label}을 마쳤어요. 처음 메던 가방이 많이 해졌어요.`;
@@ -1063,6 +1408,10 @@ export function careerPay(life) {
   if (!job) return null;
   const path = pathOf(life);
   const years = path.workYears?.[life.career] ?? 0;
+  if (life.career === 'idol') return {
+    base: 0, years, transfer: 0, track: '데뷔 준비', experience: 0,
+    stat: 'art', skill: 0, education: 0, total: 0,
+  };
   // 승진은 동일 경력 사다리 전체를 이어받습니다. 일반 이직은 최대 10년까지 절반 인정합니다.
   const fields = jobFields(job);
   const previous = Object.entries(path.workYears ?? {}).filter(([id]) =>
@@ -1079,6 +1428,22 @@ export function careerPay(life) {
   const education = degreesOf(path).some(({ kind, field }) => kind === 'graduate' && fields.includes(field)) ? 2 : 0;
   return { base: job.wage, years, transfer, track: track.label, experience, stat, skill, education,
     total: job.wage + experience + skill + education };
+}
+
+// 신인 그룹은 데뷔 3년 차에 성장 기회를 확인하고, 이후 계약 갱신에 실패할 수 있습니다.
+// 연습생·아이돌의 활동 종료는 인생 전체의 은퇴가 아닌 전직 기회로 이어집니다.
+export function settleIdolCareer(life, roll = 100) {
+  if (life.career !== 'rookieIdol') return '';
+  const path = pathOf(life);
+  if (path.idolExitPending) return '';
+  const years = path.workYears?.rookieIdol ?? 0;
+  if (years < 4) return '';
+  // 데뷔 4년차: 기본 25%, 5년차: 기본 45%, 6년차에는 재계약 종료 확정
+  const resilience = (life.stats.art >= 68 ? 10 : 0) + (life.stats.bond >= 32 ? 10 : 0);
+  const risk = years === 4 ? 25 : 45;
+  if (years < 6 && roll % 100 >= Math.max(5, risk - resilience)) return '';
+  path.idolExitPending = { reason: `데뷔 ${years}년 만에 그룹 재계약이 불발되었어요.`, notifiedAt: life.age };
+  return `신인 그룹의 ${years}년 차 계약이 마무리됩니다. 다음 해에 작별 무대와 이후 진로를 고를 수 있어요.`;
 }
 
 export function creditWorkYear(life) {
@@ -1119,6 +1484,11 @@ export function yearlySources(life) {
     const pay = careerPay(life);
     sources.push({ id: `job-${life.career}`, label: `${career.title} 수입${career.fatigue ? '과 피로' : ''}`, term: `경력 ${pay.years}년`,
       effect: { money: pay.total, ...(career.fatigue ? { health: -career.fatigue } : {}) } });
+    if (life.career === 'idol' || life.career === 'rookieIdol') {
+      sources.push({ id: 'idol-practice', label: life.career === 'idol'
+        ? '연습생 보컬·안무 훈련' : '신인 아이돌 무대 준비',
+        effect: { art: life.career === 'idol' ? 2 : 3, health: -1, bond: life.career === 'idol' ? 1 : 2 } });
+    }
     if (path.savings?.annual > 0) {
       sources.push({ id: 'retirement-saving', label: '노후 저축', term: '은퇴할 때까지', effect: { money: -path.savings.annual } });
     }

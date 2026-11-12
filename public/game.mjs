@@ -1,14 +1,14 @@
 import {
-  AVATARS, IDLE, LIFE_EVENTS, OPPORTUNITIES, SPIRIT_SCENES, STAGES, STATS, STORIES, pick, spiritChoices,
+  AVATARS, CAREERS, IDLE, LIFE_EVENTS, OPPORTUNITIES, SPIRIT_SCENES, STAGES, STATS, STORIES, pick, spiritChoices,
 } from './content.mjs';
 import {
   SEXES, advancePath, annualScene, applyPath, bonusScene, careerPay, chanceDiscount, creditWorkYear,
-  familyDream, farewell, newPath, pathOf, restoreWorkYears, updateLifePath, upgradeLifePath, yearlySources,
+  familyDream, farewell, newPath, pathOf, restoreWorkYears, settleIdolCareer, updateLifePath, upgradeLifePath, yearlySources,
 } from './life.mjs';
 import { fallIll, illnessDeathRisk, settleHealth } from './health.mjs';
 
 export const CAPACITY = 20;
-export const RULE_VERSION = 10;
+export const RULE_VERSION = 11;
 export const DEFAULTS = { years: 1, seconds: 0, maxAge: 100, pace: 'personal' };
 const EXTRA_SECONDS = 12;
 export const PASS = { id: 'pass', title: '이번에는 기다리기', detail: '잠시 쉬며 친구들의 이야기를 지켜봐요.', effect: {} };
@@ -167,7 +167,7 @@ function choicesFor(room, player) {
     before ??= projectedSources(life, null, false);
     return { ...card, recurring: choiceSources(life, option, Boolean(extra), before) };
   });
-  if (entry.key === 'career') {
+  if (entry.key === 'career' || entry.key === 'promotion') {
     const [keep, ...jobs] = choices;
     jobs.sort((left, right) =>
       Number(right.careerGroup === 'advancement') - Number(left.careerGroup === 'advancement') ||
@@ -176,8 +176,20 @@ function choicesFor(room, player) {
     choices = [keep, ...jobs];
   }
   return {
-    ...entry, bonus: Boolean(extra), base, yearly, healthWarning: !extra && illnessDeathRisk(life) > 0, choices,
+    ...entry, bonus: Boolean(extra), base, yearly, healthWarning: !extra && illnessDeathRisk(life) > 0,
+    canReturnToEducation: canReturnToEducation(player, entry, turnFor(room, player)?.to), choices,
   };
+}
+
+// '진학을 건너뛰고 일자리 살펴보기'만 철회할 수 있습니다.
+// 기록/수치가 바뀐 다른 보너스 선택까지 되돌리는 일반 실행 취소는 허용하지 않습니다.
+function canReturnToEducation(player, entry, year) {
+  const last = player.life.history.at(-1);
+  return (entry.key === 'career' || entry.key === 'promotion') && player.bonuses.at(-1) === 'education' &&
+    last?.type === 'bonus' && last.year === year &&
+    last.decisionAge === player.life.age &&
+    ['일자리 살펴보기', '지금 생활 이어가기'].includes(last.title) &&
+    Object.values(last.changes ?? {}).every((value) => value === 0);
 }
 
 function findChoice(entry, choice) {
@@ -243,6 +255,15 @@ function recordChoice(player, year, option, age, changes, text, type, raise) {
 
 function addBonus(player, year, entry, option) {
   const { life } = player;
+  if (life.career && (entry.key === 'career' || entry.key === 'promotion')) {
+    const offered = entry.choices.filter(({ career, locked }) => !locked &&
+      CAREERS[career]?.promotionFrom === life.career && CAREERS[career].routeType !== '전직');
+    if (offered.length) {
+      life.path.promotionOffers = [...new Set([
+        ...(life.path.promotionOffers ?? []), ...offered.map(({ career }) => career),
+      ])];
+    }
+  }
   const changes = applyEffects(life, option.effect);
   const affectionBefore = pathOf(life).romance?.affection;
   const text = applyDecision(life, life.age, option);
@@ -285,7 +306,8 @@ function changeLife(room, player, year, option, after) {
     const rate = account.interestRate ?? 0.04;
     account.balance = Math.floor(balance * (1 + rate) + 1e-9) + deposit;
   }
-  if (salary) creditWorkYear(life);
+  // 연습생은 수입이 없어도 실제로 연습한 연수가 누적되어야 데뷔 심사가 열립니다.
+  if (salary || (life.career === 'idol' && life.path.service?.status !== 'serving')) creditWorkYear(life);
   const affectionBefore = pathOf(life).romance?.affection;
   const decision = applyDecision(life, age, option);
   const affectionAfter = pathOf(life).romance?.affection;
@@ -295,7 +317,8 @@ function changeLife(room, player, year, option, after) {
   const diedFromIllness = hash(`${randomKey}:illness-ending`) % 100 < illnessDeathRisk(life);
   settleHealth(life);
   life.age += 1;
-  const memories = [decision, after, event?.text, advancePath(life)];
+  const disbandNote = settleIdolCareer(life, hash(`${randomKey}:idol-group-renewal`) % 100);
+  const memories = [decision, after, event?.text, advancePath(life), disbandNote];
   if (diedFromIllness || oldAgeEnding(life.age, room.settings.maxAge, hash(`${randomKey}:ending`) % 100)) {
     const ending = diedFromIllness ? '큰 병으로 삶을 마쳤어요.' : '삶의 마지막 장을 덮었어요.';
     const note = `${life.age}살에 ${ending} ${farewell(life)}`;
@@ -305,7 +328,7 @@ function changeLife(room, player, year, option, after) {
   } else {
     memories.push(fallIll(life, life.path, hash(`${randomKey}:illness`) % 100, hash(`${randomKey}:severity`) % 100));
   }
-  const nextSalary = salary && !life.end && life.path.retired === null ? careerPay(life).total : 0;
+  const nextSalary = salary && life.career && !life.end && life.path.retired === null ? careerPay(life).total : 0;
   const raise = nextSalary > salary ? { from: salary, to: nextSalary } : undefined;
   if (raise && salary > 0 && !life.end) {
     life.path.savingsReview = { at: life.age, from: salary, to: nextSalary };
@@ -410,6 +433,15 @@ export function updateRoomRules(room, now) {
     }
   }
   if (previous >= 3) {
+    if (room.phase === 'play') {
+      for (const player of room.players) {
+        if (!player.choice || player.mode !== 'alive' || player.afterlifeDone) continue;
+        // 이미 제출한 해는 새 재테크·승진 선택을 건너뜁니다.
+        for (const key of ['investment', 'promotion']) {
+          if (!player.bonuses.includes(key)) player.bonuses.push(key);
+        }
+      }
+    }
     if (previous < 6 && room.phase === 'play') {
       for (const player of room.players) {
         if (!player.choice || player.choice === PASS.id || player.afterlifeDone) continue;
@@ -470,6 +502,14 @@ export function selectChoice(room, playerId, { round, scene, choice }, now) {
   const entry = choicesFor(room, player);
   if (scene !== entry.key && (scene !== undefined || entry.bonus || player.bonuses.length)) {
     throw new GameError('새 선택이 열렸어요. 화면을 다시 확인해 주세요.');
+  }
+  // 같은 나이의 진학 화면으로 돌아갈 때는 기록 없이 이전의 '건너뛰기'만 철회합니다.
+  if (choice === 'return-education') {
+    if (!entry.canReturnToEducation) throw new GameError('지금은 진학 선택으로 돌아갈 수 없어요.');
+    player.bonuses.pop();
+    player.life.history.pop();
+    player.latest = player.life.history.at(-1) ?? null;
+    return true;
   }
   const personal = room.settings.pace === 'personal';
   const option = !personal && choice === PASS.id && player.mode !== 'alive'

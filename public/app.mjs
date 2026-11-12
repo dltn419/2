@@ -10,6 +10,7 @@ const feedback = document.querySelector('#choice-feedback');
 const storedSession = '100nyeon.session';
 const lastKey = (role) => `100nyeon.last.${role}`;
 const playSections = ['.notice', '.room-hero', '.play-stats', '.play-navigation', '.story-panel'];
+const ROOM_POLL_INTERVAL = 4000;
 
 let invitedCode = new URL(location.href).searchParams.get('room')?.toUpperCase().match(/^[A-HJ-NP-Z2-9]{6}$/)?.[0] ?? '';
 let selectedAvatar = 0;
@@ -21,6 +22,7 @@ let pane = 'play';
 let rank = 'joy';
 let busy = false;
 let polling = false;
+let lastDeadlinePoll = null;
 let offline = false;
 let clockOffset = 0;
 let headerKey;
@@ -165,6 +167,11 @@ function updateClock() {
     if (number.textContent !== label) number.textContent = label;
     clock.classList.toggle('urgent', seconds !== null && seconds <= 5 && state.phase === 'play');
   }
+  if (seconds === 0 && state.phase === 'play' && !state.paused && !document.hidden &&
+      !polling && deadline !== lastDeadlinePoll) {
+    lastDeadlinePoll = deadline;
+    void poll();
+  }
 }
 
 function highlightStats(before, after) {
@@ -236,6 +243,7 @@ function home() {
   state = null;
   practice = null;
   offline = false;
+  lastDeadlinePoll = null;
   write(sessionStorage, storedSession, null);
   if (dialog.open) dialog.close();
   render();
@@ -247,7 +255,9 @@ function expire(oldSession, error) {
   const previous = read(localStorage, lastKey(oldSession.role));
   if (previous?.token === oldSession.token) write(localStorage, lastKey(oldSession.role), null);
   if (session?.token === oldSession.token) home();
-  message(error.message);
+  message(error.status === 404
+    ? '이전 게임방이 만료되었거나 새 패치로 초기화됐어요. 새 게임방을 만들어 주세요.'
+    : error.message);
 }
 
 async function recover(saved) {
@@ -520,9 +530,11 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('change', (event) => {
-  if (event.target.matches('#settings-form [name="pace"]')) {
-    event.target.form.elements.seconds.disabled = event.target.value === 'manual';
-  }
+  if (!event.target.matches('#settings-form [name="pace"]')) return;
+  const { form, value } = event.target;
+  form.elements.seconds.disabled = value !== 'auto';
+  form.querySelector('[data-timer-setting]').hidden = value !== 'auto';
+  for (const note of form.querySelectorAll('[data-pace-note]')) note.hidden = note.dataset.paceNote !== value;
 });
 
 document.addEventListener('input', (event) => {
@@ -584,8 +596,8 @@ document.addEventListener('submit', (event) => {
       return;
     }
     const fields = form.elements;
-    const settings = { maxAge: fields.maxAge.valueAsNumber, seconds: fields.seconds?.valueAsNumber ?? 0,
-      pace: fields.pace?.value ?? 'personal' };
+    const pace = fields.pace.value;
+    const settings = { maxAge: fields.maxAge.valueAsNumber, seconds: pace === 'auto' ? fields.seconds.valueAsNumber : 0, pace };
     if (form.dataset.creating === 'true') {
       const result = await api('/api/rooms', { body: { name: fields.name.value, roomPassword: fields.roomPassword.value, pin: fields.pin?.value, settings } });
       activate(result.session, result.state);
@@ -607,4 +619,4 @@ const saved = read(sessionStorage, storedSession);
 if (saved && (!invitedCode || invitedCode === saved.code)) void run(() => recover(saved));
 else if (invitedCode) document.querySelector('#join').scrollIntoView();
 setInterval(updateClock, 250);
-setInterval(() => void poll(), 1200);
+setInterval(() => void poll(), ROOM_POLL_INTERVAL);

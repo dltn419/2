@@ -91,7 +91,7 @@ test('취업 후 저축 옵션, 실제 적립, 은퇴 후 정확히 10년 수령
   life.stats.money = 1;
   annual(room);
   assert.equal(life.stats.money, 1);
-  assert.equal(life.path.savings.balance, 6, '4코인 잔액의 4% 이자는 1코인 미만이므로 버리고 납부 가능한 2코인만 적립');
+  assert.equal(life.path.savings.balance, 7, '매장 직원 연봉이 3코인이므로 4코인 잔액의 4% 이자를 버리고 납부 가능한 3코인 적립');
   life.path.savings.balance = 85;
   life.path.retired = 60;
   life.age = 61;

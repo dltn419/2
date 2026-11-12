@@ -422,7 +422,7 @@ test('직업마다 학력과 능력치가 다르고 선택해야 고정 수입�
   assert.equal(life.career, null);
   year(room, { 학생: { career: 'work-crew' } });
   assert.equal(life.career, 'crew');
-  assert.equal(me(room, '학생').scene.base.money, 2);
+  assert.equal(me(room, '학생').scene.base.money, 3);
   life.age = 26;
   life.path.degree = { kind: 'university', field: 'science', age: 25 };
   life.stats.learning = 70;
@@ -473,10 +473,10 @@ test('복무 중에는 직업 경력을 쉬고 복무를 마친 뒤 기존 경�
   year(room, { 학생: { military: 'enlist' } });
   year(room);
   assert.equal(life.path.workYears.crew, 2);
-  assert.equal(careerPay(life).total, 3);
+  assert.equal(careerPay(life).total, 4);
   year(room);
   assert.equal(life.path.workYears.crew, 3);
-  assert.equal(careerPay(life).total, 3);
+  assert.equal(careerPay(life).total, 4);
 });
 
 test('이전 방의 근무 기록에서 직업별 경력을 복원한다', () => {
@@ -510,11 +510,11 @@ test('게임 메뉴에는 팁과 모든 직업의 조건 및 연봉이 있다', 
   life.career = 'crew';
   life.path.workYears.crew = 3;
   assert.match(topView({ role: 'player' }, stateFor(room, '학생')), /<span>메뉴<\/span>/);
-  assert.match(gameMenuView('tips', life), /직업과 성장/);
+  assert.match(gameMenuView('tips', life), /직업과 승진/);
   const guide = gameMenuView('jobs', life);
   assert.equal([...guide.matchAll(/class="job-guide-entry"/g)].length,
     Object.values(CAREERS).filter((job) => !job.promotionFrom && !job.legacyPromotion).length);
-  assert.match(guide, /매장 직원 · 연봉 3코인/);
+  assert.match(guide, /매장 직원 · 연봉 4코인/);
   assert.match(guide, /초기 연봉 11코인/);
   assert.doesNotMatch(guide, /월급|월 약|12개월/);
   assert.match(guide, /의대 졸업과 의사 면허/);

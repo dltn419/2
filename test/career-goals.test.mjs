@@ -94,11 +94,13 @@ test('운동선수의 지도자 전직은 경력·체력·관계 조건을 제�
   athlete.stats.health = 60;
   athlete.stats.bond = 40;
   const goal = careerGoals(athlete).find(({ career }) => career === 'coach');
-  assert.equal(goal.title, '운동 지도자');
+  assert.equal(goal.title, '생활체육 지도자');
   assert.equal(goal.type, '전직');
   assert.equal(goal.checks[0].required, 3);
   assert.equal(goal.ready, false);
   athlete.path.workYears.athlete = 3;
+  assert.equal(careerGoals(athlete).find(({ career }) => career === 'coach').ready, false);
+  athlete.path.sportsCoachCertificationAge = 34;
   assert.equal(careerGoals(athlete).find(({ career }) => career === 'coach').ready, true);
   athlete.age = 38;
   assert.equal(careerGoals(athlete).find(({ career }) => career === 'coach').ready, true);
@@ -106,7 +108,7 @@ test('운동선수의 지도자 전직은 경력·체력·관계 조건을 제�
   assert.equal(careerGoals(athlete).length, 0);
 });
 
-test('성과형 직업에도 성장 목표가 나오고 최종 직급·은퇴 후에는 사라진다', () => {
+test('예술·자영업 직업도 승급 목표가 있고 최종 직급·은퇴 후에는 사라진다', () => {
   for (const career of ['farmer', 'studio', 'sales', 'creator', 'shop']) {
     assert.ok(careerGoals(life(career, 40, 12)).length > 0, career);
   }

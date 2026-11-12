@@ -1,18 +1,38 @@
-import { mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { GameError } from '../public/game.mjs';
 import { RETENTION, ROOM_CODE, ROOM_LIMIT } from './game-api.mjs';
 
-export function fileRooms(dataDir, clock) {
+export function fileRooms(dataDir, clock, deploymentId = null) {
   const directory = resolve(dataDir);
   const rooms = new Map();
   const requests = new Map();
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   const pathFor = (code) => resolve(directory, `${code}.json`);
+  const isRoomFile = (filename) => filename.endsWith('.json') && ROOM_CODE.test(filename.slice(0, -5));
+
+  // Railway 볼륨은 배포 후에도 유지됩니다. 새 배포가 처음 시작될 때
+  // 이전 게임방만 지웁니다. 같은 배포의 프로세스 재시작에서는 보존합니다.
+  // 무관한 파일·폴더는 절대 삭제하지 않습니다.
+  if (deploymentId) {
+    const marker = resolve(directory, '.room-deployment-id');
+    const previous = existsSync(marker) ? readFileSync(marker, 'utf8').trim() : null;
+    if (previous !== deploymentId) {
+      let removed = 0;
+      for (const filename of readdirSync(directory)) {
+        if (!isRoomFile(filename)) continue;
+        rmSync(pathFor(filename.slice(0, -5)), { force: true });
+        removed++;
+      }
+      writeFileSync(`${marker}.tmp`, deploymentId, { mode: 0o600 });
+      renameSync(`${marker}.tmp`, marker);
+      console.log(`100년 새 배포: 이전 게임방 ${removed}개 초기화 완료`);
+    }
+  }
 
   for (const filename of readdirSync(directory)) {
     const code = filename.slice(0, -5);
-    if (!filename.endsWith('.json') || !ROOM_CODE.test(code)) continue;
+    if (!isRoomFile(filename)) continue;
     const room = JSON.parse(readFileSync(pathFor(code), 'utf8'));
     if (clock() - room.updated > RETENTION) rmSync(pathFor(code));
     else rooms.set(code, room);

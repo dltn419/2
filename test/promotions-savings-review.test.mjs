@@ -5,9 +5,9 @@ import { addPlayer, newRoom, selectChoice, stateFor, teacherAction, updateRoomRu
 import { bonusScene, careerPay, newPath, retirementPayout, retirementTax } from '../public/life.mjs';
 import { roomView } from '../public/views.mjs';
 
-function setup(career = 'teacher', age = 42, years = 16) {
+function setup(career = 'teacher', age = 42, years = 16, pace = 'personal') {
   const room = newRoom({ code: 'ABCD23', name: '경력실험', seed: 'promotion-savings',
-    settings: { pace: 'personal', maxAge: 110 } });
+    settings: { pace, maxAge: 110 } });
   const player = addPlayer(room, { id: 'hero', name: '주인공', avatar: 0, sex: 'female' });
   player.life.age = age;
   player.life.career = career;
@@ -38,7 +38,7 @@ test('승진 단계는 부모 직위가 모두 존재하며 시작 직업 없이
   for (const [key, role] of Object.entries(CAREER_PROMOTIONS)) {
     assert.ok(CAREERS[role.from], key);
     assert.ok(CAREERS[key].wage > CAREERS[role.from].wage, key);
-    assert.ok(role.minYears >= 4, key);
+    assert.ok(role.minYears >= (['militaryLieutenant', 'militaryCaptain', 'barista'].includes(key) ? 2 : ['rookieIdol', 'soloArtist', 'popularIdol'].includes(key) ? 3 : 4), key);
   }
   assert.equal(CAREERS.vicePrincipal.promotionFrom, 'teacher');
   assert.equal(CAREERS.principal.promotionFrom, 'vicePrincipal');
@@ -84,6 +84,54 @@ test('승진 경력이 부족하면 표시되더라도 선택할 수 없다', ()
   life.path.workYears.teacher = 16;
   life.stats.learning = 73;
   assert.match(state(room).me.scene.choices.find(({ id }) => id === 'work-vicePrincipal').locked, /배움 74점/);
+});
+
+test('일반 직업은 정기 직업 선택 전에 조건을 채운 해에 승진할 수 있다', () => {
+  const { room, life } = setup('crew', 27, 4);
+  life.stats.bond = 39;
+  assert.equal(state(room).me.scene.key, 'year');
+  life.stats.bond = 40;
+  const scene = state(room).me.scene;
+  assert.equal(scene.key, 'promotion');
+  assert.deepEqual(scene.choices.map(({ id }) => id), ['rest', 'work-storeLead']);
+  const markup = roomView({ role: 'player' }, state(room), { pane: 'play', rank: 'money' });
+  assert.match(markup, /승진 지원/);
+  const before = careerPay(life).total;
+  choose(room, 'work-storeLead');
+  assert.equal(life.age, 27);
+  assert.equal(life.career, 'storeLead');
+  assert.ok(careerPay(life).total > before);
+  assert.equal(state(room).me.scene.key, 'year');
+});
+
+test('승진을 미루면 재접속과 다음 해에도 반복 제안 없이 정기 지원 기회가 남는다', () => {
+  const { room } = setup('crew', 27, 4);
+  choose(room, 'rest');
+  const saved = JSON.parse(JSON.stringify(room));
+  assert.equal(state(saved).me.scene.key, 'year');
+  choose(saved, 'rest');
+  assert.equal(state(saved).me.age, 28);
+  assert.equal(state(saved).me.scene.key, 'saving');
+  choose(saved, 'save-none');
+  assert.equal(state(saved).me.scene.key, 'year');
+  saved.players[0].life.age = 34;
+  assert.equal(state(saved).me.scene.key, 'career');
+  assert.ok(state(saved).me.scene.choices.some(({ id, locked }) => id === 'work-storeLead' && !locked));
+});
+
+test('기존 방에서 제출한 올해 선택을 유지하고 다음 해부터 새 승진을 제안한다', () => {
+  const { room, life } = setup('crew', 27, 4, 'manual');
+  room.rules = 10;
+  room.players[0].choice = 'rest';
+  delete life.path.promotionOffers;
+  assert.equal(updateRoomRules(room, 1001), true);
+  assert.equal(state(room).me.scene.key, 'year');
+  assert.equal(state(room).me.choice, 'rest');
+  teacherAction(room, 'advance', { round: room.turn.number, phase: room.phase }, 1002);
+  assert.equal(life.age, 28);
+  assert.equal(state(room).me.scene.key, 'saving');
+  choose(room, 'save-none');
+  assert.equal(state(room).me.scene.key, 'promotion');
 });
 
 test('임상교수는 의사 경력·높은 능력과 관련 대학원 수료가 필요하다', () => {

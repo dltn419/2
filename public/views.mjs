@@ -26,13 +26,18 @@ export function topView(session, state) {
 
 
 function jobRequirementList(id, job, life) {
+  if (id === 'idol') return [
+    '12세 초등 졸업 오디션: 예술 28점 이상',
+    '15세 중등 졸업 오디션: 예술 36점 이상',
+    '18세 고등 졸업 오디션: 예술 45점 이상',
+    '연습생 연봉 0코인 · 공연예술학교에서 수업과 훈련 병행',
+  ];
   const need = Object.entries(job.need ?? {}).map(([stat, minimum]) => {
     const threshold = life && !job.promotionFrom ? Math.max(1, minimum - chanceDiscount(life, id, stat)) : minimum;
     return `${STATS[stat].label} ${threshold}${STATS[stat].unit ?? '점'}`;
   });
   return [
     job.promotionFrom && `${CAREERS[job.promotionFrom].title} 경력 ${job.minYears}년 이상`,
-    id === 'coach' && '운동선수 경력 3년 이상',
     CAREER_CREDENTIALS[job.education],
     ...need,
     job.requiresGraduate && '관련 대학원 수료',
@@ -43,9 +48,15 @@ function jobRequirementList(id, job, life) {
   ].filter(Boolean);
 }
 
-function careerPromotionRoute(id) {
-  const next = Object.entries(CAREER_PROMOTIONS).filter(([, position]) => position.from === id);
-  return next.flatMap(([nextId]) => [nextId, ...careerPromotionRoute(nextId)]);
+// 승진·전직이 갈라지면 각 경로를 독립적으로 표시합니다.
+function careerPromotionPaths(id, ancestors = new Set([id])) {
+  const next = Object.entries(CAREER_PROMOTIONS)
+    .filter(([, position]) => position.from === id).map(([nextId]) => nextId);
+  if (id === 'athlete') next.push('coach'); // 선수에서 지도자로 이동하는 별도의 전직 경로
+  return next.filter((nextId) => !ancestors.has(nextId)).flatMap((nextId) => {
+    const paths = careerPromotionPaths(nextId, new Set([...ancestors, nextId]));
+    return paths.length ? paths.map((path) => [nextId, ...path]) : [[nextId]];
+  });
 }
 
 function jobGuide(life) {
@@ -68,36 +79,43 @@ function jobGuide(life) {
       <summary>${h(group.title)} <span>${baseCareers.filter(([, job]) => job.group === group.id).length}개</span></summary>
       <ul class="job-guide-list">${baseCareers.filter(([, job]) => job.group === group.id).map(([id, job]) => {
       const growth = careerGrowth(id);
-      const growthLine = `${growth.steps.join('·')}년차 이후 +${growth.raise}코인씩`;
+      const growthLine = growth.steps.length ? `${growth.steps.join('·')}년차 이후 +${growth.raise}코인씩` : '경력 자동 증가 없음 · 승급 시 연봉 상승';
       const requirements = jobRequirementList(id, job, life);
       const requirementText = requirements.join(' · ') || '별도 조건 없음';
       const summaryRequirements = requirements.length > 2
         ? `${requirements.slice(0, 2).join(' · ')} 외 ${requirements.length - 2}개`
         : requirementText;
-      const routeIds = careerPromotionRoute(id);
-      const route = id === 'athlete' ? [...routeIds, 'coach', ...careerPromotionRoute('coach')] : routeIds;
+      const routes = careerPromotionPaths(id);
       let familyId = life?.career;
       while (familyId && CAREERS[familyId]?.promotionFrom) familyId = CAREERS[familyId].promotionFrom;
       const inFamily = familyId === id;
-      const routeHtml = route.length ? `<ol class="job-promotion-route">
-        <li class="job-promotion-step">
-          <div><strong>${h(job.title)}</strong><span>초기 연봉 ${job.wage}코인</span></div>
-          <p>시작 · ${h(requirementText)}</p>
-        </li>
-        ${route.map((positionId) => {
-          const position = CAREERS[positionId];
-          const info = jobRequirementList(positionId, position, null);
-          const conditions = positionId === 'coach'
-            ? ['운동선수 경력 3년 이상', ...Object.entries(position.need ?? {}).map(([stat, value]) => `${STATS[stat].label} ${value}${STATS[stat].unit ?? '점'}`)]
-            : info;
-          return `<li class="job-promotion-step">
-            <div><strong>${h(position.title)}</strong><span>기본 연봉 ${position.wage}코인</span></div>
-            <p>${positionId === 'coach' || position.routeType === '전직' ? '전직' : position.routeType === '성장' ? '성장' : '승진'} · ${h(conditions.join(' · ') || '별도 조건 없음')}</p>
-          </li>`;
-        }).join('')}
-      </ol>` : `<div class="job-no-promotion">
-        <strong>현재 직위의 다음 단계는 없어요</strong>
-        <p>경력과 능력치를 쌓거나 다른 직업을 알아볼 수 있어요.</p>
+      const routeHtml = routes.length ? `<div class="job-route-start">
+        <strong>${h(job.title)}</strong><span>시작 · 초기 연봉 ${job.wage}코인</span>
+      </div>
+      <div class="job-route-branches${routes.length > 1 ? ' multiple' : ''}">
+        ${routes.map((route, index) => `<section class="job-route-branch">
+          ${routes.length > 1 ? `<span class="job-route-label">경로 ${index + 1} · ${h(CAREERS[route.at(-1)].title)}</span>` : ''}
+          <ol class="job-promotion-route">
+            ${route.map((positionId) => {
+              const position = CAREERS[positionId];
+              const fromAthlete = id === 'athlete' && positionId === 'coach';
+              const requirements = fromAthlete
+                ? ['운동선수 경력 3년 이상', CAREER_CREDENTIALS.sportsCoach,
+                  ...Object.entries(position.need ?? {}).map(([stat, value]) =>
+                    `${STATS[stat].label} ${value}${STATS[stat].unit ?? '점'}`)]
+                : jobRequirementList(positionId, position, null);
+              const kind = fromAthlete || position.routeType === '전직' ? '전직'
+                : position.routeType === '성장' ? '성장' : '승진';
+              return `<li class="job-promotion-step">
+                <div><strong>${h(position.title)}</strong><span>기본 연봉 ${position.wage}코인${positionId === 'soloArtist' ? ' · 연령 제한 없음' : ''}</span></div>
+                <p>${kind} · ${h(requirements.join(' · ') || '별도 조건 없음')}</p>
+              </li>`;
+            }).join('')}
+          </ol>
+        </section>`).join('')}
+      </div>` : `<div class="job-no-promotion">
+        <strong>별도 승진 단계 없음</strong>
+        <p>현재 직업에서 경력을 쌓거나 다른 직업으로 이직할 수 있어요.</p>
       </div>`;
       return `<li class="job-guide-entry">
         <details class="job-guide-card">
@@ -118,11 +136,11 @@ function jobGuide(life) {
             <p class="job-guide-full-req"><strong>지원 조건</strong> ${h(requirementText)}</p>
             <div class="job-guide-details-meta">
               <span><b>연봉 성장</b> ${h(growthLine)}</span>
-              <span><b>정년</b> ${retirementAge(id)}세</span>
+              <span><b>활동 기간</b> ${Number.isFinite(retirementAge(id)) ? `${retirementAge(id)}세까지` : '연령 제한 없음'}</span>
               <span><b>체력 소모</b> ${job.fatigue ? `매년 -${job.fatigue}점` : '기본 소모 없음'}</span>
             </div>
             <section class="job-promotion-detail">
-              <h4>${route.length ? '승진·전직 경로와 필요 조건' : '성장 방식'}</h4>
+              <h4>${routes.length ? '승진·전직 경로와 필요 조건' : '성장 방식'}</h4>
               ${routeHtml}
             </section>
             <p class="job-guide-footnote">표시된 조건은 게임용 기준이며, 실제 직업 자격이나 승진 규정과는 다를 수 있어요.</p>
@@ -140,9 +158,9 @@ export function gameMenuView(page, life) {
   </nav>
   ${jobs ? jobGuide(life) : `<ul class="help-list">
     <li><b>한 해씩 성장</b><p>일상 선택으로 한 살 자라요. 진학·치료·저축은 같은 나이에 추가로 선택해요.</p></li>
-    <li><b>직업과 성장</b><p>모든 직업에서 경력과 조건을 채워 다음 단계에 도전할 수 있어요.</p></li>
+    <li><b>직업과 승진</b><p>꿈과 전공에 맞는 일을 찾고 경력·능력치를 쌓아 승급해요. 예술·운동·자영업 분야는 승급할 때 연봉이 크게 올라요.</p></li>
     <li><b>돈과 건강</b><p>‘올해 변화’에서 수입과 생활비를 확인해요. 체력이 낮으면 병에 걸릴 위험이 커져요.</p></li>
-    <li><b>노후 준비</b><p>적금에는 연 4% 복리가 붙어요. 중·노년에는 국채·펀드·주식 투자도 선택할 수 있어요.</p></li>
+    <li><b>노후 준비</b><p>적금에는 연 4% 복리가 붙어요. 중년과 노년에는 2년 만기 국채·펀드·주식에 투자할 수 있어요.</p></li>
     <li><b>다음 세대</b><p>삶을 마친 뒤 자녀나 다음 세대로 이어 살거나, 영혼이 되어 이야기를 남길 수 있어요.</p></li>
   </ul>`}`;
 }
@@ -204,19 +222,21 @@ export function homeView(code, selected, saved) {
 
 export function settingsFields(settings, { creating = false, started = false, pinRequired = false } = {}) {
   const { maxAge, seconds, pace } = settings;
-  const personal = pace === 'personal';
+  const automatic = pace === 'auto';
   return `
     ${creating ? '<label>방 이름<input name="name" maxlength="30" value="우리 반 100년" required autocomplete="off"></label>' : ''}
     <div class="form-grid">
       <label>한 삶의 최대 나이<input name="maxAge" type="number" min="80" max="110" value="${maxAge}" required ${started ? 'disabled' : ''}></label>
-      ${personal ? '' : `<label>진행 방식<select name="pace">
+      <label>진행 방식<select name="pace">
+        ${!started || pace === 'personal' ? `<option value="personal" ${pace === 'personal' ? 'selected' : ''}>각자 진행</option>` : ''}
         <option value="auto" ${pace === 'auto' ? 'selected' : ''}>자동 진행</option>
         <option value="manual" ${pace === 'manual' ? 'selected' : ''}>교사가 넘기기</option>
       </select></label>
-      <label>선택 시간 (초)<input name="seconds" type="number" min="0" max="180" value="${seconds}" required ${pace === 'manual' ? 'disabled' : ''}></label>`}
+      <label data-timer-setting ${automatic ? '' : 'hidden'}>선택 시간 (초)<input name="seconds" type="number" min="0" max="180" value="${seconds}" required ${automatic ? '' : 'disabled'}></label>
     </div>
-    <p class="field-note">${personal ? '학생마다 자기 속도로 진행해요.' :
-      '전원이 선택하거나 제한 시간이 끝나면 다음 해로 넘어가요. 0초는 시간 제한이 없어요.'}</p>
+    <p class="field-note" data-pace-note="personal" ${pace === 'personal' ? '' : 'hidden'}>학생마다 자기 속도로 진행해요.</p>
+    <p class="field-note" data-pace-note="auto" ${automatic ? '' : 'hidden'}>전원이 선택하거나 제한 시간(10~180초)이 끝나면 다음 해로 넘어가요. 0초는 시간 제한이 없어요.</p>
+    <p class="field-note" data-pace-note="manual" ${pace === 'manual' ? '' : 'hidden'}>학생들이 선택하면 교사가 올해를 마감해요.</p>
     ${creating ? '<label>이 방의 교사 비밀번호<input name="roomPassword" type="password" required minlength="4" maxlength="32" autocomplete="new-password" placeholder="4~32자로 새로 정해요"></label><p class="field-note">다른 기기에서 이 방을 이어 열 때 써요. 학생은 참가 코드와 별명으로 들어와요.</p>' : ''}
     ${pinRequired ? '<label>서버 방 열기 암호<input name="pin" type="password" required autocomplete="current-password"></label>' : ''}
   `;
@@ -376,12 +396,13 @@ function conditionView(option) {
 function careerGoalsView(life) {
   const goals = careerGoals(life);
   if (!goals.length) return '';
+  const idol = ['idol','rookieIdol','popularIdol','soloArtist'].includes(life.career);
   return `<section class="career-goals" aria-label="내 승진·전직 준비 현황">
-    <div class="career-goals-head"><strong>승진·전직 준비</strong></div>
+    <div class="career-goals-head"><strong>${idol ? '아이돌 데뷔·승급 준비' : '승진·전직 준비'}</strong></div>
     ${goals.map((goal) => {
       const missing = goal.checks.filter(({ met }) => !met);
       const summary = goal.ready
-        ? '모든 조건 충족 · 다음 직업 선택 때 도전할 수 있어요'
+        ? (idol ? '조건 충족 · 기획사 심사 때 도전할 수 있어요' : '모든 조건 충족 · 다음 직업 선택 때 도전할 수 있어요')
         : `남은 조건: ${missing.map(({ label }) => label).join(' · ')}`;
       return `<details class="career-goal-card" data-career-goal="${h(goal.career)}">
         <summary>
@@ -399,7 +420,8 @@ function careerGoalsView(life) {
             <span class="career-goal-check-state">${item.met ? '충족' : '미충족'}</span>
           </li>`).join('')}
         </ul>
-        <p class="career-goal-note">조건을 채운 뒤 직업 선택 기회에 지원할 수 있어요.</p>
+        <p class="career-goal-note">${idol ? '조건을 채우면 아이돌 전용 데뷔·승급 심사에서만 지원할 수 있어요. 일반 직업 선택과 중복되지 않습니다.'
+          : '조건을 채운 뒤 직업 선택 기회에 지원할 수 있어요.'}</p>
       </details>`;
     }).join('')}
   </section>`;
@@ -436,7 +458,7 @@ function choiceSection(key, title, options, me, bonus, note = '') {
   </details>`;
 }
 
-// 시작 직업 60개와 조건 부족 직업을 분야별 접이식 목록으로 탐색합니다.
+// 시작 직업과 조건 부족 직업을 분야별 접이식 목록으로 탐색합니다.
 function careerCategoryList(key, title, options, me, bonus) {
   if (!options.length) return '';
   return `<details class="choice-section career-category-list" data-choice-section="${key}">
@@ -509,7 +531,13 @@ function relationshipDetails(life) {
 function retirementDetails(life) {
   const path = pathOf(life);
   const account = path.savings;
-  if (!account?.annual) return '';
+  if (!account?.annual) {
+    if (life.age < 19 || path.retired !== null) return '';
+    const trainee = life.career === 'idol';
+    return `<p class="life-extra">${icon('coin')} <strong>노후 적금 · 미가입</strong>
+      <span>${trainee ? '무급 연습생은 데뷔 후 성인이 되면 가입 안내를 받아요.'
+        : '수입이 생긴 뒤 선택할 수 있어요. 가입을 건너뛰었다면 연봉이 오를 때 재검토할 수 있습니다.'}</span></p>`;
+  }
   const first = retirementPayout(account, 0);
   const last = retirementPayout(account, 9);
   const pensionLabel = first === last ? `${first}코인` : `${last}~${first}코인`;
@@ -539,7 +567,7 @@ function playerView(session, state, rank) {
   } else {
     const { scene } = me;
     const waiting = state.turn.auto ? '골랐어요. 친구들을 기다려요.' : '골랐어요. 선생님이 마감하면 다음 해로 가요.';
-    const careerScene = scene.key === 'career';
+    const careerScene = scene.key === 'career' || scene.key === 'promotion';
     const advancing = careerScene ? scene.choices.filter(({ careerGroup }) => careerGroup === 'advancement') : [];
     const currentJob = careerScene && me.life.career;
     const otherJobs = currentJob ? scene.choices.filter(({ careerGroup, locked }) =>
@@ -550,6 +578,8 @@ function playerView(session, state, rank) {
     const lockedJobs = careerScene ? scene.choices.filter(({ locked, careerGroup }) =>
       locked && careerGroup !== 'advancement') : [];
     const college = scene.key === 'education' ? scene.choices.filter(({ educationGroup }) => educationGroup === 'college') : [];
+    const medical = scene.key === 'education' ? scene.choices.filter(({ educationGroup }) => educationGroup === 'medical') : [];
+    const qualifications = scene.key === 'education' ? scene.choices.filter(({ educationGroup }) => educationGroup === 'qualifications') : [];
     const further = scene.key === 'education' ? scene.choices.filter(({ educationGroup }) => educationGroup === 'further') : [];
     const choices = scene.choices.filter((item) => !item.educationGroup &&
       (!careerScene || (!item.locked && item.careerGroup !== 'advancement' &&
@@ -559,18 +589,21 @@ function playerView(session, state, rank) {
     body = `${roundMeta(state)}
       ${scene.bonus ? '<p class="extra-label">추가 선택 · 나이 그대로</p>' : ''}
       <h2 tabindex="-1">${h(scene.title)}</h2><p class="subtle scene-detail">${h(scene.detail)}</p>
+      ${scene.canReturnToEducation ? `<div class="career-return">${button('choose', '진학 선택으로 돌아가기', 'book', 'secondary', 'data-id="return-education"')}</div>` : ''}
       ${scene.healthWarning ? `<p class="health-warning">${icon('heart')} 큰 병을 치료 중이에요. 올해는 체력을 아껴요.</p>` : ''}
       ${me.mode === 'fork' && me.life.end ? `<p class="fork-note">${icon('book')} ${h(me.life.end.note)}</p>` : ''}
       ${yearlyView(scene)}
       ${me.mode === 'alive' ? careerGoalsView(me.life) : ''}
       <div class="choice-grid">${choices.map((item) => choiceCard(item, me, scene.bonus)).join('')}</div>
       ${advancing.length ? `<section class="career-advancements">
-        <div class="section-heading"><h3>승진·전직 기회</h3><span class="small-badge mint">${advancing.length}개</span></div>
+        <div class="section-heading"><h3>${scene.key === 'promotion' ? '승진 지원' : '승진·전직 기회'}</h3><span class="small-badge mint">${advancing.length}개</span></div>
         <div class="choice-grid">${advancing.map((item) => choiceCard(item, me, scene.bonus)).join('')}</div>
       </section>` : ''}
       ${careerCategoryList('career-start', '직업 분야 고르기', starterJobs, me, scene.bonus)}
       ${careerCategoryList('career-other', '다른 직업 보기', otherJobs, me, scene.bonus)}
       ${choiceSection('college', '대학 진학', college, me, scene.bonus, '가족 지원을 뺀 본인 부담만 표시해요.')}
+      ${choiceSection('medical', '의료·보건 계열', medical, me, scene.bonus, '관련 학과를 졸업하고 면허시험을 통과해야 취업할 수 있어요.')}
+      ${choiceSection('qualifications', '자격시험·연수', qualifications, me, scene.bonus, '전공·진학과 별개로 자격을 준비할 수 있어요.')}
       ${choiceSection('further', '대학원·직업훈련', further, me, scene.bonus)}
       ${careerCategoryList('career-locked', '조건이 필요한 직업', lockedJobs, me, scene.bonus)}
       ${hint || canPass ? `<div class="choice-footer">${hint ? `<span>${hint}</span>` : ''}

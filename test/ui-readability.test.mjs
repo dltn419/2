@@ -110,7 +110,7 @@ test('인생 연대기는 연도·제목·수치를 먼저 보여주고 이야�
 test('게임 팁은 길게 늘어놓지 않고 핵심만 다섯 묶음으로 안내한다', () => {
   const html = gameMenuView('tips', null);
   assert.equal([...html.matchAll(/<li>/g)].length, 5);
-  for (const text of ['한 해씩 성장', '직업과 성장', '돈과 건강', '노후 준비', '다음 세대']) {
+  for (const text of ['한 해씩 성장', '직업과 승진', '돈과 건강', '노후 준비', '다음 세대']) {
     assert.ok(html.includes(text), text);
   }
 });

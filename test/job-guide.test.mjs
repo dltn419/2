@@ -31,7 +31,7 @@ test('교사를 누르면 교감·교장 승진 단계와 조건을 순서대로
   assert.match(part, /배움 74점/);
   assert.match(part, /관계 60점/);
   assert.match(part, /교감 경력 6년 이상/);
-  assert.match(part, /기본 연봉 9코인/);
+  assert.match(part, /기본 연봉 10코인/);
   assert.equal(CAREERS.principal.promotionFrom, 'vicePrincipal');
 });
 
@@ -48,27 +48,35 @@ test('의사 경로는 대학원 수료 조건과 높은 연봉까지 설명한�
   assert.match(part, /임상교수 경력 7년 이상/);
 });
 
-test('농부·가게 주인·크리에이터는 경력 성장 경로만 안내한다', () => {
+test('농부·가게 주인·크리에이터는 무작위 수입 없이 큰 승급 보상을 보여준다', () => {
   const html = guide();
-  for (const title of ['농부', '가게 주인', '영상 크리에이터']) {
+  for (const [title, last, wage] of [
+    ['농부', '농장 경영자', 12], ['가게 주인', '다점포 운영자', 15],
+    ['영상 크리에이터', '대형 크리에이터', 14],
+  ]) {
     const start = html.indexOf(`class="job-guide-title">${title}`);
     const part = html.slice(start, html.indexOf('</details>', start));
     assert.ok(start >= 0);
     assert.match(part, /승진·전직 경로와 필요 조건/);
-    assert.doesNotMatch(part, /성과 수입|보너스/);
+    assert.ok(part.includes(last));
+    assert.ok(part.includes(`기본 연봉 ${wage}코인`));
+    assert.doesNotMatch(part, /성과 수입|성과 보너스|상금/);
   }
 });
 
-test('운동선수는 경력 성장과 운동 지도자·감독 전직 경로를 갖는다', () => {
+test('운동선수는 승급으로 연봉을 높이고 생활체육 지도자로 자격 전직할 수 있다', () => {
   const html = guide();
   const start = html.indexOf('class="job-guide-title">운동선수');
   const part = html.slice(start, html.indexOf('</details>', start));
   assert.ok(start >= 0);
-  assert.match(part, /주전 선수/);
-  assert.match(part, /운동 지도자/);
+  assert.match(part, /스타 선수/);
+  assert.match(part, /기본 연봉 15코인/);
+  assert.doesNotMatch(part, /상금|성과 보너스/);
+  assert.match(part, /생활체육 지도자/);
   assert.match(part, /운동선수 경력 3년 이상/);
-  assert.match(part, /운동팀 감독/);
-  assert.match(part, /운동 지도자 경력 6년 이상/);
+  assert.match(part, /생활체육팀장/);
+  assert.match(part, /생활체육 지도자 경력 6년 이상/);
+  assert.match(part, /스포츠지도사 자격시험·연수 완료/);
 });
 
 test('직업명과 필요 조건만 보여주는 기본 목록에서 옛 승진직은 숨긴다', () => {
