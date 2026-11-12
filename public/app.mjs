@@ -1,6 +1,7 @@
-import { addPlayer, DEFAULTS, newRoom, profileFor, selectChoice, stateFor, teacherAction, tick } from './game.mjs';
+import { MAX_CAREER_INTERESTS } from './content.mjs';
+import { addPlayer, DEFAULTS, newRoom, profileFor, selectChoice, setPlayerInterests, stateFor, teacherAction, tick } from './game.mjs';
 import { deltaText, escapeHtml as h, icon } from './ui.mjs';
-import { choiceFeedbackView, gameMenuView, homeView, profileView, roomView, settingsFields, sexFields, topView } from './views.mjs';
+import { choiceFeedbackView, gameMenuView, homeView, interestPickerView, profileView, roomView, settingsFields, sexFields, topView } from './views.mjs';
 
 const top = document.querySelector('#top');
 const main = document.querySelector('#main');
@@ -18,6 +19,7 @@ let session = null;
 let state = null;
 let practice = null;
 let profile = null;
+let saveInterests = null;
 let pane = 'play';
 let rank = 'joy';
 let busy = false;
@@ -119,7 +121,7 @@ function render() {
   const showYearly = main.querySelector('.year-effects[open]');
   const openTeacherSettings = Boolean(main.querySelector('.teacher-settings[open]'));
   const oldStory = main.querySelector('[data-story-key]');
-  const openGoals = new Set(Array.from(oldStory?.querySelectorAll('[data-career-goal][open]') ?? [],
+  const openGoals = new Set(Array.from(main.querySelectorAll('[data-career-goal][open]'),
     (card) => card.dataset.careerGoal));
   const oldStoryKey = oldStory?.dataset.storyKey;
   const openSections = new Set(Array.from(oldStory?.querySelectorAll('[data-choice-section][open]') ?? [],
@@ -424,14 +426,47 @@ function showGeneration(index) {
 function practiceSetup() {
   modal('태어날 캐릭터 고르기', `<form id="practice-form">
     ${sexFields()}
-    <button class="button primary full" type="submit">${icon('sprout')} 태어나기</button>
+    <button class="button primary full" type="submit">${icon('sprout')} 관심 직업 고르기</button>
   </form>`);
 }
 
-function startPractice(sex) {
+function updateInterestPicker(form) {
+  const boxes = [...form.querySelectorAll('[name="interests"]')];
+  const selected = boxes.filter((box) => box.checked);
+  for (const box of boxes) box.disabled = !box.checked && selected.length >= MAX_CAREER_INTERESTS;
+  form.querySelector('[data-interest-count]').textContent = `${selected.length}/${MAX_CAREER_INTERESTS} 선택`;
+  form.querySelector('[data-interest-names]').replaceChildren(...selected.map((box) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.dataset.action = 'remove-interest';
+    chip.dataset.id = box.value;
+    chip.textContent = `${box.dataset.title} ×`;
+    chip.setAttribute('aria-label', `${box.dataset.title} 선택 해제`);
+    return chip;
+  }));
+}
+
+function openInterestPicker(selected, submitLabel, save) {
+  saveInterests = save;
+  modal('관심 직업 고르기', interestPickerView(selected, submitLabel), 'game-menu-dialog');
+  dialog.scrollTop = 0;
+  updateInterestPicker(dialog.querySelector('#interests-form'));
+}
+
+function editInterests() {
+  if (!state?.me) return;
+  openInterestPicker(state.me.interests ?? [], '저장하기', async (interests) => {
+    if (practice) {
+      if (setPlayerInterests(practice, 'me', interests)) updatePractice();
+    } else await sendRoom('interests', { interests });
+    dialog.close();
+  });
+}
+
+function startPractice(sex, interests) {
   const now = Date.now();
   practice = newRoom({ code: 'DEMO', seed: String(now), name: '혼자 체험', hostKey: null, settings: { pace: 'auto', seconds: 0 }, now });
-  addPlayer(practice, { id: 'me', name: '나', avatar: selectedAvatar, sex });
+  addPlayer(practice, { id: 'me', name: '나', avatar: selectedAvatar, sex, interests });
   addPlayer(practice, { id: 'art', name: '노을', avatar: 3, sex: 'female' });
   addPlayer(practice, { id: 'money', name: '마루', avatar: 4, sex: 'male' });
   addPlayer(practice, { id: 'bond', name: '초록', avatar: 1, sex: 'female' });
@@ -489,6 +524,17 @@ document.addEventListener('click', (event) => {
       for (const item of document.querySelectorAll('.avatar-pick')) item.setAttribute('aria-pressed', String(item === target));
       break;
     case 'practice': practiceSetup(); break;
+    case 'edit-interests': editInterests(); break;
+    case 'remove-interest': {
+      const form = target.closest('#interests-form');
+      const box = form?.querySelector(`[name="interests"][value="${CSS.escape(id)}"]`);
+      if (box) {
+        box.checked = false;
+        updateInterestPicker(form);
+        if (event.detail === 0) form.querySelector('#interest-search').focus();
+      }
+      break;
+    }
     case 'pane': pane = id; render(); break;
     case 'choice-back': {
       // 선택을 확정하지 않고 목록만 닫습니다. 게임 기록과 진행 상태는 그대로입니다.
@@ -530,6 +576,7 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('change', (event) => {
+  if (event.target.matches('#interests-form [name="interests"]')) updateInterestPicker(event.target.form);
   if (!event.target.matches('#settings-form [name="pace"]')) return;
   const { form, value } = event.target;
   form.elements.seconds.disabled = value !== 'auto';
@@ -538,7 +585,7 @@ document.addEventListener('change', (event) => {
 });
 
 document.addEventListener('input', (event) => {
-  if (event.target.id !== 'job-search') return;
+  if (!['job-search', 'interest-search'].includes(event.target.id)) return;
   const search = event.target.value.trim().toLowerCase();
   let found = false;
   for (const job of dialog.querySelectorAll('.job-guide-entry')) {
@@ -551,12 +598,12 @@ document.addEventListener('input', (event) => {
     if (search && matches) group.open = true;
     if (!search) group.open = false;
   }
-  dialog.querySelector('#job-no-match').hidden = found;
+  dialog.querySelector('#job-no-match, #interest-no-match').hidden = found;
 });
 
 document.addEventListener('submit', (event) => {
   const form = event.target;
-  if (!['join-form', 'settings-form', 'practice-form', 'host-form', 'successor-form', 'reset-room-form'].includes(form.id)) return;
+  if (!['join-form', 'settings-form', 'practice-form', 'interests-form', 'host-form', 'successor-form', 'reset-room-form'].includes(form.id)) return;
   event.preventDefault();
   void run(async () => {
     if (form.id === 'reset-room-form') {
@@ -571,7 +618,12 @@ document.addEventListener('submit', (event) => {
       return;
     }
     if (form.id === 'practice-form') {
-      startPractice(form.elements.sex.value);
+      const sex = form.elements.sex.value;
+      openInterestPicker([], '게임 시작', (interests) => startPractice(sex, interests));
+      return;
+    }
+    if (form.id === 'interests-form') {
+      await saveInterests?.(new FormData(form).getAll('interests'));
       return;
     }
     if (form.id === 'successor-form') {
@@ -591,8 +643,12 @@ document.addEventListener('submit', (event) => {
         message('6자리 참가 코드를 확인해 주세요.');
         return;
       }
-      const result = await api(`/api/rooms/${code}/join`, { body: { name: form.elements.nickname.value, avatar: selectedAvatar, sex: form.elements.sex.value } });
-      activate(result.session, result.state);
+      const { nickname, sex } = form.elements;
+      const details = { name: nickname.value, avatar: selectedAvatar, sex: sex.value };
+      openInterestPicker([], '방에 들어가기', async (interests) => {
+        const result = await api(`/api/rooms/${code}/join`, { body: { ...details, interests } });
+        activate(result.session, result.state);
+      });
       return;
     }
     const fields = form.elements;
@@ -612,6 +668,7 @@ document.addEventListener('submit', (event) => {
 dialog.addEventListener('click', (event) => {
   if (event.target === dialog) dialog.close();
 });
+dialog.addEventListener('close', () => { saveInterests = null; });
 document.addEventListener('visibilitychange', () => void poll());
 
 render();

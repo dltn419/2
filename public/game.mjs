@@ -1,8 +1,9 @@
 import {
-  AVATARS, CAREERS, IDLE, LIFE_EVENTS, OPPORTUNITIES, SPIRIT_SCENES, STAGES, STATS, STORIES, pick, spiritChoices,
+  AVATARS, CAREERS, IDLE, LIFE_EVENTS, MAX_CAREER_INTERESTS, OPPORTUNITIES, SPIRIT_SCENES, STAGES, STATS, STORIES,
+  isStartingCareer, pick, spiritChoices,
 } from './content.mjs';
 import {
-  SEXES, advancePath, annualScene, applyPath, bonusScene, careerPay, chanceDiscount, creditWorkYear,
+  SEXES, advancePath, annualScene, applyPath, bonusScene, careerPay, careerStatMinimum, creditWorkYear,
   familyDream, farewell, newPath, pathOf, restoreWorkYears, settleIdolCareer, updateLifePath, upgradeLifePath, yearlySources,
 } from './life.mjs';
 import { fallIll, illnessDeathRisk, settleHealth } from './health.mjs';
@@ -67,7 +68,15 @@ export function newRoom({ code, seed, name, hostKey, settings, now = Date.now() 
   };
 }
 
-export function addPlayer(room, { id, key, name, avatar, sex = null }) {
+function validateCareerInterests(interests) {
+  if (!Array.isArray(interests) || interests.length > MAX_CAREER_INTERESTS ||
+      new Set(interests).size !== interests.length || !interests.every(isStartingCareer)) {
+    throw new GameError(`관심 직업을 최대 ${MAX_CAREER_INTERESTS}개까지 골라 주세요.`, 400);
+  }
+  return [...interests];
+}
+
+export function addPlayer(room, { id, key, name, avatar, sex = null, interests = [] }) {
   if (!['lobby', 'play'].includes(room.phase)) {
     throw new GameError('이미 마감된 방이에요. 선생님이 방을 초기화한 뒤 참가해 주세요.');
   }
@@ -78,9 +87,20 @@ export function addPlayer(room, { id, key, name, avatar, sex = null }) {
   }
   number(avatar, 0, AVATARS.length - 1, '캐릭터 번호');
   if (sex !== null && (typeof sex !== 'string' || !Object.hasOwn(SEXES, sex))) throw new GameError('캐릭터의 성별을 골라 주세요.', 400);
-  const player = { id, key, name: normalized, avatar, mode: 'alive', choice: null, bonuses: [], life: newLife(1, sex, null, hash(`${room.seed}:${id}:1`)), archives: [], visits: [], latest: null };
+  const player = { id, key, name: normalized, avatar, interests: validateCareerInterests(interests),
+    mode: 'alive', choice: null, bonuses: [], life: newLife(1, sex, null, hash(`${room.seed}:${id}:1`)), archives: [], visits: [], latest: null };
   room.players.push(player);
   return player;
+}
+
+export function setPlayerInterests(room, playerId, interests) {
+  const player = room.players.find(({ id }) => id === playerId);
+  if (!player) throw new GameError('다시 방에 참가해 주세요.', 403);
+  const selected = validateCareerInterests(interests);
+  const previous = player.interests ?? [];
+  if (selected.length === previous.length && selected.every((career, i) => career === previous[i])) return false;
+  player.interests = selected;
+  return true;
 }
 
 function hash(value) {
@@ -148,7 +168,7 @@ function choicesFor(room, player) {
   let before = extra ? yearly : null;
   let choices = entry.choices.map((option) => {
     const need = Object.fromEntries(Object.entries(option.need ?? {}).map(([stat, minimum]) =>
-      [stat, Math.max(1, minimum - (option.strictNeed ? 0 : chanceDiscount(life, option.career, stat)))]));
+      [stat, careerStatMinimum(life, option.strictNeed ? null : option.career, stat, minimum)]));
     for (const [stat, delta] of Object.entries(option.effect)) {
       if (delta < 0) {
         const yearlyLoss = extra ? 0 : Math.min(0, base[stat] ?? 0);
@@ -649,6 +669,7 @@ export function stateFor(room, playerId, now = Date.now()) {
     players: room.players.map(summary), rankings: room.phase === 'lobby' ? {} : rankings(room.players),
     me: player ? {
       ...summary(player), life: lifeView(player.life, player.life.history.slice(-8)),
+      interests: player.interests ?? [],
       choice: player.choice, latest: player.latest, visits: player.visits.slice(-8),
       scene: room.phase === 'play' ? choicesFor(room, player) : null,
     } : null,

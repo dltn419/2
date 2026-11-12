@@ -150,6 +150,9 @@ export const CAREER_GROUPS = [
   { id: 'care', title: '교육·의료·연구·복지' },
   { id: 'culture', title: '문화·예술·스포츠' },
 ];
+export const MAX_CAREER_INTERESTS = 3;
+export const isStartingCareer = (id) => typeof id === 'string' && Object.hasOwn(CAREERS, id) && !CAREERS[id].promotionFrom;
+
 const CAREER_GROUP_MEMBERS = {
   service: 'crew restaurant cook cleaner delivery sales shop cafe baker hairdresser hotel realtor'.split(' '),
   industry: 'factory tech developer construction mechanic electrician busDriver freightDriver mechanicalEngineer architect farmer livestock'.split(' '),

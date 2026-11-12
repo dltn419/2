@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomInt, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { renderSVG } from 'uqr';
-import { addPlayer, GameError, RULE_VERSION, newRoom, profileFor, selectChoice, stateFor, teacherAction, tick, updateRoomRules } from '../public/game.mjs';
+import { addPlayer, GameError, RULE_VERSION, newRoom, profileFor, selectChoice, setPlayerInterests, stateFor, teacherAction, tick, updateRoomRules } from '../public/game.mjs';
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const ROOM_CODE = /^[A-HJ-NP-Z2-9]{6}$/;
@@ -132,7 +132,7 @@ export function makeGameApi({ store, hostPin = '', requireRoomPassword = false, 
         throw new GameError('참가 코드를 만들 수 없어요. 다시 시도해 주세요.', 503);
       }
 
-      const route = /^\/api\/rooms\/([^/]+)(?:\/(join|host|choice|teacher|profile)(?:\/([A-Za-z0-9_-]+))?)?$/.exec(pathname);
+      const route = /^\/api\/rooms\/([^/]+)(?:\/(join|host|choice|interests|teacher|profile)(?:\/([A-Za-z0-9_-]+))?)?$/.exec(pathname);
       if (!route) throw new GameError('이 주소를 찾을 수 없어요.', 404);
       const [, code, action, profileId] = route;
       if (!ROOM_CODE.test(code)) requireRoom(null);
@@ -165,7 +165,8 @@ export function makeGameApi({ store, hostPin = '', requireRoomPassword = false, 
           // 만료된 공통 턴은 신규 학생을 넣기 전에 마무리합니다.
           // 신규 학생은 현재 턴에 0살부터 들어오고 기존 학생의 진행은 유지됩니다.
           applyDeadline(room, joinedAt);
-          const player = addPlayer(room, { id: randomBytes(8).toString('hex'), key: keyHash(token), name: body.name, avatar: body.avatar, sex: body.sex });
+          const player = addPlayer(room, { id: randomBytes(8).toString('hex'), key: keyHash(token), name: body.name,
+            avatar: body.avatar, sex: body.sex, interests: body.interests });
           markChanged(room, joinedAt);
           return { session: { code, token, role: 'player', name: player.name }, state: stateFor(room, player.id, joinedAt) };
         }));
@@ -201,6 +202,7 @@ export function makeGameApi({ store, hostPin = '', requireRoomPassword = false, 
           try {
             let changed;
             if (action === 'choice' && role === 'player') changed = selectChoice(room, playerId, body, decidedAt);
+            else if (action === 'interests' && role === 'player') changed = setPlayerInterests(room, playerId, body.interests);
             else if (action === 'teacher' && role === 'host') changed = teacherAction(room, body.action, body, decidedAt);
             else throw new GameError('이 작업을 할 권한이 없어요.', 403);
             if (changed) markChanged(room, decidedAt);

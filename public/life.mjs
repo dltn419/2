@@ -1,4 +1,4 @@
-import { CAREER_CREDENTIALS, CAREER_GROWTH, CAREERS, HABITS, STATS, pick } from './content.mjs';
+import { CAREER_CREDENTIALS, CAREER_GROWTH, CAREERS, HABITS, STATS, isStartingCareer, pick } from './content.mjs';
 import { finishCare, illnessCare } from './health.mjs';
 
 export const SEXES = { male: '남자', female: '여자' };
@@ -39,6 +39,8 @@ export const DREAM_OPTIONS = {
 // 일반적인 연간 선택지만 모두 예술 최대로 고른 결과입니다 (무작위 사건 제외).
 export const IDOL_GRADUATION_ART_MAX = Object.freeze({ 12: 30, 15: 38, 18: 47 });
 export const IDOL_GRADUATION_ART_MIN = Object.freeze({ 12: 28, 15: 36, 18: 45 });
+const IDOL_AUDITION_HEALTH_COST = 1;
+const ENLISTED_NCO_NEED = { health: 52, learning: 30 };
 const SERVICE_LIMIT = 28;
 const COMMUNITY_HEALTH = 40;
 const CAREER_BY_TITLE = new Map(Object.entries(CAREERS).map(([id, job]) => [job.title, id]));
@@ -358,7 +360,7 @@ function idolAudition(life) {
     : life.age === 15 ? '공연예술고 과정' : '연예기획사 전문 교육 과정';
   return option('idol-audition', '연예기획사 오디션 보기',
     `예술 ${minimum}점 이상이면 지원 가능 · 합격하면 ${place}에서 노래와 안무를 전문적으로 배워요. 데뷔 전 수입 0코인.`,
-    'spark', { health: -1, art: 1 }, 'idol-trainee', life.age,
+    'spark', { health: -IDOL_AUDITION_HEALTH_COST, art: 1 }, 'idol-trainee', life.age,
     '오디션에 합격해 기획사 연습생이 되었어요.', {
       narration: `연예기획사 오디션에 합격했어요. ${place}에 들어가 학교 수업과 연습생 생활을 시작했어요.`,
     });
@@ -562,13 +564,11 @@ function careerWindow(life, path) {
     Object.values(QUALIFICATION_EXAMS).some(({ record }) => path[record] === age));
 }
 
-function careerPlan(life, path) {
-  const degrees = degreesOf(path);
-  const bachelor = degrees.some(({ kind }) => kind !== 'college');
-  const credentials = {
+function careerCredentials(path, degrees) {
+  return {
     school: finishedSchool(path),
     skill: path.school === 'vocational' || path.training || degrees.length > 0,
-    bachelor,
+    bachelor: degrees.some(({ kind }) => kind !== 'college'),
     stem: degrees.some(({ kind, field }) => kind !== 'college' && isStem(field)),
     biology: degrees.some(({ kind, field }) => kind !== 'college' && ['biology', 'science'].includes(field)),
     teaching: degrees.some(({ kind }) => kind === 'teaching'),
@@ -583,6 +583,82 @@ function careerPlan(life, path) {
     realtor: Number.isInteger(path.realtorCertificationAge),
     taxation: Number.isInteger(path.taxCertificationAge),
   };
+}
+
+function officerDegree(degrees) {
+  return degrees.some(({ kind }) => ['university', 'teaching', 'nursing', 'medicine', 'pharmacy',
+    'dentistry', 'physicalTherapy', 'academy', 'graduate'].includes(kind));
+}
+
+const CAREER_STUDIES = {
+  teaching: 'teaching', doctor: 'medicine', nursing: 'nursing', pharmacy: 'pharmacy',
+  dentistry: 'dentistry', physicalTherapy: 'physicalTherapy',
+};
+
+export function careerInterestGoals(life, interests) {
+  const path = pathOf(life);
+  const degrees = degreesOf(path);
+  const credentials = careerCredentials(path, degrees);
+  const currentTrack = new Set();
+  for (let id = life.career; id; id = CAREERS[id]?.promotionFrom) currentTrack.add(id);
+  return interests.filter(isStartingCareer).map((career) => {
+    const job = CAREERS[career];
+    const active = currentTrack.has(career) && path.retired === null;
+    let limit = job.latestStart ?? retirementAge(career) - 1;
+    let need = { ...job.need };
+    let strict = job.militaryProfessional || (career === 'coach' && life.career === 'athlete');
+    const checks = [];
+    const notes = [];
+
+    if (career === 'idol') {
+      const auditions = Object.entries(IDOL_GRADUATION_ART_MIN);
+      const next = auditions.find(([age]) => Number(age) >= life.age);
+      limit = Number(auditions.at(-1)[0]);
+      need = next ? { art: next[1], health: 1 + IDOL_AUDITION_HEALTH_COST } : {};
+      strict = true;
+      notes.push(`졸업 오디션 · ${auditions.map(([age, art]) => `${age}살 예술 ${art}점`).join(' · ')}`);
+    } else if (career === 'militaryNco') {
+      limit = 26;
+      const enlisted = path.service?.status === 'serving' && path.service.kind === 'military';
+      if (enlisted) need = ENLISTED_NCO_NEED;
+      else checks.push({ label: CAREER_CREDENTIALS.school, met: life.age >= 18 && credentials.school });
+      notes.push(enlisted ? '현역부사관 지원 기준 · 병 복무 중 21~26살' : '민간부사관 지원 기준 · 19~26살');
+    } else if (career === 'militaryOfficer') {
+      limit = 28;
+      checks.push({ label: CAREER_CREDENTIALS.bachelor, met: officerDegree(degrees) });
+      notes.push('학사사관 지원 기준 · 20~28살. 사관학교·학군사관을 통해서도 임관할 수 있어요.');
+    } else if (job.education) {
+      const met = Boolean(credentials[job.education]) && (job.education !== 'school' || life.age >= 18);
+      checks.push({ label: CAREER_CREDENTIALS[job.education], met });
+      const program = CAREER_STUDIES[job.education];
+      if (program && !met && path.program?.kind !== program && !degrees.some(({ kind }) => kind === program)) {
+        const entry = universityChoice(program, life);
+        const thresholds = Object.entries(entry.need).map(([stat, minimum]) => `${STATS[stat].label} ${minimum}점`);
+        notes.push(`${PROGRAMS[program].label} 진학 기준 · ${thresholds.join(' · ')}`);
+      }
+    }
+    if (career === 'coach' && life.career === 'athlete') {
+      const current = path.workYears?.athlete ?? 0;
+      checks.push({ label: '운동선수 경력', current, required: 3, unit: '년', met: current >= 3 });
+    }
+    if (job.latestStart) notes.push(`${job.latestStart}살까지 지원할 수 있어요.`);
+    if (job.startup) {
+      need.money = Math.max(need.money ?? 0, job.startup + 1);
+      notes.push(`시작 비용 ${job.startup}코인`);
+    }
+    for (const [stat, minimum] of Object.entries(need)) {
+      const current = life.stats[stat] ?? 0;
+      const required = careerStatMinimum(life, strict ? null : career, stat, minimum);
+      checks.push({ label: STATS[stat].label, current, required, unit: STATS[stat].unit ?? '점', met: current >= required });
+    }
+    const closed = life.age > limit || path.retired !== null || (career === 'idol' && Number.isInteger(path.idolJoinedAt));
+    return { career, title: job.title, checks, notes, active, closed };
+  });
+}
+
+function careerPlan(life, path) {
+  const degrees = degreesOf(path);
+  const credentials = careerCredentials(path, degrees);
   const schoolField = { science: 'science', gifted: 'science', vocational: 'tech', arts: 'art' }[path.school];
   const interests = [schoolField, ...path.dreams.flatMap(({ field }) => dreamFields(field)), ...degrees.map(({ field }) => field)];
   const current = CAREERS[life.career];
@@ -636,21 +712,18 @@ function careerPlan(life, path) {
         '고졸 이상 · 남녀 지원 가능 · 체력·학습 조건을 통과하고 1년의 양성교육을 거쳐 하사로 임관해요.',
         'flag', {}, {
           action: { kind: 'military-recruit', value: 'nco-public' },
-          need: { health: 55, learning: 30 }, strictNeed: true, careerGroup: 'other',
+          need: CAREERS.militaryNco.need, strictNeed: true, careerGroup: 'other',
           conditions: [{ label: '고졸 또는 검정고시', met: finishedSchool(path) }],
           narration: '부사관 선발에 합격해 양성교육에 들어갔어요.',
         }));
     }
-    const bachelorForOfficer = degrees.some(({ kind }) =>
-      ['university', 'teaching', 'nursing', 'medicine', 'pharmacy', 'dentistry', 'physicalTherapy',
-        'academy', 'graduate'].includes(kind));
     if (life.age >= 20 && life.age <= 28) {
       choices.push(pick('apply-military-ocs', '육군 학사사관 지원',
         '4년제 대학 졸업 이상 · 남녀 지원 가능 · 선발과 양성교육을 거쳐 소위로 임관해요.',
         'flag', {}, {
           action: { kind: 'military-recruit', value: 'officer-ocs' },
-          need: { health: 55, learning: 50, bond: 30 }, strictNeed: true, careerGroup: 'other',
-          conditions: [{ label: '4년제 대학 졸업', met: bachelorForOfficer }],
+          need: CAREERS.militaryOfficer.need, strictNeed: true, careerGroup: 'other',
+          conditions: [{ label: '4년제 대학 졸업', met: officerDegree(degrees) }],
           narration: '학사사관 선발에 합격해 장교 양성교육을 받기로 했어요.',
         }));
     }
@@ -1142,7 +1215,7 @@ export function bonusScene(life, done) {
         option('military-nco-service', '현역부사관 전환 지원',
           '체력·학습 능력 조건을 갖추고 간부 양성교육을 받아요.', 'flag', {},
           'military-recruit', 'nco-enlisted', '부사관 지원서를 내고 선발됐어요.',
-          { need: { health: 52, learning: 30 }, strictNeed: true }),
+          { need: ENLISTED_NCO_NEED, strictNeed: true }),
         rest('병 복무 마무리하기', '남은 병 복무를 마치고 전역하기로 해요.', {}),
       ]), key: 'military-nco', fallback: 'rest' };
   }
@@ -1592,6 +1665,10 @@ export function chanceDiscount(life, career, stat) {
   return dreamBoost
     + (degreesOf(path).some(({ field }) => fields.includes(field)) ? 6 : 0)
     + (career === 'tech' && (path.training || path.school === 'vocational') ? 7 : 0);
+}
+
+export function careerStatMinimum(life, career, stat, minimum) {
+  return Math.max(1, minimum - chanceDiscount(life, career, stat));
 }
 
 export function lifeBadges(life) {

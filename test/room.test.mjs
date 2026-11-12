@@ -82,6 +82,35 @@ test('교사 초대 QR은 현재 사이트와 그 방의 참가 코드를 담는
   assert.equal((await app.request(`/api/invite.svg?${params}`)).status, 400);
 });
 
+test('학생의 관심 직업은 최대 세 개를 저장하고 그 학생만 변경할 수 있다', async (t) => {
+  const app = await fixture(t);
+  const room = await app.room();
+  const selection = ['teacher', 'doctor', 'developer'];
+  const join = await app.request(room.root + '/join', null,
+    { name: '선택 학생', avatar: 0, sex: 'female', interests: selection });
+  assert.equal(join.status, 201);
+  assert.deepEqual(join.body.state.me.interests, selection);
+  const { token } = join.body.session;
+  const friend = await room.join('친구');
+  assert.deepEqual(friend.body.state.me.interests, []);
+  assert.ok(friend.body.state.players.every((player) => !Object.hasOwn(player, 'interests')));
+
+  const route = room.root + '/interests';
+  assert.equal((await app.request(route, room.host, { interests: [] })).status, 403);
+  for (const interests of [[...selection, 'idol'], ['doctor', 'doctor'], ['principal'], ['unknown']]) {
+    assert.equal((await app.request(route, token, { interests })).status, 400);
+  }
+  assert.deepEqual((await room.state(token)).me.interests, selection);
+  await room.teacher('start');
+  const edited = await app.request(route, token, { interests: ['idol'] });
+  assert.equal(edited.status, 200);
+  assert.equal(edited.body.me.age, 0);
+  assert.deepEqual(edited.body.me.interests, ['idol']);
+  await app.restart();
+  assert.deepEqual((await room.state(token)).me.interests, ['idol']);
+  assert.deepEqual((await room.state(friend.body.session.token)).me.interests, []);
+});
+
 test('20명이 동시에 선택하면 한 턴만 마감하고 서버 재시작 뒤에도 이어진다', async (t) => {
   const app = await fixture(t);
   assert.equal((await app.request('/api/rooms', null, { name: '교실', pin: 'incorrect' })).status, 403);

@@ -1,6 +1,6 @@
-import { AVATARS, CAREER_CREDENTIALS, CAREER_GROUPS, CAREER_PROMOTIONS, CAREERS, STAGES, STATS } from './content.mjs';
+import { AVATARS, CAREER_CREDENTIALS, CAREER_GROUPS, CAREER_PROMOTIONS, CAREERS, MAX_CAREER_INTERESTS, STAGES, STATS, isStartingCareer } from './content.mjs';
 import { CAPACITY, MODES, PASS, RANKS, stageAt } from './game.mjs';
-import { SEXES, careerGoals, careerGrowth, careerPay, chanceDiscount, lifeBadges, pathNotes, pathOf,
+import { SEXES, careerGoals, careerGrowth, careerInterestGoals, careerPay, careerStatMinimum, lifeBadges, pathNotes, pathOf,
   retirementAge, retirementLumpSum, retirementPayout, retirementTax } from './life.mjs';
 import { avatar, changes, escapeHtml as h, icon, numeral, statGrid } from './ui.mjs';
 
@@ -33,7 +33,7 @@ function jobRequirementList(id, job, life) {
     '연습생 연봉 0코인 · 공연예술학교에서 수업과 훈련 병행',
   ];
   const need = Object.entries(job.need ?? {}).map(([stat, minimum]) => {
-    const threshold = life && !job.promotionFrom ? Math.max(1, minimum - chanceDiscount(life, id, stat)) : minimum;
+    const threshold = life && !job.promotionFrom ? careerStatMinimum(life, id, stat, minimum) : minimum;
     return `${STATS[stat].label} ${threshold}${STATS[stat].unit ?? '점'}`;
   });
   return [
@@ -170,6 +170,27 @@ export function sexFields() {
     `<label><input type="radio" name="sex" value="${sex}" required> ${avatar(0, 'alive', sex)} ${label}</label>`).join('')}</div></fieldset>`;
 }
 
+export function interestPickerView(selected, submitLabel) {
+  const jobs = Object.entries(CAREERS).filter(([id]) => isStartingCareer(id));
+  return `<form id="interests-form">
+    <p class="field-note">최대 ${MAX_CAREER_INTERESTS}개까지 고를 수 있어요. 비워 두고 시작해도 돼요.</p>
+    <label for="interest-search">직업 검색<input id="interest-search" type="search" placeholder="예 교사, 의사, 가수" autocomplete="off"></label>
+    <div class="interest-selection"><strong data-interest-count aria-live="polite"></strong><div data-interest-names></div></div>
+    <div class="job-guide-categories interest-options">
+      ${CAREER_GROUPS.map(({ id: group, title }) => `<details class="job-guide-category">
+        <summary>${h(title)} ${icon('down')}</summary>
+        <div class="interest-list">${jobs.filter(([, job]) => job.group === group).map(([id, job]) => `
+          <label class="job-guide-entry interest-option">
+            <input type="checkbox" name="interests" value="${h(id)}" data-title="${h(job.title)}" ${selected.includes(id) ? 'checked' : ''}>
+            <span>${h(job.title)}</span>
+          </label>`).join('')}</div>
+      </details>`).join('')}
+      <p class="field-note" id="interest-no-match" hidden>검색한 직업을 찾을 수 없어요.</p>
+    </div>
+    <button type="submit" class="button primary full">${h(submitLabel)} ${icon('arrow')}</button>
+  </form>`;
+}
+
 export function homeView(code, selected, saved) {
   const classroom = AVATARS.map((item, index) => avatar(index)).join('');
   return `<div class="shell home">
@@ -203,7 +224,7 @@ export function homeView(code, selected, saved) {
           ${sexFields()}
           <fieldset class="avatars"><legend>캐릭터</legend><div>${AVATARS.map((item, index) =>
             `<button class="avatar-pick" type="button" data-action="avatar" data-index="${index}" aria-label="${item.name} 캐릭터" title="${item.name}" aria-pressed="${index === selected}">${avatar(index)}</button>`).join('')}</div></fieldset>
-          <button class="button primary" type="submit">방에 들어가기 ${icon('arrow')}</button>
+          <button class="button primary" type="submit">관심 직업 고르기 ${icon('arrow')}</button>
         </form>
         ${saved.player ? button('resume-player', '지난 인생 이어 하기', 'book', 'quiet') : ''}
       </article>
@@ -329,6 +350,7 @@ function lobbyView(session, state) {
       <div class="section-heading"><div class="eyebrow">${icon('users')} 대기실</div><span class="small-badge mint">${state.players.length} / ${CAPACITY}명</span></div>
       <h2>${teacher ? '참가자' : '함께할 친구들'}</h2>
       <p class="subtle">${teacher ? '학생이 모이면 게임을 시작하세요.' : '선생님이 시작하면 첫 번째 인생 선택이 열려요.'}</p>
+      ${state.me ? careerInterestsView(state.me) : ''}
       ${roster(state.players, { teacher, kickable: teacher, lobby: true, meId: state.me?.id })}
     </section>
     <aside class="stack">
@@ -393,6 +415,45 @@ function conditionView(option) {
   return `<span class="requirement">${h(missing?.length ? `${missing.join(' · ')} 필요` : option.locked)}</span>`;
 }
 
+function careerChecksView(checks) {
+  return `<ul class="career-goal-checks">${checks.map((item) => `<li class="${item.met ? 'met' : 'unmet'}">
+    <span class="career-goal-check-icon" aria-hidden="true">${item.met ? '✓' : '○'}</span>
+    <span class="career-goal-check-name">${h(item.label)}</span>
+    ${item.required === undefined ? '' : `<span class="career-goal-check-current">${item.current}/${item.required}${h(item.unit)}</span>`}
+    <span class="career-goal-check-state">${item.met ? '충족' : '미충족'}</span>
+  </li>`).join('')}</ul>`;
+}
+
+function careerInterestsView(me) {
+  const goals = me.interests?.length ? careerInterestGoals(me.life, me.interests) : [];
+  const editLabel = goals.length ? '바꾸기' : '고르기';
+  return `<section class="career-goals career-interests" aria-label="관심 직업">
+    <div class="career-goals-head"><strong>관심 직업</strong>
+      ${button('edit-interests', editLabel, null, 'quiet', `data-focus="edit-interests" aria-label="관심 직업 ${editLabel}"`)}
+    </div>
+    ${goals.length ? `<div class="interest-cards">${goals.map((goal) => {
+      const missing = goal.checks.filter(({ met }) => !met);
+      const total = goal.checks.length;
+      const ready = !goal.closed && !missing.length;
+      const status = goal.active ? '활동 중' : goal.closed ? '지원 시기 지남' : total ? `${total - missing.length}/${total} 충족` : '조건 없음';
+      const preview = missing.slice(0, 2).map(({ label, current, required, unit }) =>
+        required === undefined ? label : `${label} ${current}/${required}${unit}`).join(' · ');
+      const badge = `<span class="career-goal-progress${ready || goal.active ? ' complete' : ''}">${h(status)}</span>`;
+      if (!total && !goal.notes.length) return `<div class="career-goal-card interest-no-conditions">
+        <span class="career-goal-main"><b>${h(goal.title)}</b>${badge}</span></div>`;
+      return `<details class="career-goal-card" data-career-goal="interest-${h(goal.career)}">
+        <summary>
+          <span class="career-goal-main"><b>${h(goal.title)}</b>
+            <span class="interest-status">${badge}${icon('down')}</span></span>
+          ${preview && !goal.active && !goal.closed ? `<small class="career-goal-teaser">${h(preview)}</small>` : ''}
+        </summary>
+        ${careerChecksView(goal.checks)}
+        ${goal.notes.map((note) => `<p class="career-goal-note">${h(note)}</p>`).join('')}
+      </details>`;
+    }).join('')}</div>` : ''}
+  </section>`;
+}
+
 function careerGoalsView(life) {
   const goals = careerGoals(life);
   if (!goals.length) return '';
@@ -410,16 +471,7 @@ function careerGoalsView(life) {
             <span class="career-goal-progress${goal.ready ? ' complete' : ''}">${goal.met}/${goal.total} 충족</span></span>
           <small class="career-goal-teaser">${h(summary)}</small>
         </summary>
-        <ul class="career-goal-checks">
-          ${goal.checks.map((item) => `<li class="${item.met ? 'met' : 'unmet'}">
-            <span class="career-goal-check-icon" aria-hidden="true">${item.met ? '✓' : '○'}</span>
-            <span class="career-goal-check-name">${h(item.label)}</span>
-            <span class="career-goal-check-current">${item.required === undefined
-              ? (item.met ? '수료 완료' : '수료 필요')
-              : `${item.current}/${item.required}${h(item.unit)}`}</span>
-            <span class="career-goal-check-state">${item.met ? '충족' : '미충족'}</span>
-          </li>`).join('')}
-        </ul>
+        ${careerChecksView(goal.checks)}
         <p class="career-goal-note">${idol ? '조건을 채우면 아이돌 전용 데뷔·승급 심사에서만 지원할 수 있어요. 일반 직업 선택과 중복되지 않습니다.'
           : '조건을 채운 뒤 직업 선택 기회에 지원할 수 있어요.'}</p>
       </details>`;
@@ -563,7 +615,8 @@ function playerView(session, state, rank) {
       <h2>우리 반 이야기를 마쳤어요</h2><p class="subtle">${h(state.endReason)}</p>${latestView(me.latest)}
       <div class="actions">${button('profile', '내 기록 보기', 'book', 'primary', `data-id="${me.id}"`)} ${button('pane', '최종 순위', 'trophy', 'secondary', 'data-id="rank"')}</div>`;
   } else if (state.paused) {
-    body = `${roundMeta(state)}<div class="empty paused">${icon('pause')}<strong>잠시 쉬어요</strong><span>선생님이 시작하면 계속 골라요.</span></div>`;
+    body = `${roundMeta(state)}<div class="empty paused">${icon('pause')}<strong>잠시 쉬어요</strong><span>선생님이 시작하면 계속 골라요.</span></div>
+      ${me.mode === 'alive' ? careerInterestsView(me) : ''}`;
   } else {
     const { scene } = me;
     const waiting = state.turn.auto ? '골랐어요. 친구들을 기다려요.' : '골랐어요. 선생님이 마감하면 다음 해로 가요.';
@@ -593,6 +646,7 @@ function playerView(session, state, rank) {
       ${scene.healthWarning ? `<p class="health-warning">${icon('heart')} 큰 병을 치료 중이에요. 올해는 체력을 아껴요.</p>` : ''}
       ${me.mode === 'fork' && me.life.end ? `<p class="fork-note">${icon('book')} ${h(me.life.end.note)}</p>` : ''}
       ${yearlyView(scene)}
+      ${me.mode === 'alive' ? careerInterestsView(me) : ''}
       ${me.mode === 'alive' ? careerGoalsView(me.life) : ''}
       <div class="choice-grid">${choices.map((item) => choiceCard(item, me, scene.bonus)).join('')}</div>
       ${advancing.length ? `<section class="career-advancements">

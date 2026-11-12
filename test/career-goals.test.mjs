@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { addPlayer, newRoom, selectChoice, stateFor, teacherAction } from '../public/game.mjs';
-import { careerGoals, newPath } from '../public/life.mjs';
+import { careerGoals, careerInterestGoals, newPath } from '../public/life.mjs';
 import { roomView } from '../public/views.mjs';
 
 const stats = () => ({ money: 150, health: 80, learning: 70, bond: 55, art: 45, joy: 60 });
@@ -21,6 +21,39 @@ function setup(career, age = 42, years = 0) {
   teacherAction(room, 'start', {}, 1000);
   return { room, player };
 }
+
+test('관심 직업은 어릴 때부터 진학과 필요 능력치를 보여주고 실제 지원 조건과 맞는다', () => {
+  const { room, player } = setup('staff', 34, 8);
+  player.interests = ['teacher'];
+  const child = { ...player.life, age: 0, career: null, stats: { ...stats(), learning: 8, bond: 10 }, path: newPath('female') };
+  const [goal] = careerInterestGoals(child, player.interests);
+  assert.equal(goal.checks.find(({ label }) => label === '교육대 졸업').met, false);
+  assert.match(goal.notes.join(' '), /교육대 진학 기준 · 배움 47점 · 관계 22점/);
+  assert.deepEqual(goal.checks.find(({ label }) => label === '배움'),
+    { label: '배움', current: 8, required: 59, unit: '점', met: false });
+
+  player.life.path.degree = { kind: 'teaching', field: 'education', age: 23 };
+  const current = stateFor(room, 'p1');
+  const [prepared] = careerInterestGoals(player.life, player.interests);
+  const hiring = current.me.scene.choices.find(({ id }) => id === 'work-teacher');
+  assert.ok(hiring && !hiring.locked);
+  for (const { label, required, unit, met } of prepared.checks) {
+    assert.ok(hiring.conditions.some((check) => check.label === (required ? `${label} ${required}${unit}` : label) && check.met === met));
+  }
+  const html = roomView({ role: 'player' }, current, { pane: 'play', rank: 'money' });
+  assert.match(html, /data-career-goal="interest-teacher"/);
+  assert.match(html, /70\/53점/);
+});
+
+test('아이돌 관심 직업은 다음 졸업 오디션 기준을 표시한다', () => {
+  const person = life(null, 13);
+  person.stats.art = 33;
+  const [goal] = careerInterestGoals(person, ['idol']);
+  assert.equal(goal.checks.find(({ label }) => label === '예술').required, 36);
+  assert.equal(goal.closed, false);
+  person.age = 19;
+  assert.equal(careerInterestGoals(person, ['idol'])[0].closed, true);
+});
 
 test('교사의 승진 목표에서 경력과 능력치를 개별 충족·미충족으로 보여준다', () => {
   const person = life('teacher', 42, 9);
